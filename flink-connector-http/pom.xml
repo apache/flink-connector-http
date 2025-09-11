@@ -44,17 +44,6 @@ under the License.
         </flink.connector.module.config>
     </properties>
 
-    <url>https://github.com/apache/flink-connector-http</url>
-
-    <licenses>
-        <license>
-            <name>The Apache License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
-    <inceptionYear>2025</inceptionYear>
-
     <scm>
         <url>https://github.com/apache/flink-connector-http</url>
         <connection>git@github.com:apache/flink-connector-http.git</connection>
@@ -62,17 +51,6 @@ under the License.
             scm:git:https://gitbox.apache.org/repos/asf/flink-connector-http.git
         </developerConnection>
     </scm>
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
 
     <repositories>
         <repository>
