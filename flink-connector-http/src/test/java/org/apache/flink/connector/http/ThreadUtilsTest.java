@@ -18,21 +18,21 @@
 
 package org.apache.flink.connector.http;
 
-import org.apache.flink.connector.http.utils.ExceptionUtils;
+import org.apache.flink.connector.http.utils.ThreadUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Test for {@link ExceptionUtils} . */
+/** Test for {@link ThreadUtils} . */
 @Slf4j
-class ExceptionUtilsTest {
+class ThreadUtilsTest {
 
     @Test
     void shouldConvertStackTrace() {
         String stringifyException =
-                ExceptionUtils.stringifyException(new RuntimeException("Test Exception"));
+                ThreadUtils.stringifyException(new RuntimeException("Test Exception"));
         assertThat(stringifyException).contains("java.lang.RuntimeException: Test Exception");
     }
 }

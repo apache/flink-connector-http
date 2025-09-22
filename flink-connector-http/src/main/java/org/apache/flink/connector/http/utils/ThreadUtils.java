@@ -22,9 +22,11 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.lang.Thread.UncaughtExceptionHandler;
-
-import static org.apache.flink.connector.http.utils.ExceptionUtils.stringifyException;
 
 /** thread utils . */
 @UtilityClass
@@ -34,4 +36,17 @@ public final class ThreadUtils {
 
     public static final UncaughtExceptionHandler LOGGING_EXCEPTION_HANDLER =
             (t, e) -> log.warn("Thread:" + t + " exited with Exception:" + stringifyException(e));
+
+    public static String stringifyException(Throwable e) {
+        try (StringWriter stm = new StringWriter();
+                PrintWriter wrt = new PrintWriter(stm)) {
+
+            e.printStackTrace(wrt);
+            wrt.close();
+            return stm.toString();
+
+        } catch (IOException ioException) {
+            throw new UncheckedIOException(ioException);
+        }
+    }
 }
