@@ -23,6 +23,7 @@ import org.apache.flink.connector.http.retry.RetryStrategyType;
 
 import java.time.Duration;
 
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.CONTINUE_ON_ERROR;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.LOOKUP_SOURCE_HEADER_USE_RAW;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
@@ -114,6 +115,12 @@ public class HttpLookupConnectorOptions {
                     .durationType()
                     .noDefaultValue()
                     .withDescription("Http client connection timeout.");
+
+    public static final ConfigOption<Boolean> SOURCE_LOOKUP_CONTINUE_ON_ERROR =
+            ConfigOptions.key(CONTINUE_ON_ERROR)
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Continue job on error.");
 
     public static final ConfigOption<String> SOURCE_LOOKUP_PROXY_HOST =
             ConfigOptions.key(SOURCE_PROXY_HOST)

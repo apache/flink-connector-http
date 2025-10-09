@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.http.retry;
+package org.apache.flink.connector.http.table.lookup;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import java.io.Serializable;
 
-/** Retry strategy type enum. */
-@Getter
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public enum RetryStrategyType {
-    FIXED_DELAY("fixed-delay"),
-    EXPONENTIAL_DELAY("exponential-delay");
-
-    private final String code;
-
-    public static RetryStrategyType fromCode(String code) {
-        if (code == null) {
-            throw new NullPointerException("Code is null");
-        }
-        for (var strategy : RetryStrategyType.values()) {
-            if (strategy.getCode().equalsIgnoreCase(code)) {
-                return strategy;
-            }
-        }
-        throw new IllegalArgumentException("No enum constant for " + code);
-    }
+/**
+ * The metadata converters have a read method that is passed a HttpRowDataWrapper. The
+ * implementations pick out the appropriate value of the metadata from this object.
+ */
+interface MetadataConverter extends Serializable {
+    /**
+     * @param httpRowDataWrapper an object that contains all metadata content
+     * @return the metadata value for this MetadataConverter.
+     */
+    Object read(HttpRowDataWrapper httpRowDataWrapper);
 }
