@@ -5,6 +5,7 @@
 .gitignore.swp
 .project
 .settings
+.DS_Store
 /.java-version
 .eslintcache
 .cache

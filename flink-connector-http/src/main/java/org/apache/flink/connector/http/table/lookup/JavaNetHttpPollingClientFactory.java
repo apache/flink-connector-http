@@ -26,7 +26,7 @@ import org.apache.flink.util.ConfigurationException;
 import java.net.http.HttpClient;
 
 /** JavaNetHttpPollingClientFactory. */
-public class JavaNetHttpPollingClientFactory implements PollingClientFactory<RowData> {
+public class JavaNetHttpPollingClientFactory implements PollingClientFactory {
 
     private final HttpRequestFactory requestFactory;
 

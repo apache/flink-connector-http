@@ -42,6 +42,8 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.matching.StringValuePattern;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+import lombok.Builder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,10 +51,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -714,8 +719,9 @@ class HttpLookupTableSourceITCaseTest {
                 // For testing the http.source.lookup.use-raw-authorization-header
                 // configuration parameter:
                 expectedAuthHeaderValue != null ? "Authorization" : null,
-                expectedAuthHeaderValue // expected value of extra header
-                );
+                expectedAuthHeaderValue, // expected value of extra header
+                null,
+                false);
 
         String fields =
                 "  `nestedRow` ROW<"
@@ -979,6 +985,43 @@ class HttpLookupTableSourceITCaseTest {
 
     private SortedSet<Row> testLookupJoin(String lookupTable, int maxRows) throws Exception {
 
+        createLookupAndSourceTables(lookupTable, maxRows);
+
+        // WHEN
+        // SQL query that performs JOIN on both tables.
+        String joinQuery =
+                "SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance FROM Orders AS o "
+                        + "JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
+                        + "ON o.id = c.id "
+                        + "AND o.id2 = c.id2";
+
+        TableResult result = tEnv.executeSql(joinQuery);
+        result.await(15, TimeUnit.SECONDS);
+
+        // THEN
+        return getCollectedRows(result);
+    }
+
+    private SortedSet<Row> testLookupJoinWithMetadata(String lookupTable, int maxRows)
+            throws Exception {
+
+        createLookupAndSourceTables(lookupTable, maxRows);
+
+        // WHEN
+        String joinQuery =
+                "SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance, "
+                        + "c.errStr, c.statusCode, c.headers, c.completionState FROM Orders AS o "
+                        + "JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
+                        + "ON o.id = c.id "
+                        + "AND o.id2 = c.id2";
+
+        TableResult result = tEnv.executeSql(joinQuery);
+
+        // THEN
+        return getCollectedRows(result);
+    }
+
+    private void createLookupAndSourceTables(String lookupTable, int maxRows) {
         String sourceTable =
                 "CREATE TABLE Orders ("
                         + "id STRING,"
@@ -1001,23 +1044,29 @@ class HttpLookupTableSourceITCaseTest {
 
         tEnv.executeSql(sourceTable);
         tEnv.executeSql(lookupTable);
+    }
 
-        // WHEN
-        // SQL query that performs JOIN on both tables.
-        String joinQuery =
-                "SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance FROM Orders AS o "
-                        + "JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
-                        + "ON o.id = c.id "
-                        + "AND o.id2 = c.id2";
-
-        TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
-
-        // THEN
-        return getCollectedRows(result);
+    private void assertResultsForSpec(TestSpec spec, Collection<Row> rows) {
+        if (spec.badStatus) {
+            assertEnrichedRowsNoDataBadStatus(rows);
+        } else if (spec.deserError) {
+            assertEnrichedRowsDeserException(rows);
+        } else if (spec.connectionError) {
+            assertEnrichedRowsException(rows);
+        } else if (spec.useMetadata) {
+            assertEnrichedRows(rows, true);
+        } else {
+            assertEnrichedRows(rows);
+        }
     }
 
     private void assertEnrichedRows(Collection<Row> collectedRows) {
+        assertEnrichedRows(collectedRows, false);
+    }
+
+    private void assertEnrichedRows(Collection<Row> collectedRows, boolean withMetadata) {
+
+        final int rowArity = withMetadata ? 10 : 6;
         // validate every row and its column.
         assertAll(
                 () -> {
@@ -1025,9 +1074,8 @@ class HttpLookupTableSourceITCaseTest {
                     int intElement = 0;
                     for (Row row : collectedRows) {
                         intElement++;
-                        assertThat(row.getArity()).isEqualTo(6);
-
-                        // "id" nad "id2" columns should be different for every row.
+                        assertThat(row.getArity()).isEqualTo(rowArity);
+                        // "id" and "id2" columns should be different for every row.
                         assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
                         assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
 
@@ -1035,6 +1083,102 @@ class HttpLookupTableSourceITCaseTest {
                                 .isEqualTo("fbb68a46-80a9-46da-9d40-314b5287079c");
                         assertThat(row.getField("isActive")).isEqualTo(true);
                         assertThat(row.getField("balance")).isEqualTo("$1,729.34");
+                        if (withMetadata) {
+                            assertThat(row.getField("errStr")).isNull();
+                            assertThat(row.getField("headers")).isNotNull();
+                            assertThat(row.getField("statusCode")).isEqualTo(200);
+                            assertThat(row.getField("completionState"))
+                                    .isEqualTo(HttpCompletionState.SUCCESS.name());
+                        }
+                    }
+                });
+    }
+
+    private void assertEnrichedRowsNoDataBadStatus(Collection<Row> collectedRows) {
+
+        final int rowArity = 10;
+        // validate every row and its column.
+
+        assertAll(
+                () -> {
+                    assertThat(collectedRows.size()).isEqualTo(4);
+                    int intElement = 0;
+                    for (Row row : collectedRows) {
+                        intElement++;
+                        assertThat(row.getArity()).isEqualTo(rowArity);
+                        // "id" and "id2" columns should be different for every row.
+                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+                        assertThat(row.getField("uuid")).isNull();
+                        assertThat(row.getField("isActive")).isNull();
+                        assertThat(row.getField("balance")).isNull();
+                        // metadata
+                        assertThat(row.getField("errStr")).isEqualTo("");
+                        assertThat(row.getField("headers")).isNotNull();
+                        assertThat(row.getField("statusCode")).isEqualTo(500);
+                        assertEquals(
+                                row.getField("completionState"),
+                                HttpCompletionState.HTTP_ERROR_STATUS.name());
+                    }
+                });
+    }
+
+    private void assertEnrichedRowsDeserException(Collection<Row> collectedRows) {
+
+        final int rowArity = 10;
+        // validate every row and its column.
+
+        assertAll(
+                () -> {
+                    assertThat(collectedRows.size()).isEqualTo(4);
+                    int intElement = 0;
+                    for (Row row : collectedRows) {
+                        intElement++;
+                        assertThat(row.getArity()).isEqualTo(rowArity);
+                        // "id" and "id2" columns should be different for every row.
+                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+                        assertThat(row.getField("uuid")).isNull();
+                        assertThat(row.getField("isActive")).isNull();
+                        assertThat(row.getField("balance")).isNull();
+                        // metadata
+                        assertThat(row.getField("errStr"))
+                                .isEqualTo(
+                                        "Failed to deserialize JSON 'A test string that is not json'.");
+                        assertThat(row.getField("headers")).isNotNull();
+                        assertThat(row.getField("statusCode")).isEqualTo(200);
+                        assertEquals(
+                                row.getField("completionState"),
+                                HttpCompletionState.EXCEPTION.name());
+                    }
+                });
+    }
+
+    private void assertEnrichedRowsException(Collection<Row> collectedRows) {
+
+        final int rowArity = 10;
+        // validate every row and its column.
+
+        assertAll(
+                () -> {
+                    assertThat(collectedRows.size()).isEqualTo(4);
+                    int intElement = 0;
+                    for (Row row : collectedRows) {
+                        intElement++;
+                        assertThat(row.getArity()).isEqualTo(rowArity);
+                        // "id" and "id2" columns should be different for every row.
+                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+                        assertThat(row.getField("uuid")).isNull();
+                        assertThat(row.getField("isActive")).isNull();
+                        assertThat(row.getField("balance")).isNull();
+                        // metadata
+                        assertThat(row.getField("errStr")).isNotNull();
+                        assertThat(row.getField("headers")).isNull();
+                        assertThat(row.getField("statusCode")).isNull();
+                        assertEquals(
+                                row.getField("completionState"),
+                                HttpCompletionState.EXCEPTION.name());
                     }
                 });
     }
@@ -1081,7 +1225,25 @@ class HttpLookupTableSourceITCaseTest {
             String methodName,
             WireMockServer wireMockServer,
             List<StringValuePattern> matchingJsonPaths) {
-        setUpServerBodyStub(methodName, wireMockServer, matchingJsonPaths, null, null);
+        setUpServerBodyStub(methodName, wireMockServer, matchingJsonPaths, null, null, null, false);
+    }
+
+    private void setUpServerBodyStub(
+            String methodName,
+            WireMockServer wireMockServer,
+            List<StringValuePattern> matchingJsonPaths,
+            Integer badStatus) {
+        setUpServerBodyStub(
+                methodName, wireMockServer, matchingJsonPaths, null, null, badStatus, false);
+    }
+
+    private void setUpServerBodyStub(
+            String methodName,
+            WireMockServer wireMockServer,
+            List<StringValuePattern> matchingJsonPaths,
+            boolean isDeserErr) {
+        setUpServerBodyStub(
+                methodName, wireMockServer, matchingJsonPaths, null, null, null, isDeserErr);
     }
 
     private void setUpServerBodyStub(
@@ -1089,7 +1251,9 @@ class HttpLookupTableSourceITCaseTest {
             WireMockServer wireMockServer,
             List<StringValuePattern> matchingJsonPaths,
             String extraHeader,
-            String expectedExtraHeaderValue) {
+            String expectedExtraHeaderValue,
+            Integer badStatus,
+            boolean isDeserErr) {
 
         MappingBuilder methodStub =
                 (methodName.equalsIgnoreCase("PUT")
@@ -1108,11 +1272,284 @@ class HttpLookupTableSourceITCaseTest {
         for (StringValuePattern pattern : matchingJsonPaths) {
             methodStub.withRequestBody(pattern);
         }
-
-        methodStub.willReturn(aResponse().withTransformers(JsonTransform.NAME));
+        if (badStatus == null) {
+            if (isDeserErr) {
+                methodStub.willReturn(
+                        aResponse()
+                                .withBody("A test string that is not json")
+                                .withStatus(200)
+                                .withHeader("Content-Type", "text/plain"));
+            } else {
+                methodStub.willReturn(
+                        aResponse()
+                                .withTransformers(JsonTransform.NAME)
+                                .withHeader("Content-Type", "application/json"));
+            }
+        } else {
+            methodStub.willReturn(
+                    aResponse()
+                            .withBody(new byte[0])
+                            .withStatus(500)
+                            .withHeader("Content-Type", "text/plain"));
+        }
 
         StubMapping stubMapping = wireMockServer.stubFor(methodStub);
 
         wireMockServer.addStubMapping(stubMapping);
+    }
+
+    // Prototype parameterizedTest
+    @ParameterizedTest
+    @MethodSource("testSpecProvider")
+    void testHttpLookupJoinParameterized(TestSpec spec) throws Exception {
+        // GIVEN
+        setupServerStubForSpec(spec);
+
+        // Create lookup table SQL
+        String lookupTable = createLookupTableSql(spec);
+
+        // WHEN
+        SortedSet<Row> rows = null;
+        boolean expectToContinue =
+                spec.continueOnError && (spec.connectionError || spec.deserError || spec.badStatus);
+        try {
+            if (spec.useMetadata) {
+                rows = testLookupJoinWithMetadata(lookupTable, spec.maxRows);
+            } else {
+                rows = testLookupJoin(lookupTable, spec.maxRows);
+            }
+            // THEN
+            assertResultsForSpec(spec, rows);
+        } catch (Exception e) {
+            assertThat(expectToContinue).isFalse();
+        }
+    }
+
+    static Collection<TestSpec> testSpecProvider() {
+        List<TestSpec> specs = new ArrayList<>();
+
+        // Basic test cases (testHttpLookupJoin)
+        for (String method : Arrays.asList("GET", "POST", "PUT")) {
+            for (boolean asyncFlag : Arrays.asList(false, true)) {
+                for (boolean continueOnError : Arrays.asList(false, true)) {
+                    specs.add(
+                            TestSpec.builder()
+                                    .testName("Basic HTTP Lookup Join")
+                                    .methodName(method)
+                                    .maxRows(4)
+                                    .useAsync(asyncFlag)
+                                    .continueOnError(continueOnError)
+                                    .build());
+                }
+            }
+        }
+
+        // Metadata success test cases (testHttpLookupJoinWithMetadataSuccess)
+        for (String method : Arrays.asList("GET", "POST", "PUT")) {
+            for (boolean asyncFlag : Arrays.asList(false, true)) {
+                for (boolean continueOnError : Arrays.asList(false, true)) {
+                    final String testName =
+                            "HTTP Lookup Join With Metadata Success continue on error:"
+                                    + continueOnError
+                                    + ", asyncFlag:"
+                                    + asyncFlag;
+                    specs.add(
+                            TestSpec.builder()
+                                    .methodName(method)
+                                    .testName(testName)
+                                    .useMetadata(true)
+                                    .maxRows(4)
+                                    .useAsync(asyncFlag)
+                                    .continueOnError(continueOnError)
+                                    .build());
+                }
+            }
+        }
+
+        // Bad status test cases (testHttpLookupJoinWithMetadataBadStatus)
+        for (String method : Arrays.asList("GET", "POST", "PUT")) {
+            for (boolean asyncFlag : Arrays.asList(false, true)) {
+                for (boolean continueOnError : Arrays.asList(false, true)) {
+                    final String testName =
+                            "HTTP Lookup Join With Metadata Bad Status continue on error:"
+                                    + continueOnError
+                                    + ". asyncFlag:"
+                                    + asyncFlag;
+                    specs.add(
+                            TestSpec.builder()
+                                    .testName(testName)
+                                    .methodName(method)
+                                    .useMetadata(true)
+                                    .maxRows(4)
+                                    .useAsync(asyncFlag)
+                                    .badStatus(true)
+                                    .continueOnError(continueOnError)
+                                    .build());
+                }
+            }
+        }
+
+        // Deserialization error test cases (testHttpLookupJoinWithMetadataDeserException)
+        for (String method : Arrays.asList("GET", "POST", "PUT")) {
+            for (boolean asyncFlag : Arrays.asList(false, true)) {
+                for (boolean continueOnError : Arrays.asList(false, true)) {
+                    specs.add(
+                            TestSpec.builder()
+                                    .testName(
+                                            "HTTP Lookup Join With Metadata Deserialization Error")
+                                    .methodName(method)
+                                    .useMetadata(true)
+                                    .maxRows(4)
+                                    .useAsync(asyncFlag)
+                                    .deserError(true)
+                                    .continueOnError(continueOnError)
+                                    .build());
+                }
+            }
+        }
+
+        // Connection error test cases (testHttpLookupJoinWithMetadataException)
+        for (String method : Arrays.asList("GET", "POST", "PUT")) {
+            for (boolean asyncFlag : Arrays.asList(false, true)) {
+                for (boolean continueOnError : Arrays.asList(false, true)) {
+                    specs.add(
+                            TestSpec.builder()
+                                    .testName("HTTP Lookup Join With Metadata Connection Error")
+                                    .methodName(method)
+                                    .useMetadata(true)
+                                    .maxRows(4)
+                                    .useAsync(asyncFlag)
+                                    .connectionError(true)
+                                    .continueOnError(continueOnError)
+                                    .build());
+                }
+            }
+        }
+
+        return specs;
+    }
+
+    @Builder
+    @Data
+    private static class TestSpec {
+        // Test identification
+        final String testName;
+        final String methodName;
+
+        // Server stub configuration
+        final boolean useMetadata;
+        final boolean badStatus;
+        final boolean deserError;
+        final boolean connectionError;
+
+        // Test execution configuration
+        final int maxRows;
+        final boolean useAsync;
+        final boolean continueOnError;
+
+        @Override
+        public String toString() {
+            return testName + " [" + methodName + "]";
+        }
+    }
+
+    private void setupServerStubForSpec(TestSpec spec) {
+        if (spec.badStatus) {
+            // Setup for bad status test
+            if (StringUtils.isNullOrWhitespaceOnly(spec.methodName)
+                    || spec.methodName.equalsIgnoreCase("GET")) {
+                wireMockServer.stubFor(
+                        get(urlPathEqualTo(ENDPOINT))
+                                .withHeader("Content-Type", equalTo("application/json"))
+                                .willReturn(aResponse().withBody(new byte[0]).withStatus(500))
+                                .withHeader("Content-Type", equalTo("application/json")));
+            } else {
+                setUpServerBodyStub(
+                        spec.methodName,
+                        wireMockServer,
+                        List.of(matchingJsonPath("$.id"), matchingJsonPath("$.id2")),
+                        Integer.valueOf(500));
+            }
+        } else if (spec.deserError) {
+
+            // Setup for deserialization error test
+            if (StringUtils.isNullOrWhitespaceOnly(spec.methodName)
+                    || spec.methodName.equalsIgnoreCase("GET")) {
+                wireMockServer.stubFor(
+                        get(urlPathEqualTo(ENDPOINT))
+                                .withHeader("Content-Type", equalTo("application/json"))
+                                .willReturn(
+                                        aResponse()
+                                                .withBody("A test string that is not json")
+                                                .withStatus(200)));
+            } else {
+                setUpServerBodyStub(
+                        spec.methodName,
+                        wireMockServer,
+                        List.of(matchingJsonPath("$.id"), matchingJsonPath("$.id2")),
+                        true);
+            }
+        } else if (spec.connectionError) {
+            // No need to set up server stub for connection error test
+            // The test will use a non-existent port (9999)
+        } else {
+            // Setup for success test
+            if (StringUtils.isNullOrWhitespaceOnly(spec.methodName)
+                    || spec.methodName.equalsIgnoreCase("GET")) {
+                setupServerStub(wireMockServer);
+            } else {
+                setUpServerBodyStub(
+                        spec.methodName,
+                        wireMockServer,
+                        List.of(matchingJsonPath("$.id"), matchingJsonPath("$.id2")));
+            }
+        }
+    }
+
+    private String createLookupTableSql(TestSpec spec) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("CREATE TABLE Customers (")
+                .append("id STRING,")
+                .append("id2 STRING,")
+                .append("msg STRING,")
+                .append("uuid STRING,")
+                .append("details ROW<")
+                .append("isActive BOOLEAN,")
+                .append("nestedDetails ROW<")
+                .append("balance STRING")
+                .append(">")
+                .append(">");
+
+        if (spec.useMetadata) {
+            sql.append(",")
+                    .append("errStr STRING METADATA FROM 'error-string',")
+                    .append("statusCode INTEGER METADATA FROM 'http-status-code',")
+                    .append("headers MAP<STRING, ARRAY<STRING>> METADATA from 'http-headers',")
+                    .append("completionState STRING METADATA from 'http-completion-state'");
+        }
+
+        sql.append(") WITH (").append("'format' = 'json',").append("'connector' = 'rest-lookup',");
+
+        if (!StringUtils.isNullOrWhitespaceOnly(spec.methodName)) {
+            sql.append("'lookup-method' = '").append(spec.methodName).append("',");
+        }
+
+        // URL with correct port for connection error test
+        if (spec.connectionError) {
+            sql.append("'url' = 'http://localhost:9999/client',");
+        } else {
+            sql.append("'url' = 'http://localhost:" + serverPort + "/client',");
+        }
+        sql.append("'http.source.lookup.header.Content-Type' = 'application/json',")
+                .append("'http.source.lookup.continue-on-error'='")
+                .append(spec.continueOnError)
+                .append("',");
+        sql.append("'asyncPolling' = '")
+                .append(spec.useAsync ? "true" : "false")
+                .append("',")
+                .append("'table.exec.async-lookup.buffer-capacity' = '50',")
+                .append("'table.exec.async-lookup.timeout' = '120s'")
+                .append(")");
+        return sql.toString();
     }
 }

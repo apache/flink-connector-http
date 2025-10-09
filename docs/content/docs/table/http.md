@@ -177,6 +177,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.security.oidc.token.request                                       | optional | OIDC `Token Request` body in `application/x-www-form-urlencoded` encoding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | http.security.oidc.token.endpoint.url                                  | optional | OIDC `Token Endpoint` url, to which the token request will be issued                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | http.security.oidc.token.expiry.reduction                              | optional | OIDC tokens will be requested if the current time is later than the cached token expiry time minus this value.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| http.source.lookup.continue-on-error                                   | optional | When true, the flow will continue on errors, returning row content. When false (the default) the job ends on errors.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | http.source.lookup.request.timeout                                     | optional | Sets HTTP request timeout in seconds. If not specified, the default value of 30 seconds will be used.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | http.source.lookup.request.thread-pool.size                            | optional | Sets the size of pool thread for HTTP lookup request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 8 threads will be used.                                                                                                                                                                                                                                                                                                                                |
 | http.source.lookup.response.thread-pool.size                           | optional | Sets the size of pool thread for HTTP lookup response processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 4 threads will be used.                                                                                                                                                                                                                                                                                                                               |
@@ -297,17 +298,19 @@ The source table categorizes HTTP responses into three groups based on status co
 - Error codes:
   Any response code that is not classified as a retry or success code falls into this category. Receiving such a response will result in a job failure.
 
-
-### Retries (Lookup source)
+### Retries and handling errors (Lookup source)
 Lookup source handles auto-retries for two scenarios:
 1. IOException occurs (e.g. temporary network outage)
 2. The response contains a HTTP error code that indicates a retriable error. These codes are defined in the table configuration (see `http.source.lookup.retry-codes`).
-   Retries are executed silently, without restarting the job. After reaching max retries attempts (per request) operation will fail and restart job.
+   Retries are executed silently, without restarting the job.
 
 Notice that HTTP codes are categorized into into 3 groups:
 - successful responses - response is returned immediately for further processing
 - temporary errors - request will be retried up to the retry limit
-- error responses - unexpected responses are not retried and will fail the job. Any HTTP error code which is not configured as successful or temporary error is treated as an unretriable error.
+- error responses - unexpected responses are not retried. Any HTTP error code which is not configured as successful or temporary error is treated as an unretriable error.
+
+For temporary errors that have reached max retries attempts (per request) and error responses, the operation will
+succeed if `gid.connector.http.source.lookup.continue-on-error` is true, otherwise the job will fail.
 
 ##### Retry strategy
 User can choose retry strategy type for source table:
@@ -461,7 +464,39 @@ CREATE TABLE http (
 
 ## Available Metadata
 
-The is no available metadata for this connector.
+The metadata column `http-status-code`, if specified in the table definition, will get the HTTP status code.
+The metadata column `http-headers-map `, if specified in the table definition, will get a map of the HTTP headers.
+
+HTTP requests can fail either immediately or after temporary error retries. The usual behaviour after such failures is to end the job. If you would like to continue
+processing after these failures then specify `http.source.lookup.continue-on-error` as true. THe lookup join will complete without content in the expected enrichment columns from the http call,
+this means that these columns will be null for nullable columns and hold a default value for the type for non-nullable columns.
+
+When using `http.source.lookup.continue-on-error` as true, consider adding extra metadata columns that will surface information about failures into your stream.
+
+Metadata columns can be specified and hold http information. They are optional read-only columns that must be declared VIRTUAL to exclude them during an INSERT INTO operation.
+
+| Key                   | Data Type                        | Description                            |
+|-----------------------|----------------------------------|----------------------------------------|
+| error-string          | STRING NULL                      | A message associated with the error    |
+| http-status-code      | INT NULL                         | The HTTP status code                   |
+| http-headers-map      | MAP <STRING, ARRAY<STRING>> NULL | The headers returned with the response |
+| http-completion-state | STRING NULL                      | The completion state of the http call. |
+
+### http-completion-state possible values
+
+| Value             | Description            |
+|:------------------|------------------------|
+| SUCCESS           | Success                |
+| HTTP_ERROR_STATUS | HTTP error status code |
+| EXCEPTION         | An Exception occurred  |
+
+If the `error-string` metadata column is defined on the table and the call succeeds then it will have a null value.
+
+When a http lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the http call
+are not populated, this means that they will be null for nullable columns and hold a default value for the type for non-nullable columns.
+
+If you are using the Table API `TableResult` and have an `await` with a timeout, this Timeout exception will cause the job to terminate,
+even if there are metadata columns defined.
 
 ## HTTP status code handler
 

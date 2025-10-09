@@ -19,7 +19,6 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.configuration.ConfigOptions;
-import org.apache.flink.connector.http.WireMockServerPortAllocator;
 import org.apache.flink.metrics.groups.CacheMetricGroup;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.catalog.Column;
@@ -31,30 +30,38 @@ import org.apache.flink.table.connector.source.lookup.LookupFunctionProvider;
 import org.apache.flink.table.connector.source.lookup.PartialCachingAsyncLookupProvider;
 import org.apache.flink.table.connector.source.lookup.PartialCachingLookupProvider;
 import org.apache.flink.table.connector.source.lookup.cache.LookupCache;
+import org.apache.flink.table.data.ArrayData;
+import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.runtime.connector.source.LookupRuntimeProviderContext;
+import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.IntType;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nullable;
-
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSource.ReadableMetadata.ERROR_STRING;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSource.ReadableMetadata.HTTP_COMPLETION_STATE;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSource.ReadableMetadata.HTTP_HEADERS;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSource.ReadableMetadata.HTTP_STATUS_CODE;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Test for {@link HttpLookupTableSource}. */
 class HttpLookupTableSourceTest {
 
     public static final DataType PHYSICAL_ROW_DATA_TYPE =
@@ -94,6 +101,94 @@ class HttpLookupTableSourceTest {
                         RowData.createFieldGetter(
                                 DataTypes.STRING().notNull().getLogicalType(), 0)));
         expectedLookupRow.setLookupPhysicalRowDataType(PHYSICAL_ROW_DATA_TYPE);
+    }
+
+    @Test
+    void testListReadableMetadata() {
+        HttpLookupTableSource tableSource =
+                (HttpLookupTableSource) createTableSource(SCHEMA, getOptions());
+        Map<String, DataType> listMetadataMap = tableSource.listReadableMetadata();
+        Map<String, DataType> expectedMap = new LinkedHashMap<>();
+        expectedMap.put(HTTP_STATUS_CODE.key, new AtomicDataType(new IntType(true)));
+        expectedMap.put(
+                HTTP_HEADERS.key,
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.ARRAY(DataTypes.STRING())));
+        expectedMap.put(ERROR_STRING.key, DataTypes.STRING());
+        expectedMap.put(HTTP_COMPLETION_STATE.key, DataTypes.STRING());
+
+        assertThat(listMetadataMap).isEqualTo(expectedMap);
+    }
+
+    @Test
+    void testsummaryString() {
+        HttpLookupTableSource tableSource =
+                (HttpLookupTableSource) createTableSource(SCHEMA, getOptions());
+        assertThat(tableSource.asSummaryString()).isEqualTo("Http Lookup Table Source");
+    }
+
+    @Test
+    void testreadReadableMetadata() {
+        HttpLookupTableSource tableSource =
+                (HttpLookupTableSource) createTableSource(SCHEMA, getOptions());
+        final String testErrorString = "ABC";
+        final int testStatusCode = 500;
+        final HttpCompletionState testCompletionState = HttpCompletionState.HTTP_ERROR_STATUS;
+        Map<String, List<String>> testHeaders = new HashMap<>();
+        testHeaders.put("AAA", List.of("BBB", "CCC"));
+        testHeaders.put("DDD", List.of("EEE"));
+        HttpRowDataWrapper httpRowDataWrapper =
+                HttpRowDataWrapper.builder()
+                        .errorMessage(testErrorString)
+                        .httpStatusCode(500)
+                        .httpHeadersMap(testHeaders)
+                        .httpCompletionState(testCompletionState)
+                        .build();
+        assertThat(ERROR_STRING.converter.read(httpRowDataWrapper))
+                .isEqualTo(StringData.fromString(testErrorString));
+        assertThat(ERROR_STRING.converter.read(null)).isNull();
+        assertThat(HTTP_STATUS_CODE.converter.read(httpRowDataWrapper))
+                .isEqualTo(Integer.valueOf(testStatusCode));
+        assertThat(HTTP_STATUS_CODE.converter.read(null)).isNull();
+        Object readResultForHeaders = HTTP_HEADERS.converter.read(httpRowDataWrapper);
+        assertThat(HTTP_HEADERS.converter.read(null)).isNull();
+        assertThat(readResultForHeaders).isInstanceOf(GenericMapData.class);
+        GenericMapData mapData = (GenericMapData) readResultForHeaders;
+
+        // Verify the map has the expected keys
+        ArrayData keys = mapData.keyArray();
+        assertThat(keys.size()).isEqualTo(2);
+
+        // Create a map to store the converted data for comparison
+        Map<String, List<String>> actualMap = convertGenericMapDataToMap(mapData, keys);
+        // Now compare the extracted map with the expected map
+        assertThat(actualMap).isEqualTo(testHeaders);
+
+        assertThat(HTTP_COMPLETION_STATE.converter.read(null)).isNull();
+
+        assertThat(HTTP_COMPLETION_STATE.converter.read(httpRowDataWrapper))
+                .isEqualTo(StringData.fromString(testCompletionState.name()));
+    }
+
+    private static Map<String, List<String>> convertGenericMapDataToMap(
+            GenericMapData genericMapData, ArrayData keys) {
+        Map<String, List<String>> map = new HashMap<>();
+        ArrayData valueArray = genericMapData.valueArray();
+        // Extract and convert each key-value pair
+        for (int i = 0; i < keys.size(); i++) {
+            ArrayData values = valueArray.getArray(i);
+            StringData key = keys.getString(i);
+            String keyStr = key.toString();
+            List<String> valueList = new ArrayList<>();
+
+            // Extract each string from the array
+            for (int j = 0; j < values.size(); j++) {
+                StringData element = values.getString(j);
+                valueList.add(element.toString());
+            }
+
+            map.put(keyStr, valueList);
+        }
+        return map;
     }
 
     @Test
@@ -168,7 +263,6 @@ class HttpLookupTableSourceTest {
                     @Override
                     public void open(CacheMetricGroup cacheMetricGroup) {}
 
-                    @Nullable
                     @Override
                     public Collection<RowData> getIfPresent(RowData rowData) {
                         return null;
@@ -252,7 +346,7 @@ class HttpLookupTableSourceTest {
     private Map<String, String> getOptions() {
         return Map.of(
                 "connector", "rest-lookup",
-                "url", "http://localhost:" + WireMockServerPortAllocator.PORT_BASE + "/service",
+                "url", "http://localhost:8080/service",
                 "format", "json");
     }
 }
