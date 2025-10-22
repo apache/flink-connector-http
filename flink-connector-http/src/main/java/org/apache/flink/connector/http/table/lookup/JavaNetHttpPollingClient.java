@@ -21,6 +21,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
+import org.apache.flink.connector.http.HttpStatusCodeValidationFailedException;
 import org.apache.flink.connector.http.clients.PollingClient;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
 import org.apache.flink.connector.http.retry.HttpClientWithRetry;
@@ -56,6 +57,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.RESULT_TYPE;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_CONTINUE_ON_ERROR;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_SUCCESS_CODES;
@@ -66,7 +68,7 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
  * implementation supports HTTP traffic only.
  */
 @Slf4j
-public class JavaNetHttpPollingClient implements PollingClient<RowData> {
+public class JavaNetHttpPollingClient implements PollingClient {
 
     private static final String RESULT_TYPE_SINGLE_VALUE = "single-value";
     private static final String RESULT_TYPE_ARRAY = "array";
@@ -78,6 +80,7 @@ public class JavaNetHttpPollingClient implements PollingClient<RowData> {
     private final HttpPostRequestCallback<HttpLookupSourceRequestEntry> httpPostRequestCallback;
     private final HttpLookupConfig options;
     private final Set<Integer> ignoredErrorCodes;
+    private final boolean continueOnError;
 
     public JavaNetHttpPollingClient(
             HttpClient httpClient,
@@ -100,6 +103,7 @@ public class JavaNetHttpPollingClient implements PollingClient<RowData> {
         var successCodes = new HashSet<Integer>();
         successCodes.addAll(HttpCodesParser.parse(config.get(SOURCE_LOOKUP_HTTP_SUCCESS_CODES)));
         successCodes.addAll(ignoredErrorCodes);
+        this.continueOnError = config.get(SOURCE_LOOKUP_CONTINUE_ON_ERROR);
 
         this.httpClient =
                 HttpClientWithRetry.builder()
@@ -114,9 +118,12 @@ public class JavaNetHttpPollingClient implements PollingClient<RowData> {
     }
 
     @Override
-    public Collection<RowData> pull(RowData lookupRow) {
+    public HttpRowDataWrapper pull(RowData lookupRow) {
         if (lookupRow == null) {
-            return Collections.emptyList();
+            return HttpRowDataWrapper.builder()
+                    .data(Collections.emptyList())
+                    .httpCompletionState(HttpCompletionState.SUCCESS)
+                    .build();
         }
         try {
             log.debug("Collection<RowData> pull with Rowdata={}.", lookupRow);
@@ -126,16 +133,49 @@ public class JavaNetHttpPollingClient implements PollingClient<RowData> {
         }
     }
 
-    private Collection<RowData> queryAndProcess(RowData lookupData) throws Exception {
+    private HttpRowDataWrapper queryAndProcess(RowData lookupData) throws Exception {
         var request = requestFactory.buildLookupRequest(lookupData);
 
         var oidcProcessor =
                 HttpHeaderUtils.createOIDCHeaderPreprocessor(options.getReadableConfig());
-        var response =
-                httpClient.send(
-                        () -> updateHttpRequestIfRequired(request, oidcProcessor),
-                        BodyHandlers.ofString());
-        return processHttpResponse(response, request);
+        HttpResponse<String> response = null;
+        HttpRowDataWrapper httpRowDataWrapper = null;
+        try {
+            response =
+                    httpClient.send(
+                            () -> updateHttpRequestIfRequired(request, oidcProcessor),
+                            BodyHandlers.ofString());
+        } catch (HttpStatusCodeValidationFailedException e) {
+            // Case 1 http non successful response
+            if (!this.continueOnError) {
+                throw e;
+            }
+            // use the response in the Exception
+            response = (HttpResponse<String>) e.getResponse();
+            httpRowDataWrapper = processHttpResponse(response, request, true);
+        } catch (Exception e) {
+            // Case 2 Exception occurred
+            if (!this.continueOnError) {
+                throw e;
+            }
+            String errMessage = e.getMessage();
+            // some exceptions do not have messages including the java.net.ConnectException we can
+            // get here if the connection is bad.
+            if (errMessage == null) {
+                errMessage = e.toString();
+            }
+            return HttpRowDataWrapper.builder()
+                    .data(Collections.emptyList())
+                    .errorMessage(errMessage)
+                    .httpCompletionState(HttpCompletionState.EXCEPTION)
+                    .build();
+        }
+        if (httpRowDataWrapper == null) {
+            // Case 3 Successful path.
+            httpRowDataWrapper = processHttpResponse(response, request, false);
+        }
+
+        return httpRowDataWrapper;
     }
 
     /**
@@ -186,8 +226,17 @@ public class JavaNetHttpPollingClient implements PollingClient<RowData> {
         return httpRequest;
     }
 
-    private Collection<RowData> processHttpResponse(
-            HttpResponse<String> response, HttpLookupSourceRequestEntry request)
+    /**
+     * Process the http response.
+     *
+     * @param response http response
+     * @param request http request
+     * @param isError whether the http response is an error (i.e. not successful after the retry
+     *     processing and accounting for the config)
+     * @return HttpRowDataWrapper http row information and http error information
+     */
+    private HttpRowDataWrapper processHttpResponse(
+            HttpResponse<String> response, HttpLookupSourceRequestEntry request, boolean isError)
             throws IOException {
 
         this.httpPostRequestCallback.call(response, request, "endpoint", Collections.emptyMap());
@@ -199,15 +248,62 @@ public class JavaNetHttpPollingClient implements PollingClient<RowData> {
                 response.statusCode(),
                 responseBody);
 
-        if (StringUtils.isNullOrWhitespaceOnly(responseBody) || ignoreResponse(response)) {
-            return Collections.emptyList();
+        if (this.isSuccessWithNoData(isError, responseBody, response)) {
+            return HttpRowDataWrapper.builder()
+                    .data(Collections.emptyList())
+                    .httpCompletionState(HttpCompletionState.SUCCESS)
+                    .build();
         }
-        return deserialize(responseBody);
+        if (isError) {
+            return HttpRowDataWrapper.builder()
+                    .data(Collections.emptyList())
+                    .errorMessage(responseBody)
+                    .httpHeadersMap(response.headers().map())
+                    .httpStatusCode(response.statusCode())
+                    .httpCompletionState(HttpCompletionState.HTTP_ERROR_STATUS)
+                    .build();
+        } else {
+            Collection<RowData> rowData = Collections.emptyList();
+            HttpCompletionState httpCompletionState = HttpCompletionState.SUCCESS;
+            String errMessage = null;
+            try {
+                rowData = deserialize(responseBody);
+            } catch (IOException e) {
+                if (!this.continueOnError) {
+                    throw e;
+                }
+                httpCompletionState = HttpCompletionState.EXCEPTION;
+                errMessage = e.getMessage();
+            }
+            return HttpRowDataWrapper.builder()
+                    .data(rowData)
+                    .errorMessage(errMessage)
+                    .httpHeadersMap(response.headers().map())
+                    .httpStatusCode(response.statusCode())
+                    .httpCompletionState(httpCompletionState)
+                    .build();
+        }
     }
 
     @VisibleForTesting
     HttpRequestFactory getRequestFactory() {
         return this.requestFactory;
+    }
+
+    /**
+     * There are cases where we need to return a Successful completion without data, this can occur
+     * when there is no match on the lookup join key, i.e. the HTTP call is not in error but does
+     * not return with data, or if the status code needs to be ignored.
+     *
+     * @param isError whether there has been an error at the http processing level
+     * @param responseBody http response body
+     * @param response response
+     * @return whether we should process with successful completion with no data.
+     */
+    private boolean isSuccessWithNoData(
+            boolean isError, String responseBody, HttpResponse<String> response) {
+        return !isError
+                && (StringUtils.isNullOrWhitespaceOnly(responseBody) || ignoreResponse(response));
     }
 
     private Collection<RowData> deserialize(String responseBody) throws IOException {

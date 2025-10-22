@@ -34,6 +34,7 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.LookupTableSource;
 import org.apache.flink.table.connector.source.abilities.SupportsLimitPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsReadingMetadata;
 import org.apache.flink.table.connector.source.lookup.AsyncLookupFunctionProvider;
 import org.apache.flink.table.connector.source.lookup.LookupFunctionProvider;
 import org.apache.flink.table.connector.source.lookup.PartialCachingAsyncLookupProvider;
@@ -54,7 +55,12 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_QUERY_CREATOR_IDENTIFIER;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
@@ -62,7 +68,10 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSource
 /** http lookyp table source. */
 @Slf4j
 public class HttpLookupTableSource
-        implements LookupTableSource, SupportsProjectionPushDown, SupportsLimitPushDown {
+        implements LookupTableSource,
+                SupportsReadingMetadata,
+                SupportsProjectionPushDown,
+                SupportsLimitPushDown {
 
     private DataType physicalRowDataType;
 
@@ -72,6 +81,16 @@ public class HttpLookupTableSource
 
     private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
     @Nullable private final LookupCache cache;
+
+    // --------------------------------------------------------------------------------------------
+    // Mutable attributes
+    // --------------------------------------------------------------------------------------------
+
+    /** Data type that describes the final output of the source. */
+    protected DataType producedDataType;
+
+    /** Metadata that is appended at the end of a physical source row. */
+    protected List<String> metadataKeys;
 
     public HttpLookupTableSource(
             DataType physicalRowDataType,
@@ -116,7 +135,7 @@ public class HttpLookupTableSource
                 lookupQueryCreatorFactory.createLookupQueryCreator(
                         readableConfig, lookupRow, dynamicTableFactoryContext);
 
-        PollingClientFactory<RowData> pollingClientFactory =
+        PollingClientFactory pollingClientFactory =
                 createPollingClientFactory(lookupQueryCreator, lookupConfig);
 
         return getLookupRuntimeProvider(lookupRow, responseSchemaDecoder, pollingClientFactory);
@@ -125,11 +144,20 @@ public class HttpLookupTableSource
     protected LookupRuntimeProvider getLookupRuntimeProvider(
             LookupRow lookupRow,
             DeserializationSchema<RowData> responseSchemaDecoder,
-            PollingClientFactory<RowData> pollingClientFactory) {
+            PollingClientFactory pollingClientFactory) {
+        MetadataConverter[] metadataConverters = {};
+        if (this.metadataKeys != null) {
+            metadataConverters = createMetadataConverters(this.metadataKeys);
+        }
 
         HttpTableLookupFunction dataLookupFunction =
                 new HttpTableLookupFunction(
-                        pollingClientFactory, responseSchemaDecoder, lookupRow, lookupConfig);
+                        pollingClientFactory,
+                        responseSchemaDecoder,
+                        lookupRow,
+                        lookupConfig,
+                        metadataConverters,
+                        this.producedDataType);
         if (lookupConfig.isUseAsync()) {
             AsyncLookupFunction asyncLookupFunction =
                     new AsyncHttpTableLookupFunction(dataLookupFunction);
@@ -174,7 +202,21 @@ public class HttpLookupTableSource
         return true;
     }
 
-    private PollingClientFactory<RowData> createPollingClientFactory(
+    private ReadableMetadata findReadableMetadataByKey(String key) {
+        return Stream.of(HttpLookupTableSource.ReadableMetadata.values())
+                .filter(rm -> rm.key.equals(key))
+                .findFirst()
+                .orElseThrow(IllegalStateException::new);
+    }
+
+    private MetadataConverter[] createMetadataConverters(List<String> metadataKeys) {
+        return metadataKeys.stream()
+                .map(this::findReadableMetadataByKey)
+                .map(m -> m.converter)
+                .toArray(MetadataConverter[]::new);
+    }
+
+    private PollingClientFactory createPollingClientFactory(
             LookupQueryCreator lookupQueryCreator, HttpLookupConfig lookupConfig) {
 
         HeaderPreprocessor headerPreprocessor =
@@ -253,6 +295,76 @@ public class HttpLookupTableSource
         } else {
             return new RowDataSingleValueLookupSchemaEntry(
                     name, RowData.createFieldGetter(type1, parentIndex));
+        }
+    }
+
+    @Override
+    public Map<String, DataType> listReadableMetadata() {
+        final Map<String, DataType> metadataMap = new LinkedHashMap<>();
+
+        decodingFormat.listReadableMetadata().forEach((key, value) -> metadataMap.put(key, value));
+
+        // according to convention, the order of the final row must be
+        // PHYSICAL + FORMAT METADATA + CONNECTOR METADATA
+        // where the format metadata has highest precedence
+        // add connector metadata
+        Stream.of(ReadableMetadata.values())
+                .forEachOrdered(m -> metadataMap.putIfAbsent(m.key, m.dataType));
+        return metadataMap;
+    }
+
+    @Override
+    public void applyReadableMetadata(List<String> metadataKeys, DataType producedDataType) {
+        // separate connector and format metadata
+        final List<String> connectorMetadataKeys = new ArrayList<>(metadataKeys);
+        final Map<String, DataType> formatMetadata = decodingFormat.listReadableMetadata();
+        // store non connector keys and remove them from the connectorMetadataKeys.
+        List<String> formatMetadataKeys = new ArrayList<>();
+        Set<String> metadataKeysSet = metadataKeys.stream().collect(Collectors.toSet());
+        for (ReadableMetadata rm : ReadableMetadata.values()) {
+            String metadataKeyToCheck = rm.name();
+            if (!metadataKeysSet.contains(metadataKeyToCheck)) {
+                formatMetadataKeys.add(metadataKeyToCheck);
+                connectorMetadataKeys.remove(metadataKeyToCheck);
+            }
+        }
+        // push down format metadata keys
+        if (formatMetadata.size() > 0) {
+            final List<String> requestedFormatMetadataKeys =
+                    formatMetadataKeys.stream().collect(Collectors.toList());
+            decodingFormat.applyReadableMetadata(requestedFormatMetadataKeys);
+        }
+        this.metadataKeys = connectorMetadataKeys;
+        this.producedDataType = producedDataType;
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Metadata handling
+    // --------------------------------------------------------------------------------------------
+    enum ReadableMetadata {
+        ERROR_STRING(
+                "error-string", DataTypes.STRING(), new MetadataConverter.ErrorStringConverter()),
+        HTTP_STATUS_CODE(
+                "http-status-code",
+                DataTypes.INT(),
+                new MetadataConverter.HttpStatusCodeConverter()),
+        HTTP_HEADERS(
+                "http-headers",
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.ARRAY(DataTypes.STRING())),
+                new MetadataConverter.HttpHeadersConverter()),
+        HTTP_COMPLETION_STATE(
+                "http-completion-state",
+                DataTypes.STRING(),
+                new MetadataConverter.HttpCompletionStateConverter());
+
+        final String key;
+        final DataType dataType;
+        final MetadataConverter converter;
+
+        ReadableMetadata(String key, DataType dataType, MetadataConverter converter) {
+            this.key = key;
+            this.dataType = dataType;
+            this.converter = converter;
         }
     }
 }

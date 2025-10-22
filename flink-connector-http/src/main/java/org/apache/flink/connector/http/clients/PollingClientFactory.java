@@ -19,18 +19,15 @@ package org.apache.flink.connector.http.clients;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.connector.http.table.lookup.HttpLookupConfig;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.ConfigurationException;
 
 import java.io.Serializable;
 
-/**
- * Polling client factory.
- *
- * @param <OUT> polling client
- */
-public interface PollingClientFactory<OUT> extends Serializable {
+/** Polling client factory. */
+public interface PollingClientFactory extends Serializable {
 
-    PollingClient<OUT> createPollClient(
-            HttpLookupConfig options, DeserializationSchema<OUT> schemaDecoder)
+    PollingClient createPollClient(
+            HttpLookupConfig options, DeserializationSchema<RowData> schemaDecoder)
             throws ConfigurationException;
 }
