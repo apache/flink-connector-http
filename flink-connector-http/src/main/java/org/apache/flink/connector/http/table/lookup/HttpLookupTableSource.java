@@ -40,11 +40,7 @@ import org.apache.flink.table.connector.source.lookup.LookupFunctionProvider;
 import org.apache.flink.table.connector.source.lookup.PartialCachingAsyncLookupProvider;
 import org.apache.flink.table.connector.source.lookup.PartialCachingLookupProvider;
 import org.apache.flink.table.connector.source.lookup.cache.LookupCache;
-import org.apache.flink.table.data.ArrayData;
-import org.apache.flink.table.data.GenericArrayData;
-import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.AsyncLookupFunction;
@@ -59,7 +55,6 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,19 +147,9 @@ public class HttpLookupTableSource
             PollingClientFactory pollingClientFactory) {
         MetadataConverter[] metadataConverters = {};
         if (this.metadataKeys != null) {
-            metadataConverters =
-                    this.metadataKeys.stream()
-                            .map(
-                                    k ->
-                                            Stream.of(
-                                                            HttpLookupTableSource.ReadableMetadata
-                                                                    .values())
-                                                    .filter(rm -> rm.key.equals(k))
-                                                    .findFirst()
-                                                    .orElseThrow(IllegalStateException::new))
-                            .map(m -> m.converter)
-                            .toArray(MetadataConverter[]::new);
+            metadataConverters = createMetadataConverters(this.metadataKeys);
         }
+
         HttpTableLookupFunction dataLookupFunction =
                 new HttpTableLookupFunction(
                         pollingClientFactory,
@@ -215,6 +200,20 @@ public class HttpLookupTableSource
     @Override
     public boolean supportsNestedProjection() {
         return true;
+    }
+
+    private ReadableMetadata findReadableMetadataByKey(String key) {
+        return Stream.of(HttpLookupTableSource.ReadableMetadata.values())
+                .filter(rm -> rm.key.equals(key))
+                .findFirst()
+                .orElseThrow(IllegalStateException::new);
+    }
+
+    private MetadataConverter[] createMetadataConverters(List<String> metadataKeys) {
+        return metadataKeys.stream()
+                .map(this::findReadableMetadataByKey)
+                .map(m -> m.converter)
+                .toArray(MetadataConverter[]::new);
     }
 
     private PollingClientFactory createPollingClientFactory(
@@ -344,73 +343,21 @@ public class HttpLookupTableSource
     // --------------------------------------------------------------------------------------------
     enum ReadableMetadata {
         ERROR_STRING(
-                "error-string",
-                DataTypes.STRING(),
-                new MetadataConverter() {
-                    private static final long serialVersionUID = 1L;
-
-                    public Object read(HttpRowDataWrapper httpRowDataWrapper) {
-                        if (httpRowDataWrapper == null) {
-                            return null;
-                        }
-                        return StringData.fromString(httpRowDataWrapper.getErrorMessage());
-                    }
-                }),
+                "error-string", DataTypes.STRING(), new MetadataConverter.ErrorStringConverter()),
         HTTP_STATUS_CODE(
                 "http-status-code",
                 DataTypes.INT(),
-                new MetadataConverter() {
-                    private static final long serialVersionUID = 1L;
-
-                    public Object read(HttpRowDataWrapper httpRowDataWrapper) {
-                        return (httpRowDataWrapper != null)
-                                ? httpRowDataWrapper.getHttpStatusCode()
-                                : null;
-                    }
-                }),
+                new MetadataConverter.HttpStatusCodeConverter()),
         HTTP_HEADERS(
                 "http-headers",
                 DataTypes.MAP(DataTypes.STRING(), DataTypes.ARRAY(DataTypes.STRING())),
-                new MetadataConverter() {
-                    private static final long serialVersionUID = 1L;
-
-                    public Object read(HttpRowDataWrapper httpRowDataWrapper) {
-                        if (httpRowDataWrapper == null) {
-                            return null;
-                        }
-                        Map<String, List<String>> httpHeadersMap =
-                                httpRowDataWrapper.getHttpHeadersMap();
-                        if (httpHeadersMap == null) {
-                            return null;
-                        }
-                        Map<StringData, ArrayData> stringDataMap = new HashMap<>();
-                        for (String key : httpHeadersMap.keySet()) {
-                            List<StringData> strDataList = new ArrayList<>();
-                            httpHeadersMap.get(key).stream()
-                                    .forEach((c) -> strDataList.add(StringData.fromString(c)));
-                            stringDataMap.put(
-                                    StringData.fromString(key),
-                                    new GenericArrayData(strDataList.toArray()));
-                        }
-                        return new GenericMapData(stringDataMap);
-                    }
-                }),
+                new MetadataConverter.HttpHeadersConverter()),
         HTTP_COMPLETION_STATE(
                 "http-completion-state",
                 DataTypes.STRING(),
-                new MetadataConverter() {
-                    private static final long serialVersionUID = 1L;
+                new MetadataConverter.HttpCompletionStateConverter());
 
-                    public Object read(HttpRowDataWrapper httpRowDataWrapper) {
-                        if (httpRowDataWrapper == null) {
-                            return null;
-                        }
-                        return StringData.fromString(
-                                httpRowDataWrapper.getHttpCompletionState().name());
-                    }
-                });
         final String key;
-
         final DataType dataType;
         final MetadataConverter converter;
 

@@ -120,7 +120,9 @@ public class HttpLookupConnectorOptions {
             ConfigOptions.key(CONTINUE_ON_ERROR)
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription("Continue job on error.");
+                    .withDescription(
+                            "Continue job on error. "
+                                    + "This includes unsuccessful HTTP status codes and client side Exceptions, such as Connection Refused.");
 
     public static final ConfigOption<String> SOURCE_LOOKUP_PROXY_HOST =
             ConfigOptions.key(SOURCE_PROXY_HOST)

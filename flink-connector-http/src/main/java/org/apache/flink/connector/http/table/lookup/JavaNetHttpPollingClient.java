@@ -248,48 +248,62 @@ public class JavaNetHttpPollingClient implements PollingClient {
                 response.statusCode(),
                 responseBody);
 
-        if (!isError
-                && (StringUtils.isNullOrWhitespaceOnly(responseBody) || ignoreResponse(response))) {
+        if (this.isSuccessWithNoData(isError, responseBody, response)) {
             return HttpRowDataWrapper.builder()
                     .data(Collections.emptyList())
                     .httpCompletionState(HttpCompletionState.SUCCESS)
                     .build();
+        }
+        if (isError) {
+            return HttpRowDataWrapper.builder()
+                    .data(Collections.emptyList())
+                    .errorMessage(responseBody)
+                    .httpHeadersMap(response.headers().map())
+                    .httpStatusCode(response.statusCode())
+                    .httpCompletionState(HttpCompletionState.HTTP_ERROR_STATUS)
+                    .build();
         } else {
-            if (isError) {
-                return HttpRowDataWrapper.builder()
-                        .data(Collections.emptyList())
-                        .errorMessage(responseBody)
-                        .httpHeadersMap(response.headers().map())
-                        .httpStatusCode(response.statusCode())
-                        .httpCompletionState(HttpCompletionState.HTTP_ERROR_STATUS)
-                        .build();
-            } else {
-                Collection<RowData> rowData = Collections.emptyList();
-                HttpCompletionState httpCompletionState = HttpCompletionState.SUCCESS;
-                String errMessage = null;
-                try {
-                    rowData = deserialize(responseBody);
-                } catch (IOException e) {
-                    if (!this.continueOnError) {
-                        throw e;
-                    }
-                    httpCompletionState = HttpCompletionState.EXCEPTION;
-                    errMessage = e.getMessage();
+            Collection<RowData> rowData = Collections.emptyList();
+            HttpCompletionState httpCompletionState = HttpCompletionState.SUCCESS;
+            String errMessage = null;
+            try {
+                rowData = deserialize(responseBody);
+            } catch (IOException e) {
+                if (!this.continueOnError) {
+                    throw e;
                 }
-                return HttpRowDataWrapper.builder()
-                        .data(rowData)
-                        .errorMessage(errMessage)
-                        .httpHeadersMap(response.headers().map())
-                        .httpStatusCode(response.statusCode())
-                        .httpCompletionState(httpCompletionState)
-                        .build();
+                httpCompletionState = HttpCompletionState.EXCEPTION;
+                errMessage = e.getMessage();
             }
+            return HttpRowDataWrapper.builder()
+                    .data(rowData)
+                    .errorMessage(errMessage)
+                    .httpHeadersMap(response.headers().map())
+                    .httpStatusCode(response.statusCode())
+                    .httpCompletionState(httpCompletionState)
+                    .build();
         }
     }
 
     @VisibleForTesting
     HttpRequestFactory getRequestFactory() {
         return this.requestFactory;
+    }
+
+    /**
+     * There are cases where we need to return a Successful completion without data, this can occur
+     * when there is no match on the lookup join key, i.e. the HTTP call is not in error but does
+     * not return with data, or if the status code needs to be ignored.
+     *
+     * @param isError whether there has been an error at the http processing level
+     * @param responseBody http response body
+     * @param response response
+     * @return whether we should process with successful completion with no data.
+     */
+    private boolean isSuccessWithNoData(
+            boolean isError, String responseBody, HttpResponse<String> response) {
+        return !isError
+                && (StringUtils.isNullOrWhitespaceOnly(responseBody) || ignoreResponse(response));
     }
 
     private Collection<RowData> deserialize(String responseBody) throws IOException {

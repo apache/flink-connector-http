@@ -17,7 +17,16 @@
 
 package org.apache.flink.connector.http.table.lookup;
 
+import org.apache.flink.table.data.ArrayData;
+import org.apache.flink.table.data.GenericArrayData;
+import org.apache.flink.table.data.GenericMapData;
+import org.apache.flink.table.data.StringData;
+
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * The metadata converters have a read method that is passed a HttpRowDataWrapper. The
@@ -29,4 +38,62 @@ interface MetadataConverter extends Serializable {
      * @return the metadata value for this MetadataConverter.
      */
     Object read(HttpRowDataWrapper httpRowDataWrapper);
+
+    // Add these static inner classes inside the MetadataConverter interface
+    class ErrorStringConverter implements MetadataConverter {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Object read(HttpRowDataWrapper httpRowDataWrapper) {
+            if (httpRowDataWrapper == null) {
+                return null;
+            }
+            return StringData.fromString(httpRowDataWrapper.getErrorMessage());
+        }
+    }
+
+    class HttpStatusCodeConverter implements MetadataConverter {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Object read(HttpRowDataWrapper httpRowDataWrapper) {
+            return (httpRowDataWrapper != null) ? httpRowDataWrapper.getHttpStatusCode() : null;
+        }
+    }
+
+    class HttpHeadersConverter implements MetadataConverter {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Object read(HttpRowDataWrapper httpRowDataWrapper) {
+            if (httpRowDataWrapper == null) {
+                return null;
+            }
+            Map<String, List<String>> httpHeadersMap = httpRowDataWrapper.getHttpHeadersMap();
+            if (httpHeadersMap == null) {
+                return null;
+            }
+            Map<StringData, ArrayData> stringDataMap = new HashMap<>();
+            for (String key : httpHeadersMap.keySet()) {
+                List<StringData> strDataList = new ArrayList<>();
+                httpHeadersMap.get(key).stream()
+                        .forEach((c) -> strDataList.add(StringData.fromString(c)));
+                stringDataMap.put(
+                        StringData.fromString(key), new GenericArrayData(strDataList.toArray()));
+            }
+            return new GenericMapData(stringDataMap);
+        }
+    }
+
+    class HttpCompletionStateConverter implements MetadataConverter {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Object read(HttpRowDataWrapper httpRowDataWrapper) {
+            if (httpRowDataWrapper == null) {
+                return null;
+            }
+            return StringData.fromString(httpRowDataWrapper.getHttpCompletionState().name());
+        }
+    }
 }

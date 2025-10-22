@@ -110,11 +110,6 @@ public class HttpTableLookupFunction extends LookupFunction {
         // grab the actual data if there is any from the response and populate the producedRow with
         // it
         if (!httpCollector.isEmpty()) {
-            // TODO original code increments again if empty - removing
-            //  if (httpCollector.isEmpty()) {
-            // localHttpCallCounter.incrementAndGet();
-            // } else {
-
             GenericRowData physicalRow = (GenericRowData) httpCollector.iterator().next();
             physicalArity = physicalRow.getArity();
             producedRow =
