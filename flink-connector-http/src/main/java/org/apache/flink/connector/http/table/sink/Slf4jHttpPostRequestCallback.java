@@ -19,14 +19,11 @@ package org.apache.flink.connector.http.table.sink;
 
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.sink.httpclient.HttpRequest;
-import org.apache.flink.connector.http.utils.ConfigUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * A {@link HttpPostRequestCallback} that logs pairs of request and response as <i>INFO</i> level
@@ -45,25 +42,22 @@ public class Slf4jHttpPostRequestCallback implements HttpPostRequestCallback<Htt
             String endpointUrl,
             Map<String, String> headerMap) {
 
-        String requestBody =
-                requestEntry.getElements().stream()
-                        .map(element -> new String(element, StandardCharsets.UTF_8))
-                        .collect(Collectors.joining());
+        // Uncomment if you want to see the requestBody in the log
+        // String requestBody = requestEntry.getElements().stream()
+        //    .map(element -> new String(element, StandardCharsets.UTF_8))
+        //    .collect(Collectors.joining());
 
         if (response == null) {
             log.info(
                     "Got response for a request.\n  Request:\n    "
-                            + "Method: {}\n    Body: {}\n  Response: null",
-                    requestEntry.getMethod(),
-                    requestBody);
+                            + "Method: {}\n   Response: null",
+                    requestEntry.getMethod());
         } else {
             log.info(
                     "Got response for a request.\n  Request:\n    "
-                            + "Method: {}\n    Body: {}\n  Response: {}\n    Body: {}",
+                            + "Method: {}\n  Response status code: {}\n ",
                     requestEntry.method,
-                    requestBody,
-                    response,
-                    response.body().replaceAll(ConfigUtils.UNIVERSAL_NEW_LINE_REGEXP, ""));
+                    response.statusCode());
         }
     }
 }

@@ -243,10 +243,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
 
         var responseBody = response.body();
 
-        log.debug(
-                "Received status code [{}] for RestTableSource request with Server response body [{}] ",
-                response.statusCode(),
-                responseBody);
+        log.debug("Received status code [{}] for RestTableSource request", response.statusCode());
 
         if (this.isSuccessWithNoData(isError, responseBody, response)) {
             return HttpRowDataWrapper.builder()

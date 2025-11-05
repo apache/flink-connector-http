@@ -18,7 +18,6 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.connector.http.HttpPostRequestCallback;
-import org.apache.flink.connector.http.utils.ConfigUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,21 +63,18 @@ public class Slf4JHttpLookupPostRequestCallback
 
             log.info(
                     "Got response for a request.\n  Request:\n    URL: {}\n    "
-                            + "Method: {}\n    Headers: {}\n    Params/Body: {}\nResponse: null",
+                            + "Method: {}\n  Params/Body: {}\nResponse: null",
                     httpRequest.uri().toString(),
                     httpRequest.method(),
-                    headers,
                     requestEntry.getLookupQueryInfo());
         } else {
             log.info(
                     "Got response for a request.\n  Request:\n    URL: {}\n    "
-                            + "Method: {}\n    Headers: {}\n    Params/Body: {}\nResponse: {}\n    Body: {}",
+                            + "Method: {}\n Params/Body: {}\nResponse status code: {}\n",
                     httpRequest.uri().toString(),
                     httpRequest.method(),
-                    headers,
                     requestEntry.getLookupQueryInfo(),
-                    response,
-                    response.body().replaceAll(ConfigUtils.UNIVERSAL_NEW_LINE_REGEXP, ""));
+                    response.statusCode());
         }
     }
 }

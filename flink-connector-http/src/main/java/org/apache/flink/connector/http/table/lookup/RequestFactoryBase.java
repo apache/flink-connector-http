@@ -34,7 +34,6 @@ import java.net.http.HttpRequest.Builder;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /** Base class for {@link HttpRequest} factories. */
 @Slf4j
@@ -76,11 +75,6 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
 
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(headerMap);
 
-        log.debug(
-                "RequestFactoryBase headersAndValues: "
-                        + Arrays.stream(headersAndValues)
-                                .map(Object::toString)
-                                .collect(Collectors.joining(",")));
         this.httpRequestTimeOutSeconds =
                 Integer.parseInt(
                         options.getProperties()
