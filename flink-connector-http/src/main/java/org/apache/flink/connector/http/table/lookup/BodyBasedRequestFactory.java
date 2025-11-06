@@ -29,7 +29,6 @@ import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
-import java.time.Duration;
 
 /**
  * Implementation of {@link HttpRequestFactory} for REST calls that sends their parameters using
@@ -59,10 +58,10 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
      */
     @Override
     protected Builder setUpRequestMethod(LookupQueryInfo lookupQueryInfo) {
-        return HttpRequest.newBuilder()
-                .uri(constructUri(lookupQueryInfo))
-                .method(methodName, BodyPublishers.ofString(lookupQueryInfo.getLookupQuery()))
-                .timeout(Duration.ofSeconds(this.httpRequestTimeOutSeconds));
+        HttpRequest.Builder builder = super.setUpRequestMethod(lookupQueryInfo);
+        builder.uri(constructUri(lookupQueryInfo))
+                .method(methodName, BodyPublishers.ofString(lookupQueryInfo.getLookupQuery()));
+        return builder;
     }
 
     @Override

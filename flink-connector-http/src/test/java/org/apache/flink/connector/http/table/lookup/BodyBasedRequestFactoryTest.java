@@ -18,16 +18,22 @@
 
 package org.apache.flink.connector.http.table.lookup;
 
+import org.apache.flink.configuration.Configuration;
+
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_HTTP_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test for {@link BodyBasedRequestFactory}. */
@@ -36,22 +42,40 @@ public class BodyBasedRequestFactoryTest {
     @ParameterizedTest
     @MethodSource("configProvider")
     void testconstructUri(TestSpec testSpec) throws Exception {
-        LookupQueryInfo lookupQueryInfo =
-                new LookupQueryInfo(
-                        testSpec.url,
-                        testSpec.bodyBasedUrlQueryParams,
-                        testSpec.pathBasedUrlParams);
-        HttpLookupConfig httpLookupConfig =
-                HttpLookupConfig.builder()
-                        .lookupMethod(testSpec.lookupMethod)
-                        .url(testSpec.url)
-                        .useAsync(false)
-                        .build();
-        BodyBasedRequestFactory bodyBasedRequestFactory =
-                new BodyBasedRequestFactory("test", null, null, httpLookupConfig);
+        Set<Configuration> configs = new HashSet();
 
-        URI uri = bodyBasedRequestFactory.constructUri(lookupQueryInfo);
-        assertThat(uri.toString()).isEqualTo(testSpec.expected);
+        Configuration configuration = new Configuration();
+        Configuration configurationHttp11 = new Configuration();
+        Configuration configurationHttp2 = new Configuration();
+
+        configurationHttp2.setString(
+                LOOKUP_HTTP_VERSION, String.valueOf(HttpClient.Version.HTTP_2));
+        configurationHttp11.setString(
+                LOOKUP_HTTP_VERSION, String.valueOf(HttpClient.Version.HTTP_1_1));
+
+        configs.add(configuration);
+        configs.add(configurationHttp11);
+        configs.add(configurationHttp2);
+
+        for (Configuration config : configs) {
+            LookupQueryInfo lookupQueryInfo =
+                    new LookupQueryInfo(
+                            testSpec.url,
+                            testSpec.bodyBasedUrlQueryParams,
+                            testSpec.pathBasedUrlParams);
+            HttpLookupConfig httpLookupConfig =
+                    HttpLookupConfig.builder()
+                            .lookupMethod(testSpec.lookupMethod)
+                            .url(testSpec.url)
+                            .useAsync(false)
+                            .readableConfig(config)
+                            .build();
+            BodyBasedRequestFactory bodyBasedRequestFactory =
+                    new BodyBasedRequestFactory("test", null, null, httpLookupConfig);
+
+            URI uri = bodyBasedRequestFactory.constructUri(lookupQueryInfo);
+            assertThat(uri.toString()).isEqualTo(testSpec.expected);
+        }
     }
 
     private static class TestSpec {

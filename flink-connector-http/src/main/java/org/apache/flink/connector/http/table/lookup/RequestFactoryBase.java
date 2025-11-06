@@ -28,8 +28,10 @@ import org.apache.flink.util.FlinkRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.Builder;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -51,6 +53,8 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
     private final String[] headersAndValues;
 
     private final HttpLookupConfig options;
+
+    private final HttpClient.Version httpVersion;
 
     public RequestFactoryBase(
             LookupQueryCreator lookupQueryCreator,
@@ -83,6 +87,14 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                                 .getProperty(
                                         HttpConnectorConfigConstants.LOOKUP_HTTP_TIMEOUT_SECONDS,
                                         DEFAULT_REQUEST_TIMEOUT_SECONDS));
+
+        String httpVersionFromConfig =
+                options.getReadableConfig().get(HttpLookupConnectorOptions.LOOKUP_HTTP_VERSION);
+        if (httpVersionFromConfig == null) {
+            httpVersion = null;
+        } else {
+            httpVersion = HttpClient.Version.valueOf(httpVersionFromConfig);
+        }
     }
 
     @Override
@@ -102,12 +114,20 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
     protected abstract Logger getLogger();
 
     /**
-     * Method for preparing {@link Builder} for concrete REST method.
+     * Method for preparing {@link Builder} for REST method.
      *
      * @param lookupQuery lookup query used for request query parameters or body.
      * @return {@link Builder} for given lookupQuery.
      */
-    protected abstract Builder setUpRequestMethod(LookupQueryInfo lookupQuery);
+    protected Builder setUpRequestMethod(LookupQueryInfo lookupQuery) {
+        HttpRequest.Builder builder =
+                HttpRequest.newBuilder()
+                        .timeout(Duration.ofSeconds(this.httpRequestTimeOutSeconds));
+        if (httpVersion != null) {
+            builder.version(httpVersion);
+        }
+        return builder;
+    }
 
     protected static StringBuilder resolvePathParameters(
             LookupQueryInfo lookupQueryInfo, StringBuilder resolvedUrl) {

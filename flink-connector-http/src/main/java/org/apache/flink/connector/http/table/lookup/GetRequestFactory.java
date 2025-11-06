@@ -28,7 +28,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.Builder;
-import java.time.Duration;
 
 /** Implementation of {@link HttpRequestFactory} for GET REST calls. */
 @Slf4j
@@ -67,10 +66,9 @@ public class GetRequestFactory extends RequestFactoryBase {
      */
     @Override
     protected Builder setUpRequestMethod(LookupQueryInfo lookupQueryInfo) {
-        return HttpRequest.newBuilder()
-                .uri(constructGetUri(lookupQueryInfo))
-                .GET()
-                .timeout(Duration.ofSeconds(this.httpRequestTimeOutSeconds));
+        HttpRequest.Builder builder = super.setUpRequestMethod(lookupQueryInfo);
+        builder.uri(constructGetUri(lookupQueryInfo)).GET();
+        return builder;
     }
 
     URI constructGetUri(LookupQueryInfo lookupQueryInfo) {
