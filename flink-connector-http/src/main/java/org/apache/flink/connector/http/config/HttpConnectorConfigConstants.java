@@ -56,6 +56,9 @@ public final class HttpConnectorConfigConstants {
 
     public static final String RESULT_TYPE = SOURCE_LOOKUP_PREFIX + "result-type";
 
+    public static final String SOURCE_LOOKUP_QUERY_HTTP_VERSION =
+            SOURCE_LOOKUP_PREFIX + "http-version";
+
     // --------- Error code handling configuration ---------
 
     // TODO copied from
