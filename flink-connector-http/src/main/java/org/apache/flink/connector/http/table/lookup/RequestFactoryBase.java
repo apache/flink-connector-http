@@ -123,10 +123,7 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
         HttpRequest.Builder builder =
                 HttpRequest.newBuilder()
                         .timeout(Duration.ofSeconds(this.httpRequestTimeOutSeconds));
-        if (httpVersion != null) {
-            builder.version(httpVersion);
-        }
-        return builder;
+        return httpVersion == null ? builder : builder.version(httpVersion);
     }
 
     protected static StringBuilder resolvePathParameters(

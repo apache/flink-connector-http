@@ -19,10 +19,12 @@ package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.description.Description;
 import org.apache.flink.connector.http.retry.RetryStrategyType;
 
 import java.time.Duration;
 
+import static org.apache.flink.configuration.description.TextElement.text;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.CONTINUE_ON_ERROR;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.LOOKUP_SOURCE_HEADER_USE_RAW;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL;
@@ -78,14 +80,20 @@ public class HttpLookupConnectorOptions {
     public static final ConfigOption<String> LOOKUP_HTTP_VERSION =
             ConfigOptions.key(SOURCE_LOOKUP_QUERY_HTTP_VERSION)
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("HTTP_2")
                     .withDescription(
-                            "Version of HTTP to use for lookup HTTP requests. "
-                                    + "The valid values are HTTP_1_1 and HTTP_2, which specify HTTP 1.1 or 2"
-                                    + " respectively. This option may be required as HTTP_1_1, if the"
-                                    + " endpoint is http 1.1, because some http 1.1 endpoints reject HTTP"
-                                    + " Version 2 calls, with 'Invalid HTTP request received' and "
-                                    + " 'HTTP/2 upgrade not supported'.");
+                            new Description.DescriptionBuilder()
+                                    .text(
+                                            "Version of HTTP to use for lookup HTTP requests. The valid values are:")
+                                    .list(
+                                            text(
+                                                    "HTTP_1_1 - This indicates to use HTTP 1.1. Some HTTP 1.1 endpoints"
+                                                            + " reject HTTP Version 2 calls, with 'Invalid HTTP request received' and"
+                                                            + " 'HTTP/2 upgrade not supported'. Specifying this option forces HTTP 1.1"
+                                                            + " to be used."),
+                                            text(
+                                                    "HTTP_2 - This is the default and indicates to use HTTP version 2."))
+                                    .build());
 
     public static final ConfigOption<String> LOOKUP_REQUEST_FORMAT =
             ConfigOptions.key("lookup-request.format").stringType().defaultValue("json");
