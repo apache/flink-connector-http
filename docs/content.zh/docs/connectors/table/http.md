@@ -51,7 +51,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries (Lookup source)](#retries-lookup-source)
-        * [Retry strategy](#retry-strategy)
+      * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -81,8 +81,8 @@ The GetInData HTTP connector was donated to Flink in [FLIP-532](https://cwiki.ap
 The Flink connector does have some changes that you need to be aware of if you are migrating from using the original connector:
 
 * Existing java applications will need to be recompiled to pick up the new flink package names.
-* Existing application and SQL need to be amended to use the new connector option names. The new option names do not have 
-the _com.getindata.http_ prefix, the prefix is now _http_.
+* Existing application and SQL need to be amended to use the new connector option names. The new option names do not have
+  the _com.getindata.http_ prefix, the prefix is now _http_.
 
 ## Working with HTTP lookup source tables
 
@@ -153,7 +153,7 @@ Or for REST POST method they will be converted to Json and used as request body.
 
 ### Lookup Source Connector Options
 
-Note the options with the prefix _http_ are the HTTP connector specific options, the others are Flink options.   
+Note the options with the prefix _http_ are the HTTP connector specific options, the others are Flink options.
 
 | Option                                                                 | Required | Description/Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |:-----------------------------------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -161,6 +161,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | format                                                                 | required | Flink's format name that should be used to decode REST response, Use `json` for a typical REST endpoint.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | url                                                                    | required | The base URL that should be use for GET requests. For example _http://localhost:8080/client_                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | asyncPolling                                                           | optional | true/false - determines whether Async Polling should be used. Mechanism is based on Flink's Async I/O.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| http.logging.level                                                     | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQRESPONSE` and `MAX`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | lookup-method                                                          | optional | GET/POST/PUT (and any other) - determines what REST method should be used for lookup REST query. If not specified, `GET` method will be used.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | lookup.cache                                                           | optional | Enum possible values: `NONE`, `PARTIAL`. The cache strategy for the lookup table. Currently supports `NONE` (no caching) and `PARTIAL` (caching entries on lookup operation in external API).                                                                                                                                                                                                                                                                                                                                                                    |
 | lookup.partial-cache.max-rows                                          | optional | The max number of rows of lookup cache, over this value, the oldest rows will be expired. `lookup.cache` must be set to `PARTIAL` to use this option. See the following <a href="#lookup-cache">Lookup Cache</a> section for more details.                                                                                                                                                                                                                                                                                                                       |
@@ -179,12 +180,12 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.security.oidc.token.expiry.reduction                              | optional | OIDC tokens will be requested if the current time is later than the cached token expiry time minus this value.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | http.source.lookup.continue-on-error                                   | optional | When true, the flow will continue on errors, returning row content. When false (the default) the job ends on errors.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | http.source.lookup.request.timeout                                     | optional | Sets HTTP request timeout in seconds. If not specified, the default value of 30 seconds will be used.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| http.source.lookup.http-version                                        | optional | Version of HTTP to use for lookup http requests. The valid values are HTTP_1_1 and HTTP_2, which specify HTTP 1.1 or 2 respectively. This option may be required as HTTP_1_1, if the endpoint is HTTP 1.1, because some http 1.1 endpoints reject HTTP Version 2 calls, with 'Invalid HTTP request received' and 'HTTP/2 upgrade not supported'.                                                                                                                                                                                                                 |
 | http.source.lookup.request.thread-pool.size                            | optional | Sets the size of pool thread for HTTP lookup request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 8 threads will be used.                                                                                                                                                                                                                                                                                                                                |
 | http.source.lookup.response.thread-pool.size                           | optional | Sets the size of pool thread for HTTP lookup response processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 4 threads will be used.                                                                                                                                                                                                                                                                                                                               |
 | http.source.lookup.use-raw-authorization-header                        | optional | If set to `'true'`, uses the raw value set for the `Authorization` header, without transformation for Basic Authentication (base64, addition of "Basic " prefix). If not specified, defaults to `'false'`.                                                                                                                                                                                                                                                                                                                                                       |
 | http.source.lookup.request-callback                                    | optional | Specify which `HttpLookupPostRequestCallback` implementation to use. By default, it is set to `slf4j-lookup-logger` corresponding to `Slf4jHttpLookupPostRequestCallback`.                                                                                                                                                                                                                                                                                                                                                                                       |
 | http.source.lookup.connection.timeout                                  | optional | Source table connection timeout. Default - no value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| http.source.lookup.http-version                                        | optional | Version of HTTP to use for lookup http requests. The valid values are HTTP_1_1 and HTTP_2, which specify HTTP 1.1 or 2 respectively. This option may be required as HTTP_1_1, if the endpoint is HTTP 1.1, because some http 1.1 endpoints reject HTTP Version 2 calls, with 'Invalid HTTP request received' and 'HTTP/2 upgrade not supported'.                                                                                                                                                                                                                 |
 | http.source.lookup.success-codes                                       | optional | Comma separated http codes considered as success response. Use [1-5]XX for groups and '!' character for excluding. The default is 2XX.                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | http.source.lookup.retry-codes                                         | optional | Comma separated http codes considered as transient errors. Use [1-5]XX for groups and '!' character for excluding. The default is 500,503,504.                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | http.source.lookup.ignored-response-codes                              | optional | Comma separated http codes. Content for these responses will be ignored. Use [1-5]XX for groups and '!' character for excluding. Ignored responses together with `http.source.lookup.success-codes` are considered as successful.                                                                                                                                                                                                                                                                                                                                |
@@ -203,7 +204,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 
 ### Query Creators
 
-In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the 
+In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the
 HTTP request content. In reality, you will want to have move control over how the SQL columns are mapped to the HTTP content.
 The HTTP connector supplies a number of Query Creators that you can use define these mappings.
 
@@ -229,7 +230,7 @@ The HTTP connector supplies a number of Query Creators that you can use define t
       <td></td>
       <td>✓ for PUTs and POSTs</td>
     </tr>
-  
+
     </tbody>
 </table>
 
@@ -244,7 +245,7 @@ parameters `http.request.query-param-fields`, `http.request.body-fields` and `ht
 
 The default Query Creator is called _generic-json-url_.  For body based queries such as POST/PUT requests, the
 ([GenericGetQueryCreator](flink-connector-http/src/main/java/org/apache/flink/connectors/http/internal/table/lookup/querycreators/GenericGetQueryCreator.java))is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)  to convert RowData object into Json String.
-For GET requests can be used for query parameter based queries. 
+For GET requests can be used for query parameter based queries.
 
 The _generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
@@ -330,7 +331,7 @@ pagination methods. Currently, the connector supports only two simple approaches
 ## Working with HTTP sink tables
 
 ### HTTP Sink
-The following example shows the minimum Table API example to create a sink: 
+The following example shows the minimum Table API example to create a sink:
 
 ```roomsql
 CREATE TABLE http (
@@ -350,7 +351,7 @@ INSERT INTO http VALUES (1, 'Ninette'), (2, 'Hedy')
 ```
 
 When `'format' = 'json'` is specified on the table definition, the HTTP sink sends json payloads. It is possible to change the format of the payload by specifying
-another format name. 
+another format name.
 
 ### Sink Connector Options
 
@@ -359,6 +360,7 @@ another format name.
 | connector                                 | required | Specify what connector to use. For HTTP Sink it should be set to _'http-sink'_.                                                                                                                                                    |
 | format                                    | required | Specify what format to use.                                                                                                                                                                                                        |
 | url                                       | required | The base URL that should be use for HTTP requests. For example _http://localhost:8080/client_.                                                                                                                                     |
+| http.logging.level                        | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQRESPONSE` and `MAX`.                                                                                                                                    |
 | insert-method                             | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                |
 | sink.batch.max-size                       | optional | Maximum number of elements that may be passed in a batch to be written downstream.                                                                                                                                                 |
 | sink.requests.max-inflight                | optional | The maximum number of in flight requests that may exist, if any more in flight requests need to be initiated once the maximum has been reached, then it will be blocked until some have completed.                                 |
@@ -574,6 +576,26 @@ an example of a customised grant type token request. The supplied `token request
 `http.security.oidc.token.endpoint.url`. The returned `access token` is then cached and used for subsequent requests; if the token has expired then
 a new one is requested. There is a property `http.security.oidc.token.expiry.reduction`, that defaults to 1 second; new tokens will
 be requested if the current time is later than the cached token expiry time minus `http.security.oidc.token.expiry.reduction`.
+
+## Logging the http content
+Debug level logging has been added for class `org.apache.flink.connector.http.HttpLogger`. To enable this, alter the log4j properties.
+This logging puts out log entries for the HTTP requests and responses. This can be useful for diagnostics to confirm that HTTP requests have been issued and what
+that HTTP responses or an exception has occurred (for example connection Refused).
+
+Logging HTTP may not be appropriate for production systems; where sensitive information is not allowed into the logs. But in development environments it is useful
+to be able to see HTTP content. Sensitive information can occur in the headers for example authentication tokens and passwords. Also the HTTP request and response bodies
+could sensitive. The default minimal logging should be used in production. For development, you can specify config option `gid.connector.http.logging.level`.
+This dictates the amount of content that debug logging will show around HTTP calls; the valid values are:
+
+| log level   | Request method | URI | HTTP Body | Response status code | Headers |
+|-------------|----------------|-----|-----------|----------------------|---------|
+| MIN         | Y              | Y   | N         | Y                    | N       |
+| REQRESPONSE | Y              | Y   | Y         | Y                    | N       |
+| MAX         | Y              | Y   | Y         | Y                    | Y       |
+
+Notes:
+- you can customize what is traced for lookups using the `http.source.lookup.request-callback`.
+- where there is an N in the table the output is obfuscated.
 
 #### Restrictions at this time
 * No authentication is applied to the token request.
