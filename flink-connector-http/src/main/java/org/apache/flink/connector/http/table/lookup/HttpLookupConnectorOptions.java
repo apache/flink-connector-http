@@ -19,11 +19,13 @@ package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.connector.http.HttpLoggingLevelType;
 import org.apache.flink.connector.http.retry.RetryStrategyType;
 
 import java.time.Duration;
 
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.CONTINUE_ON_ERROR;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.HTTP_LOGGING_LEVEL;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.LOOKUP_SOURCE_HEADER_USE_RAW;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
@@ -136,6 +138,32 @@ public class HttpLookupConnectorOptions {
                     .withDescription(
                             "Continue job on error. "
                                     + "This includes unsuccessful HTTP status codes and client side Exceptions, such as Connection Refused.");
+
+    public static final ConfigOption<String> LOGGING_LEVEL_FOR_HTTP =
+            ConfigOptions.key(HTTP_LOGGING_LEVEL)
+                    .stringType()
+                    .defaultValue(String.valueOf(HttpLoggingLevelType.MIN))
+                    .withDescription(
+                            "VALID values are "
+                                    + HttpLoggingLevelType.MIN.name()
+                                    + ", "
+                                    + HttpLoggingLevelType.REQRESPONSE.name()
+                                    + " and "
+                                    + HttpLoggingLevelType.MAX.name()
+                                    + ". This dictates the amount of content that the debug logging will show around HTTP calls."
+                                    + " This logging will be issued before HTTP requests and on receipt of responses, so you can see"
+                                    + " diagnostically when the HTTP calls were made."
+                                    + " HTTP calls and responses can contain sensitive information, so by default the responses"
+                                    + " and header information is not logged. This minimal logging is default and corresponds to a config"
+                                    + " value of "
+                                    + HttpLoggingLevelType.MIN.name()
+                                    + ". If you are not in secure environment would like"
+                                    + " to see the HTTP request and response bodies in the log then specify "
+                                    + HttpLoggingLevelType.REQRESPONSE.name()
+                                    + ". If you would also like to see the header values,"
+                                    + " specify "
+                                    + HttpLoggingLevelType.MAX.name()
+                                    + ".");
 
     public static final ConfigOption<String> SOURCE_LOOKUP_PROXY_HOST =
             ConfigOptions.key(SOURCE_PROXY_HOST)

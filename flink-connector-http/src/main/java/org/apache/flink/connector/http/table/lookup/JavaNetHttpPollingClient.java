@@ -20,6 +20,7 @@ package org.apache.flink.connector.http.table.lookup;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.HttpStatusCodeValidationFailedException;
 import org.apache.flink.connector.http.clients.PollingClient;
@@ -81,6 +82,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
     private final HttpLookupConfig options;
     private final Set<Integer> ignoredErrorCodes;
     private final boolean continueOnError;
+    private final HttpLogger httpLogger;
 
     public JavaNetHttpPollingClient(
             HttpClient httpClient,
@@ -111,6 +113,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
                         .retryConfig(RetryConfigProvider.create(config))
                         .responseChecker(new HttpResponseChecker(successCodes, errorCodes))
                         .build();
+        this.httpLogger = HttpLogger.getHttpLogger(options.getProperties());
     }
 
     public void open(FunctionContext context) {
@@ -141,11 +144,15 @@ public class JavaNetHttpPollingClient implements PollingClient {
         HttpResponse<String> response = null;
         HttpRowDataWrapper httpRowDataWrapper = null;
         try {
+            httpLogger.logRequest(request.getHttpRequest());
             response =
                     httpClient.send(
                             () -> updateHttpRequestIfRequired(request, oidcProcessor),
                             BodyHandlers.ofString());
+            httpLogger.logResponse(response);
         } catch (HttpStatusCodeValidationFailedException e) {
+            // log if we fail for status code reasons.
+            httpLogger.logResponse((HttpResponse<String>) e.getResponse());
             // Case 1 http non successful response
             if (!this.continueOnError) {
                 throw e;
@@ -154,13 +161,15 @@ public class JavaNetHttpPollingClient implements PollingClient {
             response = (HttpResponse<String>) e.getResponse();
             httpRowDataWrapper = processHttpResponse(response, request, true);
         } catch (Exception e) {
+            httpLogger.logExceptionResponse(request, e);
             // Case 2 Exception occurred
             if (!this.continueOnError) {
                 throw e;
             }
             String errMessage = e.getMessage();
             // some exceptions do not have messages including the java.net.ConnectException we can
-            // get here if the connection is bad.
+            // get here if
+            // the connection is bad.
             if (errMessage == null) {
                 errMessage = e.toString();
             }
