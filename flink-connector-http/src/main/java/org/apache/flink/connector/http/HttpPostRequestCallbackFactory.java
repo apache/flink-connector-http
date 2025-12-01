@@ -64,7 +64,7 @@ import org.apache.flink.table.factories.Factory;
  * CREATE TABLE httplookup (
  *   id bigint
  * ) with (
- *   'connector' = 'rest-lookup',
+ *   'connector' = 'http',
  *   'url' = 'http://example.com/myendpoint',
  *   'format' = 'json',
  *   'http.source.lookup.request-callback' = 'my-callback'

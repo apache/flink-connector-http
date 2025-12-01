@@ -182,7 +182,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ">"
                         + ") WITH ("
                         + "'format' = 'json',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + ((StringUtils.isNullOrWhitespaceOnly(methodName))
                                 ? ""
                                 : "'lookup-method' = '" + methodName + "',")
@@ -222,7 +222,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ">"
                         + ") WITH ("
                         + "'format' = 'json',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'url' = 'http://localhost:"
                         + serverPort
                         + "/client',"
@@ -269,7 +269,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ">"
                         + ") WITH ("
                         + "'format' = 'json',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'url' = 'http://localhost:"
                         + serverPort
                         + "/client',"
@@ -322,7 +322,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ">"
                         + ") WITH ("
                         + "'format' = 'json',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'url' = 'http://localhost:"
                         + serverPort
                         + "/client',"
@@ -362,7 +362,7 @@ class HttpLookupTableSourceITCaseTest {
                                 + ">"
                                 + ") WITH ("
                                 + "'format' = 'json',"
-                                + "'connector' = 'rest-lookup',"
+                                + "'connector' = 'http',"
                                 + "'url' = 'https://localhost:"
                                 + secServerPort
                                 + "/client',"
@@ -421,7 +421,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'format' = 'json',"
                         + "'lookup-request.format' = 'json',"
                         + "'lookup-request.format.json.fail-on-missing-field' = 'true',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'lookup-method' = 'POST',"
                         + "'url' = 'http://localhost:"
                         + serverPort
@@ -497,7 +497,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'format' = 'json',"
                         + "'lookup-request.format' = 'json',"
                         + "'lookup-request.format.json.fail-on-missing-field' = 'true',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'lookup-method' = 'POST',"
                         + "'url' = 'http://localhost:"
                         + serverPort
@@ -573,7 +573,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'format' = 'json',"
                         + "'lookup-request.format' = 'json',"
                         + "'lookup-request.format.json.fail-on-missing-field' = 'true',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'lookup-method' = 'POST',"
                         + "'url' = 'http://localhost:"
                         + serverPort
@@ -643,7 +643,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'format' = 'json',"
                         + "'lookup-request.format' = 'json',"
                         + "'lookup-request.format.json.fail-on-missing-field' = 'true',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'lookup-method' = 'POST',"
                         + "'url' = 'http://localhost:"
                         + serverPort
@@ -753,7 +753,7 @@ class HttpLookupTableSourceITCaseTest {
                         + fields
                         + ") WITH ("
                         + "'format' = 'json',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'lookup-method' = 'POST',"
                         + "'url' = 'http://localhost:"
                         + serverPort
@@ -863,7 +863,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'lookup-request.format' = 'json',"
                         + "'lookup-request.format.json.fail-on-missing-field' = 'true',"
                         + "'lookup-method' = 'POST',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'url' = 'http://localhost:"
                         + serverPort
                         + "/client',"
@@ -933,7 +933,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ">"
                         + ") WITH ("
                         + "'format' = 'json',"
-                        + "'connector' = 'rest-lookup',"
+                        + "'connector' = 'http',"
                         + "'lookup-method' = 'GET',"
                         + "'url' = 'http://localhost:"
                         + serverPort
@@ -1528,7 +1528,7 @@ class HttpLookupTableSourceITCaseTest {
                     .append("completionState STRING METADATA from 'http-completion-state'");
         }
 
-        sql.append(") WITH (").append("'format' = 'json',").append("'connector' = 'rest-lookup',");
+        sql.append(") WITH (").append("'format' = 'json',").append("'connector' = 'http',");
 
         if (!StringUtils.isNullOrWhitespaceOnly(spec.methodName)) {
             sql.append("'lookup-method' = '").append(spec.methodName).append("',");

@@ -141,7 +141,7 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "rest-lookup";
+        return "http";
     }
 
     @Override

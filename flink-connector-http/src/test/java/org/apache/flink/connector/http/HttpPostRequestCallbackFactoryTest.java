@@ -147,7 +147,7 @@ public class HttpPostRequestCallbackFactoryTest {
                                 + "  'format' = 'json',\n"
                                 + "  'http.source.lookup.request-callback' = '%s'\n"
                                 + ")",
-                        "rest-lookup",
+                        "http",
                         "http://localhost:" + SERVER_PORT + "/myendpoint",
                         TEST_LOOKUP_POST_REQUEST_CALLBACK_IDENT);
         tEnv.executeSql(createTable2);

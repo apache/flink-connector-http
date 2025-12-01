@@ -49,7 +49,7 @@ public class StreamTableJob {
                         + " 'fields.id2.kind' = 'sequence', 'fields.id2.start' = '2',"
                         + " 'fields.id2.end' = '120')");
         tableEnv.executeSql(
-                "CREATE TABLE Customers (id STRING, id2 STRING, msg STRING, uuid STRING, isActive STRING, balance STRING) WITH ('connector' = 'rest-lookup',"
+                "CREATE TABLE Customers (id STRING, id2 STRING, msg STRING, uuid STRING, isActive STRING, balance STRING) WITH ('connector' = 'http',"
                         + " 'url' = 'http://localhost:"
                         + WireMockServerPortAllocator.getServerPort()
                         + "/client', "

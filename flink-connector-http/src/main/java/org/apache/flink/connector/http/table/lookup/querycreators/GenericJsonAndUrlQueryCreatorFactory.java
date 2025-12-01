@@ -54,7 +54,7 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
 public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorFactory {
     private static final long serialVersionUID = 1L;
 
-    public static final String ID = "generic-json-url";
+    public static final String ID = "http-generic-json-url";
 
     public static final ConfigOption<List<String>> REQUEST_QUERY_PARAM_FIELDS =
             key("http.request.query-param-fields")

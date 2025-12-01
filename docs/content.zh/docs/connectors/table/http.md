@@ -45,8 +45,8 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Using a HTTP Lookup Source in a lookup join](#using-a-http-lookup-source-in-a-lookup-join)
     * [Lookup Source Connector Options](#lookup-source-connector-options)
     * [Query Creators](#query-creators)
-    * [generic-json-url Query Creator](#generic-json-url-query-creator)
-    * [generic-json-url Query Creator](#generic-json-url-query-creator-1)
+    * [http-generic-json-url Query Creator](#http-generic-json-url-query-creator)
+    * [http-generic-json-url Query Creator](#http-generic-json-url-query-creator-1)
     * [Http headers](#http-headers)
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
@@ -81,8 +81,11 @@ The GetInData HTTP connector was donated to Flink in [FLIP-532](https://cwiki.ap
 The Flink connector does have some changes that you need to be aware of if you are migrating from using the original connector:
 
 * Existing java applications will need to be recompiled to pick up the new flink package names.
-* Existing application and SQL need to be amended to use the new connector option names. The new option names do not have 
+* Existing application and SQL need to be amended to use the new connector option names. The new option names do not have
 the _com.getindata.http_ prefix, the prefix is now _http_.
+* The name of the connector and the identifiers of components that are discovered have been changed, so that the GetInData jar file can co-exist
+* with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against
+* this connector.
 
 ## Working with HTTP lookup source tables
 
@@ -102,7 +105,7 @@ CREATE TABLE Customers (
       >
     >
 ) WITH (
-'connector' = 'rest-lookup',
+'connector' = 'http',
 'format' = 'json',
 'url' = 'http://localhost:8080/client',
 'asyncPolling' = 'true'
@@ -157,7 +160,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 
 | Option                                                                 | Required | Description/Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |:-----------------------------------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| connector                                                              | required | The Value should be set to _rest-lookup_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| connector                                                              | required | The Value should be set to _http_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | format                                                                 | required | Flink's format name that should be used to decode REST response, Use `json` for a typical REST endpoint.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | url                                                                    | required | The base URL that should be use for GET requests. For example _http://localhost:8080/client_                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | asyncPolling                                                           | optional | true/false - determines whether Async Polling should be used. Mechanism is based on Flink's Async I/O.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -218,13 +221,13 @@ The HTTP connector supplies a number of Query Creators that you can use define t
     </thead>
     <tbody>
     <tr>
-      <td><h5>generic-json-url</h5></td>
+      <td><h5>http-generic-json-url</h5></td>
       <td>✓</td>
       <td>✓</td>
       <td>✓</td>
     </tr>
     <tr>
-      <td><h5>generic-get-query</h5></td>
+      <td><h5>http-generic-get-query</h5></td>
       <td><✓ for GETs/td>
       <td></td>
       <td>✓ for PUTs and POSTs</td>
@@ -233,20 +236,20 @@ The HTTP connector supplies a number of Query Creators that you can use define t
     </tbody>
 </table>
 
-### generic-json-url Query Creator
+### http-generic-json-url Query Creator
 
-The recommended Query creator for json is called _generic-json-url_, which allows column content to be mapped as URL, path, body and query parameter request values; it supports
+The recommended Query creator for json is called _http-generic-json-url_, which allows column content to be mapped as URL, path, body and query parameter request values; it supports
 POST, PUT and GET operations. This query creator allows you to issue json requests without needing to code
 your own custom http connector. The mappings from columns to the json request are supplied in the query creator configuration
 parameters `http.request.query-param-fields`, `http.request.body-fields` and `http.request.url-map`.
 
-### generic-json-url Query Creator
+### http-generic-json-url Query Creator
 
-The default Query Creator is called _generic-json-url_.  For body based queries such as POST/PUT requests, the
+The default Query Creator is called _http-generic-json-url_.  For body based queries such as POST/PUT requests, the
 ([GenericGetQueryCreator](flink-connector-http/src/main/java/org/apache/flink/connectors/http/internal/table/lookup/querycreators/GenericGetQueryCreator.java))is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)  to convert RowData object into Json String.
 For GET requests can be used for query parameter based queries. 
 
-The _generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
+The _http-generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
 To create a custom format user has to implement Flink's `SerializationSchema` and `SerializationFormatFactory` interfaces and register custom format factory along other factories in
 `resources/META-INF.services/org.apache.flink.table.factories.Factory` file. This is common Flink mechanism for providing custom implementations for various factories.
@@ -266,7 +269,7 @@ CREATE TABLE http-lookup (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'rest-lookup',
+  'connector' = 'http',
   'format' = 'json',
   'url' = 'http://localhost:8080/client',
   'asyncPolling' = 'true',
