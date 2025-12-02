@@ -74,6 +74,8 @@ import static org.apache.flink.table.types.utils.DataTypeUtils.removeTimeAttribu
 /** Http Lookup Table Source Factory. */
 public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
 
+    private static final String IDENTIFIER = "http";
+
     private static DataTypes.Field columnToField(Column column) {
         return FIELD(
                 column.getName(),
@@ -141,7 +143,7 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "http";
+        return IDENTIFIER;
     }
 
     @Override

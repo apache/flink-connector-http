@@ -38,7 +38,7 @@ import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnecto
 /** Factory for creating {@link HttpDynamicSink}. */
 public class HttpDynamicTableSinkFactory extends AsyncDynamicTableSinkFactory {
 
-    public static final String IDENTIFIER = "http-apache-sink";
+    public static final String IDENTIFIER = "http-async-sink";
 
     @Override
     public DynamicTableSink createDynamicTableSink(Context context) {
