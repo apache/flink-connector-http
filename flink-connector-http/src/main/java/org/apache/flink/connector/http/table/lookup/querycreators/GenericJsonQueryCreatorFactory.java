@@ -39,7 +39,7 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
 /** Factory for creating {@link GenericJsonQueryCreatorFactory}. */
 public class GenericJsonQueryCreatorFactory implements LookupQueryCreatorFactory {
 
-    public static final String IDENTIFIER = "generic-json-query";
+    public static final String IDENTIFIER = "http-generic-json-query";
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(

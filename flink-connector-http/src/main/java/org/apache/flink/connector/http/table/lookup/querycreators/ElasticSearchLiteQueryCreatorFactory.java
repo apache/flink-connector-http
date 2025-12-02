@@ -29,7 +29,7 @@ import java.util.Set;
 /** Factory for creating {@link ElasticSearchLiteQueryCreator}. */
 public class ElasticSearchLiteQueryCreatorFactory implements LookupQueryCreatorFactory {
 
-    public static final String IDENTIFIER = "elasticsearch-lite";
+    public static final String IDENTIFIER = "http-elasticsearch-lite";
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(

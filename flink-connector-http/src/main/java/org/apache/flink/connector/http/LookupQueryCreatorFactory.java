@@ -46,7 +46,7 @@ import java.io.Serializable;
  *   id bigint,
  *   some_field string
  * ) WITH (
- *   'connector' = 'rest-lookup',
+ *   'connector' = 'http',
  *   'format' = 'json',
  *   'url' = 'http://example.com/myendpoint',
  *   'http.source.lookup.query-creator' = 'my-query-creator'

@@ -29,7 +29,7 @@ import java.util.Set;
 public class Slf4jHttpLookupPostRequestCallbackFactory
         implements HttpPostRequestCallbackFactory<HttpLookupSourceRequestEntry> {
 
-    public static final String IDENTIFIER = "slf4j-lookup-logger";
+    public static final String IDENTIFIER = "http-slf4j-lookup-logger";
 
     @Override
     public HttpPostRequestCallback<HttpLookupSourceRequestEntry> createHttpPostRequestCallback() {
