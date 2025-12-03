@@ -51,7 +51,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries (Lookup source)](#retries-lookup-source)
-        * [Retry strategy](#retry-strategy)
+      * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -153,7 +153,7 @@ Or for REST POST method they will be converted to Json and used as request body.
 
 ### Lookup Source Connector Options
 
-Note the options with the prefix _http_ are the HTTP connector specific options, the others are Flink options.   
+Note the options with the prefix _http_ are the HTTP connector specific options, the others are Flink options.
 
 | Option                                                                 | Required | Description/Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |:-----------------------------------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -161,7 +161,6 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | format                                                                 | required | Flink's format name that should be used to decode REST response, Use `json` for a typical REST endpoint.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | url                                                                    | required | The base URL that should be use for GET requests. For example _http://localhost:8080/client_                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | asyncPolling                                                           | optional | true/false - determines whether Async Polling should be used. Mechanism is based on Flink's Async I/O.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| http.logging.level                                                     | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQRESPONSE` and `MAX`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | lookup-method                                                          | optional | GET/POST/PUT (and any other) - determines what REST method should be used for lookup REST query. If not specified, `GET` method will be used.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | lookup.cache                                                           | optional | Enum possible values: `NONE`, `PARTIAL`. The cache strategy for the lookup table. Currently supports `NONE` (no caching) and `PARTIAL` (caching entries on lookup operation in external API).                                                                                                                                                                                                                                                                                                                                                                    |
 | lookup.partial-cache.max-rows                                          | optional | The max number of rows of lookup cache, over this value, the oldest rows will be expired. `lookup.cache` must be set to `PARTIAL` to use this option. See the following <a href="#lookup-cache">Lookup Cache</a> section for more details.                                                                                                                                                                                                                                                                                                                       |
@@ -171,6 +170,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | lookup.max-retries                                                     | optional | The max retry times if the lookup failed; default is 3. See the following <a href="#lookup-cache">Lookup Cache</a> section for more detail. Set value 0 to disable retries.                                                                                                                                                                                                                                                                                                                                                                                      |
 | lookup.error.code                                                      | optional | List of HTTP status codes that should be treated as errors by HTTP Source, separated with comma.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | lookup.error.code.exclude                                              | optional | List of HTTP status codes that should be excluded from the `http.lookup.error.code` list, separated with comma.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| http.logging.level                                                     | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQ_RESP` and `MAX`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | http.security.cert.server                                              | optional | Comma separated paths to trusted HTTP server certificates that should be added to the connectors trust store.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | http.security.cert.client                                              | optional | Path to trusted certificate that should be used by connector's HTTP client for mTLS communication.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | http.security.key.client                                               | optional | Path to trusted private key that should be used by connector's HTTP client for mTLS communication.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -204,7 +204,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 
 ### Query Creators
 
-In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the 
+In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the
 HTTP request content. In reality, you will want to have move control over how the SQL columns are mapped to the HTTP content.
 The HTTP connector supplies a number of Query Creators that you can use define these mappings.
 
@@ -230,7 +230,7 @@ The HTTP connector supplies a number of Query Creators that you can use define t
       <td></td>
       <td>✓ for PUTs and POSTs</td>
     </tr>
-  
+
     </tbody>
 </table>
 
@@ -245,7 +245,7 @@ parameters `http.request.query-param-fields`, `http.request.body-fields` and `ht
 
 The default Query Creator is called _generic-json-url_.  For body based queries such as POST/PUT requests, the
 ([GenericGetQueryCreator](flink-connector-http/src/main/java/org/apache/flink/connectors/http/internal/table/lookup/querycreators/GenericGetQueryCreator.java))is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)  to convert RowData object into Json String.
-For GET requests can be used for query parameter based queries. 
+For GET requests can be used for query parameter based queries.
 
 The _generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
@@ -331,7 +331,7 @@ pagination methods. Currently, the connector supports only two simple approaches
 ## Working with HTTP sink tables
 
 ### HTTP Sink
-The following example shows the minimum Table API example to create a sink: 
+The following example shows the minimum Table API example to create a sink:
 
 ```roomsql
 CREATE TABLE http (
@@ -350,8 +350,9 @@ Then use `INSERT` SQL statement to send data to your HTTP endpoint:
 INSERT INTO http VALUES (1, 'Ninette'), (2, 'Hedy')
 ```
 
+
 When `'format' = 'json'` is specified on the table definition, the HTTP sink sends json payloads. It is possible to change the format of the payload by specifying
-another format name. 
+another format name.
 
 ### Sink Connector Options
 
@@ -360,13 +361,14 @@ another format name.
 | connector                                 | required | Specify what connector to use. For HTTP Sink it should be set to _'http-sink'_.                                                                                                                                                    |
 | format                                    | required | Specify what format to use.                                                                                                                                                                                                        |
 | url                                       | required | The base URL that should be use for HTTP requests. For example _http://localhost:8080/client_.                                                                                                                                     |
-| http.logging.level                        | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQRESPONSE` and `MAX`.                                                                                                                                    |
-| insert-method                             | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                |
 | sink.batch.max-size                       | optional | Maximum number of elements that may be passed in a batch to be written downstream.                                                                                                                                                 |
 | sink.requests.max-inflight                | optional | The maximum number of in flight requests that may exist, if any more in flight requests need to be initiated once the maximum has been reached, then it will be blocked until some have completed.                                 |
 | sink.requests.max-buffered                | optional | Maximum number of buffered records before applying backpressure.                                                                                                                                                                   |
 | sink.flush-buffer.size                    | optional | The maximum size of a batch of entries that may be sent to the HTTP endpoint measured in bytes.                                                                                                                                    |
 | sink.flush-buffer.timeout                 | optional | Threshold time in milliseconds for an element to be in a buffer before being flushed.                                                                                                                                              |
+| insert-method                             | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                |
+| insert-method                             | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                |
+| http.logging.level                        | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQ_RESP` and `MAX`.                                                                                                                                       |
 | http.sink.request-callback                | optional | Specify which `HttpPostRequestCallback` implementation to use. By default, it is set to `slf4j-logger` corresponding to `Slf4jHttpPostRequestCallback`.                                                                            |
 | http.sink.error.code                      | optional | List of HTTP status codes that should be treated as errors by HTTP Sink, separated with comma.                                                                                                                                     |
 | http.sink.error.code.exclude              | optional | List of HTTP status codes that should be excluded from the `http.sink.error.code` list, separated with comma.                                                                                                                      |
@@ -577,7 +579,7 @@ an example of a customised grant type token request. The supplied `token request
 a new one is requested. There is a property `http.security.oidc.token.expiry.reduction`, that defaults to 1 second; new tokens will
 be requested if the current time is later than the cached token expiry time minus `http.security.oidc.token.expiry.reduction`.
 
-## Logging the http content
+## Logging the HTTP content
 Debug level logging has been added for class `org.apache.flink.connector.http.HttpLogger`. To enable this, alter the log4j properties.
 This logging puts out log entries for the HTTP requests and responses. This can be useful for diagnostics to confirm that HTTP requests have been issued and what
 that HTTP responses or an exception has occurred (for example connection Refused).
@@ -587,11 +589,11 @@ to be able to see HTTP content. Sensitive information can occur in the headers f
 could sensitive. The default minimal logging should be used in production. For development, you can specify config option `gid.connector.http.logging.level`.
 This dictates the amount of content that debug logging will show around HTTP calls; the valid values are:
 
-| log level   | Request method | URI | HTTP Body | Response status code | Headers |
-|-------------|----------------|-----|-----------|----------------------|---------|
-| MIN         | Y              | Y   | N         | Y                    | N       |
-| REQRESPONSE | Y              | Y   | Y         | Y                    | N       |
-| MAX         | Y              | Y   | Y         | Y                    | Y       |
+| log level | Request method | URI | HTTP Body | Response status code | Headers |
+|-----------|----------------|-----|-----------|----------------------|---------|
+| MIN       | Y              | Y   | N         | Y                    | N       |
+| REQ_RESP  | Y              | Y   | Y         | Y                    | N       |
+| MAX       | Y              | Y   | Y         | Y                    | Y       |
 
 Notes:
 - you can customize what is traced for lookups using the `http.source.lookup.request-callback`.

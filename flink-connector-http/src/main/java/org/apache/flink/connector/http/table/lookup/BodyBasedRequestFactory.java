@@ -39,7 +39,7 @@ import java.net.http.HttpRequest.Builder;
 public class BodyBasedRequestFactory extends RequestFactoryBase {
 
     private final String methodName;
-    private final HttpLookupConfig options;
+    private final HttpLogger httpLogger;
 
     public BodyBasedRequestFactory(
             String methodName,
@@ -49,7 +49,7 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
 
         super(lookupQueryCreator, headerPreprocessor, options);
         this.methodName = methodName.toUpperCase();
-        this.options = options;
+        this.httpLogger = HttpLogger.getHttpLogger(options.getProperties());
     }
 
     /**
@@ -65,7 +65,7 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
         String body = lookupQueryInfo.getLookupQuery();
         builder.uri(constructUri(lookupQueryInfo))
                 .method(methodName, BodyPublishers.ofString(body));
-        HttpLogger.getHttpLogger(options.getProperties()).logRequestBody(body);
+        this.httpLogger.logRequestBody(body);
         return builder;
     }
 

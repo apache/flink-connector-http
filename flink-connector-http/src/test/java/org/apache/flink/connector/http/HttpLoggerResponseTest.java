@@ -116,7 +116,7 @@ public class HttpLoggerResponseTest {
                 new TestSpec(
                         method,
                         statusCode,
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         false,
                         false,
                         "HTTP "
@@ -166,7 +166,7 @@ public class HttpLoggerResponseTest {
                 new TestSpec(
                         method,
                         statusCode,
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         false,
                         true,
                         "HTTP "
@@ -217,7 +217,7 @@ public class HttpLoggerResponseTest {
                 new TestSpec(
                         method,
                         statusCode,
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         true,
                         false,
                         "HTTP "
@@ -267,7 +267,7 @@ public class HttpLoggerResponseTest {
                 new TestSpec(
                         method,
                         statusCode,
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         true,
                         true,
                         "HTTP "

@@ -4,6 +4,7 @@ import org.apache.flink.connector.http.table.lookup.HttpLookupSourceRequestEntry
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -19,33 +20,44 @@ import static org.apache.flink.connector.http.config.HttpConnectorConfigConstant
  * configuration.
  */
 @Slf4j
-public class HttpLogger {
+public class HttpLogger implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final HttpLoggingLevelType httpLoggingLevelType;
+
+    private HttpLogger(Properties properties) {
+        String code = (String) properties.get(HTTP_LOGGING_LEVEL);
+        this.httpLoggingLevelType = HttpLoggingLevelType.valueOfStr(code);
+    }
 
     public static HttpLogger getHttpLogger(Properties properties) {
         return new HttpLogger(properties);
     }
 
     public void logRequest(HttpRequest httpRequest) {
-        log.debug(createStringForRequest(httpRequest));
+        if (log.isDebugEnabled()) {
+            log.debug(createStringForRequest(httpRequest));
+        }
     }
 
     public void logResponse(HttpResponse<String> response) {
-        log.debug(createStringForResponse(response));
+
+        if (log.isDebugEnabled()) {
+            log.debug(createStringForResponse(response));
+        }
     }
 
     public void logRequestBody(String body) {
-        log.debug(createStringForBody(body));
+        if (log.isDebugEnabled()) {
+            log.debug(createStringForBody(body));
+        }
     }
 
     public void logExceptionResponse(HttpLookupSourceRequestEntry request, Exception e) {
-        log.debug(createStringForExceptionResponse(request, e));
-    }
-
-    private HttpLogger(Properties properties) {
-        String code = (String) properties.get(HTTP_LOGGING_LEVEL);
-        this.httpLoggingLevelType = HttpLoggingLevelType.valueOfStr(code);
+        if (log.isDebugEnabled()) {
+            log.debug(createStringForExceptionResponse(request, e));
+        }
     }
 
     String createStringForRequest(HttpRequest httpRequest) {

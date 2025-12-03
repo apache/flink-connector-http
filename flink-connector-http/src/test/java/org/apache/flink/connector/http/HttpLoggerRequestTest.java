@@ -71,7 +71,7 @@ public class HttpLoggerRequestTest {
                         false,
                         "HTTP GET Request: URL: http://aaa, Headers: None"),
                 new TestSpec(
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         "GET",
                         false,
                         false,
@@ -96,7 +96,7 @@ public class HttpLoggerRequestTest {
                         true,
                         "HTTP GET Request: URL: http://aaa, Headers: ***"),
                 new TestSpec(
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         "GET",
                         false,
                         true,
@@ -122,7 +122,7 @@ public class HttpLoggerRequestTest {
                         false,
                         "HTTP POST Request: URL: http://aaa, Headers: None"),
                 new TestSpec(
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         "POST",
                         false,
                         false,
@@ -147,7 +147,7 @@ public class HttpLoggerRequestTest {
                         true,
                         "HTTP POST Request: URL: http://aaa, Headers: ***"),
                 new TestSpec(
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         "POST",
                         false,
                         true,
@@ -173,7 +173,7 @@ public class HttpLoggerRequestTest {
                         false,
                         "HTTP POST Request: URL: http://aaa, Headers: None"),
                 new TestSpec(
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         "POST",
                         true,
                         false,
@@ -198,7 +198,7 @@ public class HttpLoggerRequestTest {
                         true,
                         "HTTP POST Request: URL: http://aaa, Headers: ***"),
                 new TestSpec(
-                        HttpLoggingLevelType.REQRESPONSE,
+                        HttpLoggingLevelType.REQ_RESP,
                         "POST",
                         true,
                         true,

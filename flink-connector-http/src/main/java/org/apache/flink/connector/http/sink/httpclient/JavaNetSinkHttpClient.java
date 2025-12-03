@@ -58,7 +58,7 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
 
     private final RequestSubmitter requestSubmitter;
 
-    private final Properties properties;
+    private final HttpLogger httpLogger;
 
     public JavaNetSinkHttpClient(
             Properties properties,
@@ -88,7 +88,8 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(this.headerMap);
         this.requestSubmitter =
                 requestSubmitterFactory.createSubmitter(properties, headersAndValues);
-        this.properties = properties;
+
+        this.httpLogger = HttpLogger.getHttpLogger(properties);
     }
 
     @Override
@@ -118,7 +119,7 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
         for (var response : responses) {
             var sinkRequestEntry = response.getHttpRequest();
             var optResponse = response.getResponse();
-            HttpLogger.getHttpLogger(properties).logResponse(response.getResponse().get());
+            this.httpLogger.logResponse(response.getResponse().get());
             httpPostRequestCallback.call(
                     optResponse.orElse(null), sinkRequestEntry, endpointUrl, headerMap);
 

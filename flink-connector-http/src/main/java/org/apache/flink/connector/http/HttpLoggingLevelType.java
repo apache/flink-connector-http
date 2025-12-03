@@ -3,14 +3,10 @@ package org.apache.flink.connector.http;
 /** Defines the level of http content that will be logged. */
 public enum HttpLoggingLevelType {
     MIN,
-    REQRESPONSE,
+    REQ_RESP,
     MAX;
 
     public static HttpLoggingLevelType valueOfStr(String code) {
-        if (code == null) {
-            return MIN;
-        } else {
-            return valueOf(code);
-        }
+        return code == null ? MIN : valueOf(code);
     }
 }
