@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.http.table.lookup;
 
+import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.LookupQueryCreator;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
 import org.apache.flink.connector.http.utils.uri.URIBuilder;
@@ -38,6 +39,7 @@ import java.net.http.HttpRequest.Builder;
 public class BodyBasedRequestFactory extends RequestFactoryBase {
 
     private final String methodName;
+    private final HttpLogger httpLogger;
 
     public BodyBasedRequestFactory(
             String methodName,
@@ -47,6 +49,7 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
 
         super(lookupQueryCreator, headerPreprocessor, options);
         this.methodName = methodName.toUpperCase();
+        this.httpLogger = HttpLogger.getHttpLogger(options.getProperties());
     }
 
     /**
@@ -59,8 +62,10 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
     @Override
     protected Builder setUpRequestMethod(LookupQueryInfo lookupQueryInfo) {
         HttpRequest.Builder builder = super.setUpRequestMethod(lookupQueryInfo);
+        String body = lookupQueryInfo.getLookupQuery();
         builder.uri(constructUri(lookupQueryInfo))
-                .method(methodName, BodyPublishers.ofString(lookupQueryInfo.getLookupQuery()));
+                .method(methodName, BodyPublishers.ofString(body));
+        this.httpLogger.logRequestBody(body);
         return builder;
     }
 

@@ -19,11 +19,13 @@ package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.connector.http.HttpLoggingLevelType;
 import org.apache.flink.connector.http.retry.RetryStrategyType;
 
 import java.time.Duration;
 
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.CONTINUE_ON_ERROR;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.HTTP_LOGGING_LEVEL;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.LOOKUP_SOURCE_HEADER_USE_RAW;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
@@ -136,6 +138,12 @@ public class HttpLookupConnectorOptions {
                     .withDescription(
                             "Continue job on error. "
                                     + "This includes unsuccessful HTTP status codes and client side Exceptions, such as Connection Refused.");
+
+    public static final ConfigOption<String> LOGGING_LEVEL_FOR_HTTP =
+            ConfigOptions.key(HTTP_LOGGING_LEVEL)
+                    .stringType()
+                    .defaultValue(String.valueOf(HttpLoggingLevelType.MIN))
+                    .withDescription("Logging levels");
 
     public static final ConfigOption<String> SOURCE_LOOKUP_PROXY_HOST =
             ConfigOptions.key(SOURCE_PROXY_HOST)

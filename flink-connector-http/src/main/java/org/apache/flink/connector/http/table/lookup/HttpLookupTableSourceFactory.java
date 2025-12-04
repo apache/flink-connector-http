@@ -20,6 +20,7 @@ package org.apache.flink.connector.http.table.lookup;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.http.HttpLoggingLevelType;
 import org.apache.flink.connector.http.HttpPostRequestCallbackFactory;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
 import org.apache.flink.connector.http.utils.ConfigUtils;
@@ -47,6 +48,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.ASYNC_POLLING;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOGGING_LEVEL_FOR_HTTP;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_METHOD;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_REQUEST_FORMAT;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.REQUEST_CALLBACK_IDENTIFIER;
@@ -98,6 +100,7 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
         helper.validateExcept(
                 // properties coming from org.apache.flink.table.api.config.ExecutionConfigOptions
                 "table.",
+                "lookup-request.",
                 HttpConnectorConfigConstants.FLINK_CONNECTOR_HTTP,
                 LOOKUP_REQUEST_FORMAT.key());
         validateHttpLookupSourceOptions(readable);
@@ -137,6 +140,22 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
                                                 + " is required, if "
                                                 + SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL.key()
                                                 + " is configured.");
+                            }
+                        });
+        tableOptions
+                .getOptional(LOGGING_LEVEL_FOR_HTTP)
+                .ifPresent(
+                        value -> {
+                            try {
+                                HttpLoggingLevelType.valueOf(value);
+                            } catch (IllegalArgumentException e) {
+                                throw new IllegalArgumentException(
+                                        "Invalid value for config option "
+                                                + LOGGING_LEVEL_FOR_HTTP.key()
+                                                + ": '"
+                                                + value
+                                                + "'. Valid values are: MIN, REQ_RESP, MAX.",
+                                        e);
                             }
                         });
     }

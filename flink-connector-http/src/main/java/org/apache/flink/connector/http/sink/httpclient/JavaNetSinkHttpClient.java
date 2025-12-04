@@ -18,6 +18,7 @@
 package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
 import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
@@ -57,6 +58,8 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
 
     private final RequestSubmitter requestSubmitter;
 
+    private final HttpLogger httpLogger;
+
     public JavaNetSinkHttpClient(
             Properties properties,
             HttpPostRequestCallback<HttpRequest> httpPostRequestCallback,
@@ -85,6 +88,8 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(this.headerMap);
         this.requestSubmitter =
                 requestSubmitterFactory.createSubmitter(properties, headersAndValues);
+
+        this.httpLogger = HttpLogger.getHttpLogger(properties);
     }
 
     @Override
@@ -114,7 +119,7 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
         for (var response : responses) {
             var sinkRequestEntry = response.getHttpRequest();
             var optResponse = response.getResponse();
-
+            this.httpLogger.logResponse(response.getResponse().get());
             httpPostRequestCallback.call(
                     optResponse.orElse(null), sinkRequestEntry, endpointUrl, headerMap);
 

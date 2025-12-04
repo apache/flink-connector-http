@@ -51,7 +51,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries (Lookup source)](#retries-lookup-source)
-        * [Retry strategy](#retry-strategy)
+      * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -155,7 +155,7 @@ Or for REST POST method they will be converted to Json and used as request body.
 
 ### Lookup Source Connector Options
 
-Note the options with the prefix _http_ are the HTTP connector specific options, the others are Flink options.   
+Note the options with the prefix _http_ are the HTTP connector specific options, the others are Flink options.
 
 | Option                                                                 | Required | Description/Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |:-----------------------------------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -203,7 +203,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 
 ### Query Creators
 
-In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the 
+In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the
 HTTP request content. In reality, you will want to have move control over how the SQL columns are mapped to the HTTP content.
 The HTTP connector supplies a number of Query Creators that you can use define these mappings.
 
@@ -229,7 +229,7 @@ The HTTP connector supplies a number of Query Creators that you can use define t
       <td></td>
       <td>✓ for PUTs and POSTs</td>
     </tr>
-  
+
     </tbody>
 </table>
 
@@ -244,7 +244,7 @@ parameters `http.request.query-param-fields`, `http.request.body-fields` and `ht
 
 The default Query Creator is called _http-generic-json-url_.  For body based queries such as POST/PUT requests, the
 ([GenericGetQueryCreator](flink-connector-http/src/main/java/org/apache/flink/connectors/http/internal/table/lookup/querycreators/GenericGetQueryCreator.java))is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)  to convert RowData object into Json String.
-For GET requests can be used for query parameter based queries. 
+For GET requests can be used for query parameter based queries.
 
 The _http-generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
@@ -330,7 +330,7 @@ pagination methods. Currently, the connector supports only two simple approaches
 ## Working with HTTP sink tables
 
 ### HTTP Sink
-The following example shows the minimum Table API example to create a sink: 
+The following example shows the minimum Table API example to create a sink:
 
 ```roomsql
 CREATE TABLE http (
@@ -349,8 +349,9 @@ Then use `INSERT` SQL statement to send data to your HTTP endpoint:
 INSERT INTO http VALUES (1, 'Ninette'), (2, 'Hedy')
 ```
 
+
 When `'format' = 'json'` is specified on the table definition, the HTTP sink sends json payloads. It is possible to change the format of the payload by specifying
-another format name. 
+another format name.
 
 ### Sink Connector Options
 
@@ -365,6 +366,7 @@ another format name.
 | sink.requests.max-buffered                | optional | Maximum number of buffered records before applying backpressure.                                                                                                                                                                   |
 | sink.flush-buffer.size                    | optional | The maximum size of a batch of entries that may be sent to the HTTP endpoint measured in bytes.                                                                                                                                    |
 | sink.flush-buffer.timeout                 | optional | Threshold time in milliseconds for an element to be in a buffer before being flushed.                                                                                                                                              |
+| http.logging.level                        | optional | Logging levels for HTTP content. Valid values are `MIN` (the default), `REQ_RESP` and `MAX`.                                                                                                                                       |
 | http.sink.request-callback                | optional | Specify which `HttpPostRequestCallback` implementation to use. By default, it is set to `slf4j-logger` corresponding to `Slf4jHttpPostRequestCallback`.                                                                            |
 | http.sink.error.code                      | optional | List of HTTP status codes that should be treated as errors by HTTP Sink, separated with comma.                                                                                                                                     |
 | http.sink.error.code.exclude              | optional | List of HTTP status codes that should be excluded from the `http.sink.error.code` list, separated with comma.                                                                                                                      |
@@ -574,6 +576,26 @@ an example of a customised grant type token request. The supplied `token request
 `http.security.oidc.token.endpoint.url`. The returned `access token` is then cached and used for subsequent requests; if the token has expired then
 a new one is requested. There is a property `http.security.oidc.token.expiry.reduction`, that defaults to 1 second; new tokens will
 be requested if the current time is later than the cached token expiry time minus `http.security.oidc.token.expiry.reduction`.
+
+## Logging the HTTP content
+Debug level logging has been added for class `org.apache.flink.connector.http.HttpLogger`. To enable this, alter the log4j properties.
+This logging puts out log entries for the HTTP requests and responses. This can be useful for diagnostics to confirm that HTTP requests have been issued and what
+that HTTP responses or an exception has occurred (for example connection Refused).
+
+Logging HTTP may not be appropriate for production systems; where sensitive information is not allowed into the logs. But in development environments it is useful
+to be able to see HTTP content. Sensitive information can occur in the headers for example authentication tokens and passwords. Also the HTTP request and response bodies
+could sensitive. The default minimal logging should be used in production. For development, you can specify config option `http.logging.level`.
+This dictates the amount of content that debug logging will show around HTTP calls; the valid values are:
+
+| log level | Request method | URI | HTTP Body | Response status code | Headers |
+|-----------|----------------|-----|-----------|----------------------|---------|
+| MIN       | Y              | Y   | N         | Y                    | N       |
+| REQ_RESP  | Y              | Y   | Y         | Y                    | N       |
+| MAX       | Y              | Y   | Y         | Y                    | Y       |
+
+Notes:
+- you can customize what is traced for lookups using the `http.source.lookup.request-callback`.
+- where there is an N in the table the output is obfuscated.
 
 #### Restrictions at this time
 * No authentication is applied to the token request.
