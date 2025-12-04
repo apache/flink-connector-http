@@ -345,7 +345,7 @@ class HttpLookupTableSourceTest {
 
     private Map<String, String> getOptions() {
         return Map.of(
-                "connector", "rest-lookup",
+                "connector", "http",
                 "url", "http://localhost:8080/service",
                 "format", "json");
     }

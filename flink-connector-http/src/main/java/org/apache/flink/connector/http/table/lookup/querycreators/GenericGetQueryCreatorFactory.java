@@ -29,7 +29,7 @@ import java.util.Set;
 /** Factory for creating {@link GenericGetQueryCreator}. */
 public class GenericGetQueryCreatorFactory implements LookupQueryCreatorFactory {
 
-    public static final String IDENTIFIER = "generic-get-query";
+    public static final String IDENTIFIER = "http-generic-get-query";
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(

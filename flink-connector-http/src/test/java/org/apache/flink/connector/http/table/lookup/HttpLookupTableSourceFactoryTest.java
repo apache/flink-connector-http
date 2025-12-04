@@ -97,7 +97,7 @@ public class HttpLookupTableSourceFactoryTest {
 
     @Test
     void shouldThrowIfMissingUrl() {
-        Map<String, String> options = Collections.singletonMap("connector", "rest-lookup");
+        Map<String, String> options = Collections.singletonMap("connector", "http");
         assertThatExceptionOfType(ValidationException.class)
                 .isThrownBy(() -> createTableSource(SCHEMA, options));
     }
@@ -120,7 +120,7 @@ public class HttpLookupTableSourceFactoryTest {
 
     private Map<String, String> getMandatoryOptions() {
         return Map.of(
-                "connector", "rest-lookup",
+                "connector", "http",
                 "url", "http://localhost:" + WireMockServerPortAllocator.PORT_BASE + "/service",
                 "format", "json");
     }
