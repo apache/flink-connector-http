@@ -97,17 +97,24 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
                 FactoryUtil.createTableFactoryHelper(this, dynamicTableContext);
 
         ReadableConfig readable = helper.getOptions();
+
+        // Discover and validate the decoding format first - this validates format-specific options
+        DecodingFormat<DeserializationSchema<RowData>> decodingFormat =
+                helper.discoverDecodingFormat(
+                        DeserializationFormatFactory.class, FactoryUtil.FORMAT);
+
+        // Validate connector options, excluding:
+        // - "table.*" (Flink execution config options)
+        // - "lookup-request.*" (dynamic lookup-specific properties)
+        // - "gid.connector.http.*" (dynamic connector-specific properties)
+        // - LOOKUP_REQUEST_FORMAT (custom lookup format option)
+        // Format options are already validated by discoverDecodingFormat() above
         helper.validateExcept(
-                // properties coming from org.apache.flink.table.api.config.ExecutionConfigOptions
                 "table.",
                 "lookup-request.",
                 HttpConnectorConfigConstants.FLINK_CONNECTOR_HTTP,
                 LOOKUP_REQUEST_FORMAT.key());
         validateHttpLookupSourceOptions(readable);
-
-        DecodingFormat<DeserializationSchema<RowData>> decodingFormat =
-                helper.discoverDecodingFormat(
-                        DeserializationFormatFactory.class, FactoryUtil.FORMAT);
 
         HttpLookupConfig lookupConfig = getHttpLookupOptions(dynamicTableContext, readable);
 
