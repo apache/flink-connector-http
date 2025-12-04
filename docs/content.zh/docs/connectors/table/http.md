@@ -241,6 +241,25 @@ POST, PUT and GET operations. This query creator allows you to issue json reques
 your own custom http connector. The mappings from columns to the json request are supplied in the query creator configuration
 parameters `http.request.query-param-fields`, `http.request.body-fields` and `http.request.url-map`.
 
+### Format considerations
+
+#### For http requests
+In order to use custom format, user has to specify option `'lookup-request.format' = 'customFormatName'`, where `customFormatName` is the identifier of custom format factory.
+
+Additionally, it is possible to pass custom query format options from table's DDL.
+This can be done by using option like so: `'lookup-request.format.customFormatName.customFormatProperty' = 'propertyValue'`, for example
+`'lookup-request.format.customFormatName.fail-on-missing-field' = 'true'`.
+
+With default configuration, Flink-Json format is used for `GenericGetQueryCreator`, all options defined in [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)
+can be passed through table DDL. For example `'lookup-request.format.json.fail-on-missing-field' = 'true'`. In this case, format identifier is `json`.
+
+#### For http responses
+Specify your format options at the top level. For example:
+```roomsql
+       'format' = 'json',
+       'json.ignore-parse-errors' = 'true',
+```
+
 ### http-generic-json-url Query Creator
 
 The default Query Creator is called _http-generic-json-url_.  For body based queries such as POST/PUT requests, the

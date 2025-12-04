@@ -1050,7 +1050,11 @@ class HttpLookupTableSourceITCaseTest {
         if (spec.badStatus) {
             assertEnrichedRowsNoDataBadStatus(rows);
         } else if (spec.deserError) {
-            assertEnrichedRowsDeserException(rows);
+            if (spec.ignoreParseErrors) {
+                assertEnrichedRowsNoDataGoodStatus(rows);
+            } else {
+                assertEnrichedRowsDeserException(rows);
+            }
         } else if (spec.connectionError) {
             assertEnrichedRowsException(rows);
         } else if (spec.useMetadata) {
@@ -1119,6 +1123,35 @@ class HttpLookupTableSourceITCaseTest {
                         assertEquals(
                                 row.getField("completionState"),
                                 HttpCompletionState.HTTP_ERROR_STATUS.name());
+                    }
+                });
+    }
+
+    private void assertEnrichedRowsNoDataGoodStatus(Collection<Row> collectedRows) {
+
+        final int rowArity = 10;
+        // validate every row and its column.
+
+        assertAll(
+                () -> {
+                    assertThat(collectedRows.size()).isEqualTo(4);
+                    int intElement = 0;
+                    for (Row row : collectedRows) {
+                        intElement++;
+                        assertThat(row.getArity()).isEqualTo(rowArity);
+                        // "id" and "id2" columns should be different for every row.
+                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+                        assertThat(row.getField("uuid")).isNull();
+                        assertThat(row.getField("isActive")).isNull();
+                        assertThat(row.getField("balance")).isNull();
+                        // metadata
+                        assertThat(row.getField("errStr")).isNull();
+                        assertThat(row.getField("headers")).isNotNull();
+                        assertThat(row.getField("statusCode")).isEqualTo(200);
+                        assertEquals(
+                                row.getField("completionState"),
+                                HttpCompletionState.SUCCESS.name());
                     }
                 });
     }
@@ -1393,17 +1426,20 @@ class HttpLookupTableSourceITCaseTest {
         for (String method : Arrays.asList("GET", "POST", "PUT")) {
             for (boolean asyncFlag : Arrays.asList(false, true)) {
                 for (boolean continueOnError : Arrays.asList(false, true)) {
-                    specs.add(
-                            TestSpec.builder()
-                                    .testName(
-                                            "HTTP Lookup Join With Metadata Deserialization Error")
-                                    .methodName(method)
-                                    .useMetadata(true)
-                                    .maxRows(4)
-                                    .useAsync(asyncFlag)
-                                    .deserError(true)
-                                    .continueOnError(continueOnError)
-                                    .build());
+                    for (boolean ignoreParseErrors : Arrays.asList(false, true)) {
+                        specs.add(
+                                TestSpec.builder()
+                                        .testName(
+                                                "HTTP Lookup Join With Metadata Deserialization Error")
+                                        .methodName(method)
+                                        .useMetadata(true)
+                                        .maxRows(4)
+                                        .useAsync(asyncFlag)
+                                        .deserError(true)
+                                        .ignoreParseErrors(ignoreParseErrors)
+                                        .continueOnError(continueOnError)
+                                        .build());
+                    }
                 }
             }
         }
@@ -1446,6 +1482,7 @@ class HttpLookupTableSourceITCaseTest {
         final int maxRows;
         final boolean useAsync;
         final boolean continueOnError;
+        final boolean ignoreParseErrors;
 
         @Override
         public String toString() {
@@ -1529,7 +1566,9 @@ class HttpLookupTableSourceITCaseTest {
         }
 
         sql.append(") WITH (").append("'format' = 'json',").append("'connector' = 'http',");
-
+        if (spec.ignoreParseErrors) {
+            sql.append("'json.ignore-parse-errors' = 'true',");
+        }
         if (!StringUtils.isNullOrWhitespaceOnly(spec.methodName)) {
             sql.append("'lookup-method' = '").append(spec.methodName).append("',");
         }
