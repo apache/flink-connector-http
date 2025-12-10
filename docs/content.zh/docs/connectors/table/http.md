@@ -82,7 +82,7 @@ The Flink connector does have some changes that you need to be aware of if you a
 
 * Existing java applications will need to be recompiled to pick up the new flink package names.
 * Existing application and SQL need to be amended to use the new connector option names. The new option names do not have
-  the _com.getindata.http_ prefix, the prefix is now _http_.
+* the _com.getindata.http_ prefix, the prefix is now _http_.
 * The name of the connector and the identifiers of components that are discovered have been changed, so that the GetInData jar file can co-exist
 * with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against
 * this connector.
@@ -244,13 +244,16 @@ parameters `http.request.query-param-fields`, `http.request.body-fields` and `ht
 ### Format considerations
 
 #### For http requests
-In order to use a custom format, users have to specify the option `'lookup-request.format' = 'customFormatName'`, where `customFormatName` is the identifier of custom format factory.
+In order to use a custom format, users have to specify the option `'lookup-request.format' = '{customFormatName}'`, where `{customFormatName}` is the identifier of the custom format factory.
 Additionally, it is possible to pass custom query format options from table's DDL.
-This can be done by using option like so: `'lookup-request.format.customFormatName.customFormatProperty' = 'propertyValue'`, for example
-`'lookup-request.format.customFormatName.fail-on-missing-field' = 'true'`.
+This can be done by: `'lookup-request.format.{customFormatName}.{customFormatProperty}' = '{propertyValue}'`, where {customFormatProperty} is the name of a custom
+property and {propertyValue} is the property value.
+For example:
+`'lookup-request.format.myCustomFormatName.foo' = 'baa'`.
 
-With default configuration, Flink-Json format is used for `GenericGetQueryCreator`, all options defined in [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)
-can be passed through table DDL. For example `'lookup-request.format.json.fail-on-missing-field' = 'true'`. In this case, format identifier is `json`.
+With the default configuration, flink-Json format is used for `GenericGetQueryCreator`; all options defined in [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/) can be passed through the table DDL.
+For example:
+`'lookup-request.format.json.fail-on-missing-field' = 'true'`.
 
 #### For http responses
 Specify your format options at the top level. For example:
