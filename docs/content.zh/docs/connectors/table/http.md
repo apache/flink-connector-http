@@ -32,7 +32,6 @@ under the License.
 {{< label "Lookup Source: Async Mode" >}}
 {{< label "Sink: Batch" >}}
 
-
 The HTTP connector allows for pulling data from external system via HTTP methods and HTTP Sink that allows for sending data to external system via HTTP requests.
 
 The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sourcessinks/#lookup-table-source) in [Table API and SQL](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/overview/).
@@ -40,6 +39,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
 <!-- TOC -->
 * [HTTP Connector](#http-connector)
   * [Dependencies](#dependencies)
+  * [Migration from GetInData HTTP connector](#migration-from-getindata-http-connector)
   * [Working with HTTP lookup source tables](#working-with-http-lookup-source-tables)
     * [HTTP Lookup Table API and SQL Source example](#http-lookup-table-api-and-sql-source-example)
     * [Using a HTTP Lookup Source in a lookup join](#using-a-http-lookup-source-in-a-lookup-join)
@@ -50,8 +50,8 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Http headers](#http-headers)
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
-    * [Retries (Lookup source)](#retries-lookup-source)
-      * [Retry strategy](#retry-strategy)
+    * [Retries and handling errors (Lookup source)](#retries-and-handling-errors-lookup-source)
+        * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -61,11 +61,13 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Batch submission mode](#batch-submission-mode)
     * [Single submission mode](#single-submission-mode)
   * [Available Metadata](#available-metadata)
+    * [http-completion-state possible values](#http-completion-state-possible-values)
   * [HTTP status code handler](#http-status-code-handler)
   * [Security considerations](#security-considerations)
     * [TLS (more secure replacement for SSL) and mTLS support](#tls-more-secure-replacement-for-ssl-and-mtls-support)
     * [Basic Authentication](#basic-authentication)
     * [OIDC Bearer Authentication](#oidc-bearer-authentication)
+  * [Logging the HTTP content](#logging-the-http-content)
       * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
 ## Dependencies
@@ -502,20 +504,23 @@ Metadata columns can be specified and hold http information. They are optional r
 
 | Key                   | Data Type                        | Description                            |
 |-----------------------|----------------------------------|----------------------------------------|
-| error-string          | STRING NULL                      | A message associated with the error    |
+| error-string          | STRING NULL                      | A string associated with the error     |
 | http-status-code      | INT NULL                         | The HTTP status code                   |
 | http-headers-map      | MAP <STRING, ARRAY<STRING>> NULL | The headers returned with the response |
 | http-completion-state | STRING NULL                      | The completion state of the http call. |
 
 ### http-completion-state possible values
 
-| Value             | Description            |
-|:------------------|------------------------|
-| SUCCESS           | Success                |
-| HTTP_ERROR_STATUS | HTTP error status code |
-| EXCEPTION         | An Exception occurred  |
+| Value                          | Description                         |
+|:-------------------------------|-------------------------------------|
+| SUCCESS                        | Success                             |
+| HTTP_ERROR_STATUS              | HTTP error status code              |
+| EXCEPTION                      | An Exception occurred               |
+| UNABLE_TO_DESERIALIZE_RESPONSE | Unable to deserialize HTTP response |
 
 If the `error-string` metadata column is defined on the table and the call succeeds then it will have a null value.
+When the HTTP response cannot be deserialized, then the `http-completion-state` will be `UNABLE_TO_DESERIALIZE_RESPONSE`
+and the `error-string` will be the response body.
 
 When a http lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the http call
 are not populated, this means that they will be null for nullable columns and hold a default value for the type for non-nullable columns.

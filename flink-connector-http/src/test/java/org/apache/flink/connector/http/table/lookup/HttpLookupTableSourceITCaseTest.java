@@ -102,6 +102,8 @@ class HttpLookupTableSourceITCaseTest {
 
     private static final String ENDPOINT = "/client";
 
+    public static final String A_TEST_STRING_THAT_IS_NOT_JSON = "A test string that is not json";
+
     /** Comparator for Flink SQL result. */
     private static final Comparator<Row> ROW_COMPARATOR =
             (row1, row2) -> {
@@ -1176,13 +1178,12 @@ class HttpLookupTableSourceITCaseTest {
                         assertThat(row.getField("balance")).isNull();
                         // metadata
                         assertThat(row.getField("errStr"))
-                                .isEqualTo(
-                                        "Failed to deserialize JSON 'A test string that is not json'.");
+                                .isEqualTo(A_TEST_STRING_THAT_IS_NOT_JSON);
                         assertThat(row.getField("headers")).isNotNull();
                         assertThat(row.getField("statusCode")).isEqualTo(200);
                         assertEquals(
                                 row.getField("completionState"),
-                                HttpCompletionState.EXCEPTION.name());
+                                HttpCompletionState.UNABLE_TO_DESERIALIZE_RESPONSE.name());
                     }
                 });
     }
@@ -1309,7 +1310,7 @@ class HttpLookupTableSourceITCaseTest {
             if (isDeserErr) {
                 methodStub.willReturn(
                         aResponse()
-                                .withBody("A test string that is not json")
+                                .withBody(A_TEST_STRING_THAT_IS_NOT_JSON)
                                 .withStatus(200)
                                 .withHeader("Content-Type", "text/plain"));
             } else {
@@ -1517,7 +1518,7 @@ class HttpLookupTableSourceITCaseTest {
                                 .withHeader("Content-Type", equalTo("application/json"))
                                 .willReturn(
                                         aResponse()
-                                                .withBody("A test string that is not json")
+                                                .withBody(A_TEST_STRING_THAT_IS_NOT_JSON)
                                                 .withStatus(200)));
             } else {
                 setUpServerBodyStub(

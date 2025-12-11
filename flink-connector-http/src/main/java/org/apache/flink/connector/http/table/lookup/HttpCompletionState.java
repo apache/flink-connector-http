@@ -21,5 +21,6 @@ package org.apache.flink.connector.http.table.lookup;
 public enum HttpCompletionState {
     HTTP_ERROR_STATUS,
     EXCEPTION,
-    SUCCESS
+    SUCCESS,
+    UNABLE_TO_DESERIALIZE_RESPONSE
 }
