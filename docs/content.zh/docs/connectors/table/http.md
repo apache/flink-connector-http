@@ -243,7 +243,7 @@ parameters `http.request.query-param-fields`, `http.request.body-fields` and `ht
 
 ### Format considerations
 
-#### For http requests
+#### For HTTP requests
 In order to use a custom format, users have to specify the option `'lookup-request.format' = '{customFormatName}'`, where `{customFormatName}` is the identifier of the custom format factory.
 Additionally, it is possible to pass custom query format options from table's DDL.
 This can be done by: `'lookup-request.format.{customFormatName}.{customFormatProperty}' = '{propertyValue}'`, where {customFormatProperty} is the name of a custom
@@ -255,7 +255,7 @@ With the default configuration, flink-Json format is used for `GenericGetQueryCr
 For example:
 `'lookup-request.format.json.fail-on-missing-field' = 'true'`.
 
-#### For http responses
+#### For HTTP responses
 Specify your format options at the top level. For example:
 ```roomsql
        'format' = 'json',

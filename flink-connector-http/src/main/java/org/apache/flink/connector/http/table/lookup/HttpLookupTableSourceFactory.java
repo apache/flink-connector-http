@@ -98,7 +98,6 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
 
         ReadableConfig readable = helper.getOptions();
 
-        // Discover and validate the decoding format first - this validates format-specific options
         DecodingFormat<DeserializationSchema<RowData>> decodingFormat =
                 helper.discoverDecodingFormat(
                         DeserializationFormatFactory.class, FactoryUtil.FORMAT);
