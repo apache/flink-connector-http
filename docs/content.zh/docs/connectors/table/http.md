@@ -46,12 +46,15 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Lookup Source Connector Options](#lookup-source-connector-options)
     * [Query Creators](#query-creators)
     * [http-generic-json-url Query Creator](#http-generic-json-url-query-creator)
+    * [Format considerations](#format-considerations)
+      * [For HTTP requests](#for-http-requests)
+      * [For HTTP responses](#for-http-responses)
     * [http-generic-json-url Query Creator](#http-generic-json-url-query-creator-1)
     * [Http headers](#http-headers)
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries and handling errors (Lookup source)](#retries-and-handling-errors-lookup-source)
-        * [Retry strategy](#retry-strategy)
+      * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -68,7 +71,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Basic Authentication](#basic-authentication)
     * [OIDC Bearer Authentication](#oidc-bearer-authentication)
   * [Logging the HTTP content](#logging-the-http-content)
-      * [Restrictions at this time](#restrictions-at-this-time)
+    * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
 ## Dependencies
 
