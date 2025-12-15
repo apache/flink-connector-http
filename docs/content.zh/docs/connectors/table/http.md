@@ -54,7 +54,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries and handling errors (Lookup source)](#retries-and-handling-errors-lookup-source)
-      * [Retry strategy](#retry-strategy)
+        * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -71,7 +71,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Basic Authentication](#basic-authentication)
     * [OIDC Bearer Authentication](#oidc-bearer-authentication)
   * [Logging the HTTP content](#logging-the-http-content)
-    * [Restrictions at this time](#restrictions-at-this-time)
+      * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
 ## Dependencies
 
@@ -525,7 +525,7 @@ If the `error-string` metadata column is defined on the table and the call succe
 When the HTTP response cannot be deserialized, then the `http-completion-state` will be `UNABLE_TO_DESERIALIZE_RESPONSE`
 and the `error-string` will be the response body.
 
-When a http lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the http call
+When a HTTP lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the HTTP call
 are not populated, this means that they will be null for nullable columns and hold a default value for the type for non-nullable columns.
 
 If you are using the Table API `TableResult` and have an `await` with a timeout, this Timeout exception will cause the job to terminate,
@@ -570,8 +570,8 @@ To disable retries, set `'lookup.max-retries' = '0'`.
 
 ### TLS (more secure replacement for SSL) and mTLS support
 
-Both Http Sink and Lookup Source connectors support HTTPS communication using TLS 1.2 and mTLS.
-To enable Https communication simply use `https` protocol in endpoint's URL.
+Both HTTP Sink and Lookup Source connectors support HTTPS communication using TLS 1.2 and mTLS.
+To enable HTTPS communication simply use `https` protocol in endpoint's URL.
 
 To specify certificate(s) to be used by the server, use `http.security.cert.server` connector property;
 the value is a comma separated list of paths to certificate(s), for example you can use your organization's CA
@@ -585,7 +585,7 @@ and `http.security.key.client` connector properties to specify paths to the cert
 private key. The key MUST be in `PCKS8` format. Both PEM and DER keys are
 allowed.
 
-For non production environments it is sometimes necessary to use Https connection and accept all certificates.
+For non production environments it is sometimes necessary to use HTTPS connection and accept all certificates.
 In this special case, you can configure connector to trust all certificates without adding them to keystore.
 To enable this option use `http.security.cert.server.allowSelfSigned` property setting its value to `true`.
 
