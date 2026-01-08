@@ -32,7 +32,6 @@ import org.apache.flink.connector.http.status.HttpResponseChecker;
 import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
-import org.apache.flink.util.Collector;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.StringUtils;
 
