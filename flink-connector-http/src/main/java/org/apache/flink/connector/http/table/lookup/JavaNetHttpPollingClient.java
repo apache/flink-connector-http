@@ -18,6 +18,7 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.HttpLogger;
@@ -327,21 +328,22 @@ public class JavaNetHttpPollingClient implements PollingClient {
     }
 
     private List<RowData> deserializeSingleValue(byte[] rawBytes) throws IOException {
-        return Optional.ofNullable(responseBodyDecoder.deserialize(rawBytes))
-                .map(Collections::singletonList)
-                .orElse(Collections.emptyList());
+        List<RowData> result = new ArrayList<>();
+        responseBodyDecoder.deserialize(rawBytes, new ListCollector(result));
+        return result;
     }
 
-    private List<RowData> deserializeArray(byte[] rawBytes) throws IOException {
+    @VisibleForTesting
+    List<RowData> deserializeArray(byte[] rawBytes) throws IOException {
         List<JsonNode> rawObjects = objectMapper.readValue(rawBytes, new TypeReference<>() {});
         List<RowData> result = new ArrayList<>();
         for (JsonNode rawObject : rawObjects) {
             if (!(rawObject instanceof NullNode)) {
-                RowData deserialized =
-                        responseBodyDecoder.deserialize(rawObject.toString().getBytes());
-                // deserialize() returns null if deserialization fails
-                if (deserialized != null) {
-                    result.add(deserialized);
+                List<RowData> deserialized =
+                        deserializeSingleValue(rawObject.toString().getBytes());
+                // deserialize() may return empty list if deserialization fails
+                if (deserialized != null && !deserialized.isEmpty()) {
+                    result.addAll(deserialized);
                 }
             }
         }
