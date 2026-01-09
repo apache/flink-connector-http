@@ -18,6 +18,7 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.HttpLogger;
@@ -32,7 +33,6 @@ import org.apache.flink.connector.http.status.HttpResponseChecker;
 import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
-import org.apache.flink.util.Collector;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.StringUtils;
 
@@ -327,36 +327,10 @@ public class JavaNetHttpPollingClient implements PollingClient {
         }
     }
 
-    @VisibleForTesting
-    List<RowData> deserializeSingleValue(byte[] rawBytes) throws IOException {
+    private List<RowData> deserializeSingleValue(byte[] rawBytes) throws IOException {
         List<RowData> result = new ArrayList<>();
-        responseBodyDecoder.deserialize(rawBytes, createRowDataCollector(result));
+        responseBodyDecoder.deserialize(rawBytes, new ListCollector(result));
         return result;
-    }
-
-    @VisibleForTesting
-    Collector<RowData> createRowDataCollector(List<RowData> result) {
-        return new RowDataCollector(result);
-    }
-
-    /** A simple collector implementation that adds RowData records to a list. */
-    @VisibleForTesting
-    static class RowDataCollector implements Collector<RowData> {
-        private final List<RowData> result;
-
-        RowDataCollector(List<RowData> result) {
-            this.result = result;
-        }
-
-        @Override
-        public void collect(RowData record) {
-            result.add(record);
-        }
-
-        @Override
-        public void close() {
-            // No-op - nothing to clean up
-        }
     }
 
     @VisibleForTesting

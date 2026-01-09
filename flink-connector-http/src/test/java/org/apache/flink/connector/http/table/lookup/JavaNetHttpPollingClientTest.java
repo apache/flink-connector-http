@@ -18,6 +18,7 @@
 
 package org.apache.flink.connector.http.table.lookup;
 
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.Configuration;
@@ -252,7 +253,7 @@ public class JavaNetHttpPollingClientTest {
                                 headerPreprocessor,
                                 options));
 
-        Collector<RowData> collector = client.createRowDataCollector(result);
+        Collector<RowData> collector = new ListCollector(result);
 
         RowData row1 = GenericRowData.of(StringData.fromString("test1"));
         RowData row2 = GenericRowData.of(StringData.fromString("test2"));
@@ -281,7 +282,7 @@ public class JavaNetHttpPollingClientTest {
                                 headerPreprocessor,
                                 options));
 
-        Collector<RowData> collector = client.createRowDataCollector(result);
+        Collector<RowData> collector = new ListCollector(result);
         collector.collect(GenericRowData.of(StringData.fromString("test")));
 
         // WHEN - close should not throw any exception
@@ -305,7 +306,7 @@ public class JavaNetHttpPollingClientTest {
                                 headerPreprocessor,
                                 options));
 
-        Collector<RowData> collector = client.createRowDataCollector(result);
+        Collector<RowData> collector = new ListCollector(result);
 
         // WHEN - close without collecting anything
         collector.close();
