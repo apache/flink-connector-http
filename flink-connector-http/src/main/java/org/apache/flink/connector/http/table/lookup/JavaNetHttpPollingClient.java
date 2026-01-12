@@ -18,6 +18,7 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.HttpLogger;
@@ -331,24 +332,6 @@ public class JavaNetHttpPollingClient implements PollingClient {
         List<RowData> result = new ArrayList<>();
         responseBodyDecoder.deserialize(rawBytes, new ListCollector(result));
         return Collections.unmodifiableList(result);
-    }
-
-    private static class ListCollector implements org.apache.flink.util.Collector<RowData> {
-        private final List<RowData> list;
-
-        ListCollector(List<RowData> list) {
-            this.list = list;
-        }
-
-        @Override
-        public void collect(RowData record) {
-            list.add(record);
-        }
-
-        @Override
-        public void close() {
-            // No-op
-        }
     }
 
     @VisibleForTesting
