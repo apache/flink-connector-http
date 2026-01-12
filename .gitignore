@@ -5,6 +5,7 @@
 .gitignore.swp
 .project
 .settings
+.metals
 .DS_Store
 /.java-version
 .eslintcache

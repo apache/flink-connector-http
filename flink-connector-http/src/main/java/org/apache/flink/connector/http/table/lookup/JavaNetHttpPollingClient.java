@@ -326,22 +326,42 @@ public class JavaNetHttpPollingClient implements PollingClient {
         }
     }
 
-    private List<RowData> deserializeSingleValue(byte[] rawBytes) throws IOException {
-        return Optional.ofNullable(responseBodyDecoder.deserialize(rawBytes))
-                .map(Collections::singletonList)
-                .orElse(Collections.emptyList());
+    @VisibleForTesting
+    List<RowData> deserializeSingleValue(byte[] rawBytes) throws IOException {
+        List<RowData> result = new ArrayList<>();
+        responseBodyDecoder.deserialize(rawBytes, new ListCollector(result));
+        return Collections.unmodifiableList(result);
     }
 
-    private List<RowData> deserializeArray(byte[] rawBytes) throws IOException {
+    private static class ListCollector implements org.apache.flink.util.Collector<RowData> {
+        private final List<RowData> list;
+
+        ListCollector(List<RowData> list) {
+            this.list = list;
+        }
+
+        @Override
+        public void collect(RowData record) {
+            list.add(record);
+        }
+
+        @Override
+        public void close() {
+            // No-op
+        }
+    }
+
+    @VisibleForTesting
+    List<RowData> deserializeArray(byte[] rawBytes) throws IOException {
         List<JsonNode> rawObjects = objectMapper.readValue(rawBytes, new TypeReference<>() {});
         List<RowData> result = new ArrayList<>();
         for (JsonNode rawObject : rawObjects) {
             if (!(rawObject instanceof NullNode)) {
-                RowData deserialized =
-                        responseBodyDecoder.deserialize(rawObject.toString().getBytes());
-                // deserialize() returns null if deserialization fails
-                if (deserialized != null) {
-                    result.add(deserialized);
+                List<RowData> deserialized =
+                        deserializeSingleValue(rawObject.toString().getBytes());
+                // deserialize() may return empty list if deserialization fails
+                if (deserialized != null && !deserialized.isEmpty()) {
+                    result.addAll(deserialized);
                 }
             }
         }
