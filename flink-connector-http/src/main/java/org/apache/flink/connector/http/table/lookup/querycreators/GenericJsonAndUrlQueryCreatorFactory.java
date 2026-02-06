@@ -92,6 +92,18 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                     + "The expected format of the map is:"
                                     + "<br>"
                                     + " key1:value1,key2:value2");
+    public static final ConfigOption<String> ADDITIONAL_REQUEST_JSON =
+            key("http.request.additional-body-json")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Additional JSON content to be merged into the request body"
+                                    + " for PUT and POST operations. The value should be a valid"
+                                    + " JSON object string (e.g., '{\"c\":789}') that will be parsed"
+                                    + " and its fields merged at the top level with the generated"
+                                    + " request body. For example, if the body is {\"a\":123,\"b\":456}"
+                                    + " and additional-json is '{\"c\":789}', the result will be"
+                                    + " {\"a\":123,\"b\":456,\"c\":789}.");
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(
@@ -103,8 +115,10 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         // get the information from config
         final List<String> requestQueryParamsFields =
                 readableConfig.get(REQUEST_QUERY_PARAM_FIELDS);
-        final List<String> requestBodyFields = readableConfig.get(REQUEST_BODY_FIELDS);
         Map<String, String> requestUrlMap = readableConfig.get(REQUEST_URL_MAP);
+        final List<String> requestBodyFields = readableConfig.get(REQUEST_BODY_FIELDS);
+        String additionalRequestJson =
+                readableConfig.getOptional(ADDITIONAL_REQUEST_JSON).orElse(null);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -137,6 +151,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                 requestQueryParamsFields,
                 requestBodyFields,
                 requestUrlMap,
+                additionalRequestJson,
                 lookupRow);
     }
 
@@ -152,6 +167,10 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
-        return Set.of(REQUEST_QUERY_PARAM_FIELDS, REQUEST_BODY_FIELDS, REQUEST_URL_MAP);
+        return Set.of(
+                REQUEST_QUERY_PARAM_FIELDS,
+                REQUEST_BODY_FIELDS,
+                REQUEST_URL_MAP,
+                ADDITIONAL_REQUEST_JSON);
     }
 }

@@ -205,6 +205,242 @@ class GenericJsonAndUrlQueryCreatorTest {
         assertThat(row.getField(KEY_3).equals("1970-01-01T00:00:00.010Z"));
     }
 
+    @Test
+    public void testAdditionalJsonSimpleFields() throws Exception {
+        // GIVEN - Simple additional fields
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+                "{\"c\":789,\"d\":\"extra\"}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN
+        String expectedJson = "{\"key1\":\"val1\",\"c\":789,\"d\":\"extra\"}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testAdditionalJsonNestedObject() throws Exception {
+        // GIVEN - Nested object in additional JSON
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+                "{\"nested\":{\"field1\":\"value1\",\"field2\":123}}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN
+        String expectedJson =
+                "{\"key1\":\"val1\",\"nested\":{\"field1\":\"value1\",\"field2\":123}}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testAdditionalJsonMultipleNestedObjects() throws Exception {
+        // GIVEN - Multiple nested objects
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+                "{\"obj1\":{\"a\":1,\"b\":2},\"obj2\":{\"c\":3,\"d\":4}}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN
+        String expectedJson =
+                "{\"key1\":\"val1\",\"obj1\":{\"a\":1,\"b\":2},\"obj2\":{\"c\":3,\"d\":4}}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testAdditionalJsonWithArray() throws Exception {
+        // GIVEN - Array in additional JSON
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+                "{\"items\":[\"item1\",\"item2\",\"item3\"]}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN
+        String expectedJson = "{\"key1\":\"val1\",\"items\":[\"item1\",\"item2\",\"item3\"]}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testAdditionalJsonComplexStructure() throws Exception {
+        // GIVEN - Complex nested structure with arrays and objects
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+                "{\"metadata\":{\"tags\":[\"tag1\",\"tag2\"],\"count\":5},\"flags\":[true,false]}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN
+        String expectedJson =
+                "{\"key1\":\"val1\",\"metadata\":{\"tags\":[\"tag1\",\"tag2\"],\"count\":5},\"flags\":[true,false]}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testAdditionalJsonWithBoolean() throws Exception {
+        // GIVEN - Boolean values in additional JSON
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+                "{\"isActive\":true,\"isDeleted\":false}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN
+        String expectedJson = "{\"key1\":\"val1\",\"isActive\":true,\"isDeleted\":false}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testAdditionalJsonNullOrEmpty() {
+        // GIVEN - Null additional JSON
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        // No additional JSON set
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN - Should work without additional JSON
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("{\"key1\":\"val1\"}");
+    }
+
+    @Test
+    public void testAdditionalJsonInvalidJson() {
+        // GIVEN - Invalid JSON
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON, "{invalid json}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN/THEN - Should throw RuntimeException
+        assertThrows(RuntimeException.class, () -> creator.createLookupQuery(ROWDATA));
+    }
+
+    @Test
+    public void testAdditionalJsonNotAppliedToGet() {
+        // GIVEN - GET request with additional JSON
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("GET");
+        config.setString(
+                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON, "{\"c\":789}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN - Additional JSON should not affect GET requests (query params only)
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
+    }
+
     private static void validateCreatedQueryForGet(LookupQueryInfo createdQuery) {
         // check there is no body params and we have the expected lookup query
         assertThat(createdQuery.getBodyBasedUrlQueryParameters()).isEmpty();
