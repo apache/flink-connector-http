@@ -210,8 +210,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Simple additional fields
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
                 "{\"c\":789,\"d\":\"extra\"}");
 
         GenericJsonAndUrlQueryCreator creator =
@@ -238,8 +238,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Nested object in additional JSON
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
                 "{\"nested\":{\"field1\":\"value1\",\"field2\":123}}");
 
         GenericJsonAndUrlQueryCreator creator =
@@ -267,8 +267,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Multiple nested objects
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
                 "{\"obj1\":{\"a\":1,\"b\":2},\"obj2\":{\"c\":3,\"d\":4}}");
 
         GenericJsonAndUrlQueryCreator creator =
@@ -296,8 +296,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Array in additional JSON
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
                 "{\"items\":[\"item1\",\"item2\",\"item3\"]}");
 
         GenericJsonAndUrlQueryCreator creator =
@@ -324,10 +324,9 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Complex nested structure with arrays and objects
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
                 "{\"metadata\":{\"tags\":[\"tag1\",\"tag2\"],\"count\":5},\"flags\":[true,false]}");
-
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
                         new GenericJsonAndUrlQueryCreatorFactory()
@@ -335,7 +334,6 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         config,
                                         lookupRow,
                                         getTableContext(config, RESOLVED_SCHEMA));
-
         // WHEN
         var createdQuery = creator.createLookupQuery(ROWDATA);
 
@@ -353,8 +351,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Boolean values in additional JSON
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON,
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
                 "{\"isActive\":true,\"isDeleted\":false}");
 
         GenericJsonAndUrlQueryCreator creator =
@@ -403,19 +401,18 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Invalid JSON
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("POST");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON, "{invalid json}");
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{invalid json}");
 
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-
-        // WHEN/THEN - Should throw RuntimeException
-        assertThrows(RuntimeException.class, () -> creator.createLookupQuery(ROWDATA));
+        // WHEN/THEN - Should throw IllegalArgumentException during factory creation
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    new GenericJsonAndUrlQueryCreatorFactory()
+                            .createLookupQueryCreator(
+                                    config, lookupRow, getTableContext(config, RESOLVED_SCHEMA));
+                });
     }
 
     @Test
@@ -423,8 +420,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - GET request with additional JSON
         LookupRow lookupRow = getLookupRow(KEY_1);
         Configuration config = getConfiguration("GET");
-        config.setString(
-                GenericJsonAndUrlQueryCreatorFactory.ADDITIONAL_REQUEST_JSON, "{\"c\":789}");
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON, "{\"c\":789}");
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -439,6 +436,210 @@ class GenericJsonAndUrlQueryCreatorTest {
 
         // THEN - Additional JSON should not affect GET requests (query params only)
         assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
+    }
+
+    @Test
+    public void testAdditionalJsonOverridesJoinKey() {
+        // GIVEN - Additional JSON that tries to override a join key
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = getConfiguration("POST");
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{\"key1\":\"override_value\",\"c\":789}");
+
+        // WHEN/THEN - Should throw IllegalArgumentException
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> {
+                            new GenericJsonAndUrlQueryCreatorFactory()
+                                    .createLookupQueryCreator(
+                                            config,
+                                            lookupRow,
+                                            getTableContext(config, RESOLVED_SCHEMA));
+                        });
+
+        // Verify the error message
+        assertThat(exception.getMessage())
+                .contains(
+                        "The http.request.additional-body-json option should not override join keys");
+        assertThat(exception.getMessage())
+                .contains(
+                        "as join keys are expected to target different enrichments on a request basis");
+        assertThat(exception.getMessage()).contains("key1");
+    }
+
+    @Test
+    public void testAdditionalJsonOverridesMultipleJoinKeys() {
+        // GIVEN - Additional JSON that tries to override multiple join keys
+        LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
+        Configuration config = getConfiguration("POST");
+        // Set body fields to include both keys
+        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, List.of(KEY_1, KEY_2));
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{\"key1\":\"override1\",\"key2\":\"override2\",\"c\":789}");
+
+        // WHEN/THEN - Should throw IllegalArgumentException with all conflicting fields
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> {
+                            new GenericJsonAndUrlQueryCreatorFactory()
+                                    .createLookupQueryCreator(
+                                            config,
+                                            lookupRow,
+                                            getTableContext(config, RESOLVED_SCHEMA));
+                        });
+
+        // Verify the error message contains both fields
+        assertThat(exception.getMessage())
+                .contains(
+                        "The http.request.additional-body-json option should not override join keys");
+        assertThat(exception.getMessage())
+                .contains(
+                        "as join keys are expected to target different enrichments on a request basis");
+        assertThat(exception.getMessage()).contains("Found conflicting fields:");
+        assertThat(exception.getMessage()).contains("key1");
+        assertThat(exception.getMessage()).contains("key2");
+    }
+
+    @Test
+    public void testAdditionalJsonOverridesMultipleJoinKeysDifferentOrder() {
+        // GIVEN - Additional JSON with fields in different order than body fields
+        // Body fields: key1, key2
+        // Additional JSON: key2, key1 (reversed order)
+        LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
+        Configuration config = getConfiguration("POST");
+        // Set body fields: key1, key2
+        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, List.of(KEY_1, KEY_2));
+        // Additional JSON has reversed order: key2, key1
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{\"key2\":\"override2\",\"key1\":\"override1\",\"c\":789}");
+
+        // WHEN/THEN - Should throw IllegalArgumentException with all conflicting fields
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> {
+                            new GenericJsonAndUrlQueryCreatorFactory()
+                                    .createLookupQueryCreator(
+                                            config,
+                                            lookupRow,
+                                            getTableContext(config, RESOLVED_SCHEMA));
+                        });
+
+        // Verify the error message contains both fields regardless of order
+        assertThat(exception.getMessage())
+                .contains(
+                        "The http.request.additional-body-json option should not override join keys");
+        assertThat(exception.getMessage())
+                .contains(
+                        "as join keys are expected to target different enrichments on a request basis");
+        assertThat(exception.getMessage()).contains("Found conflicting fields:");
+        assertThat(exception.getMessage()).contains("key1");
+        assertThat(exception.getMessage()).contains("key2");
+    }
+
+    @Test
+    public void testAdditionalJsonWithNoBodyFields() throws Exception {
+        // GIVEN - Lookup key mapped to query param, not body field
+        // This allows additional JSON to be the entire request body
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        Configuration config = new Configuration();
+        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
+        config.set(LOOKUP_METHOD, "POST");
+        // Map lookup key to query param, not body field
+        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
+        // Don't set REQUEST_BODY_FIELDS - it will be empty (no body fields)
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{\"staticField\":\"staticValue\",\"count\":42,\"active\":true}");
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+
+        // THEN - Additional JSON should be used as the entire body
+        String expectedJson = "{\"staticField\":\"staticValue\",\"count\":42,\"active\":true}";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expected = mapper.readTree(expectedJson);
+        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
+        assertThat(actual).isEqualTo(expected);
+        // Verify the lookup key is in query params, not body
+        assertThat(createdQuery.getBodyBasedUrlQueryParameters()).isEqualTo(KEY_1 + "=" + VALUE);
+    }
+
+    @Test
+    public void testAdditionalJsonOverridesBodyFieldFromUserScenario() {
+        // GIVEN - User scenario: body field 'customerId' with additional JSON trying to override it
+        LookupRow lookupRow = new LookupRow();
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "customerId",
+                        RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.setLookupPhysicalRowDataType(
+                row(List.of(DataTypes.FIELD("customerId", DataTypes.STRING()))));
+
+        Configuration config = new Configuration();
+        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
+        config.set(LOOKUP_METHOD, "POST");
+        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, List.of("customerId"));
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{\"customerId\":\"bbb\"}");
+
+        // WHEN/THEN - Should throw IllegalArgumentException because additional JSON tries to
+        // override body field
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> {
+                            new GenericJsonAndUrlQueryCreatorFactory()
+                                    .createLookupQueryCreator(
+                                            config,
+                                            lookupRow,
+                                            getTableContext(config, RESOLVED_SCHEMA));
+                        });
+
+        // Verify error message mentions the conflicting field
+        assertThat(exception.getMessage()).contains("customerId");
+        assertThat(exception.getMessage())
+                .contains("http.request.additional-body-json option should not override join keys");
+    }
+
+    @Test
+    public void testAdditionalJsonCaseSensitiveJoinKeyCheck() {
+        // GIVEN - Additional JSON with different case than join key
+        LookupRow lookupRow = getLookupRow(KEY_1); // key1
+        Configuration config = getConfiguration("POST");
+        // KEY1 (uppercase) should not conflict with key1 (lowercase) - case sensitive
+        config.set(
+                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
+                "{\"KEY1\":\"value\",\"c\":789}");
+
+        // WHEN - Should succeed because case is different
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // THEN - Should work fine
+        var createdQuery = creator.createLookupQuery(ROWDATA);
+        String lookupQuery = createdQuery.getLookupQuery();
+        assertThat(lookupQuery).contains("key1");
+        assertThat(lookupQuery).contains("KEY1");
     }
 
     private static void validateCreatedQueryForGet(LookupQueryInfo createdQuery) {
@@ -468,7 +669,7 @@ class GenericJsonAndUrlQueryCreatorTest {
             config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, QUERY_PARAMS);
         }
         config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
-        config.setString(LOOKUP_METHOD, operation);
+        config.set(LOOKUP_METHOD, operation);
         return config;
     }
 

@@ -32,6 +32,12 @@ import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -92,7 +98,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                     + "The expected format of the map is:"
                                     + "<br>"
                                     + " key1:value1,key2:value2");
-    public static final ConfigOption<String> ADDITIONAL_REQUEST_JSON =
+    public static final ConfigOption<String> REQUEST_ADDITIONAL_BODY_JSON =
             key("http.request.additional-body-json")
                     .stringType()
                     .noDefaultValue()
@@ -118,7 +124,10 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         Map<String, String> requestUrlMap = readableConfig.get(REQUEST_URL_MAP);
         final List<String> requestBodyFields = readableConfig.get(REQUEST_BODY_FIELDS);
         String additionalRequestJson =
-                readableConfig.getOptional(ADDITIONAL_REQUEST_JSON).orElse(null);
+                readableConfig.getOptional(REQUEST_ADDITIONAL_BODY_JSON).orElse(null);
+
+        // Validate that additional JSON does not contain join keys
+        validateAdditionalJsonDoesNotOverrideJoinKeys(requestBodyFields, additionalRequestJson);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -171,6 +180,58 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                 REQUEST_QUERY_PARAM_FIELDS,
                 REQUEST_BODY_FIELDS,
                 REQUEST_URL_MAP,
-                ADDITIONAL_REQUEST_JSON);
+                REQUEST_ADDITIONAL_BODY_JSON);
+    }
+
+    /**
+     * Validates that additional JSON fields do not override join keys.
+     *
+     * @param requestBodyFields the list of body field names (join keys for POST/PUT)
+     * @param additionalRequestJson the additional JSON string to validate
+     * @throws IllegalArgumentException if additional JSON contains join keys
+     */
+    private void validateAdditionalJsonDoesNotOverrideJoinKeys(
+            List<String> requestBodyFields, String additionalRequestJson) {
+        if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            // Parse the additional JSON to get field names
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(additionalRequestJson);
+
+            if (!jsonNode.isObject()) {
+                throw new IllegalArgumentException(
+                        "The http.request.additional-body-json must be a valid JSON object.");
+            }
+
+            // Get join key names from request body fields (case-sensitive)
+            Set<String> joinKeyNames = new HashSet<>(requestBodyFields);
+
+            // Collect all conflicting fields
+            Set<String> conflictingFields = new HashSet<>();
+            Iterator<String> fieldNames = jsonNode.fieldNames();
+            while (fieldNames.hasNext()) {
+                String fieldName = fieldNames.next();
+                if (joinKeyNames.contains(fieldName)) {
+                    conflictingFields.add(fieldName);
+                }
+            }
+
+            // If there are conflicts, throw exception with all conflicting fields
+            if (!conflictingFields.isEmpty()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The http.request.additional-body-json option should not override join keys, "
+                                        + "as join keys are expected to target different enrichments on a request basis. "
+                                        + "Found conflicting field%s: %s",
+                                conflictingFields.size() > 1 ? "s" : "",
+                                String.join(", ", conflictingFields)));
+            }
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(
+                    "Invalid JSON in http.request.additional-body-json: " + e.getMessage(), e);
+        }
     }
 }
