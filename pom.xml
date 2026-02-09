@@ -76,7 +76,7 @@ under the License.
         <jackson.version>2.18.1</jackson.version>
         <junit5.version>5.10.1</junit5.version>
         <junit.jupiter.version>${junit5.version}</junit.jupiter.version>
-        <assertj.core.version>3.23.1</assertj.core.version>
+        <assertj.core.version>3.27.7</assertj.core.version>
         <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
         <!-- TODO remove mockito dependency 4.6.1 use level that supports java 21-->
         <mockito.version>5.2.0</mockito.version>
