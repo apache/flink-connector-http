@@ -79,7 +79,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     private final List<String> requestQueryParamsFields;
     private final List<String> requestBodyFields;
     private final Map<String, String> requestUrlMap;
-    private final String additionalRequestJson;
+    private final JsonNode additionalRequestJsonNode;
 
     /**
      * Construct a Generic JSON and URL query creator.
@@ -89,7 +89,8 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @param requestQueryParamsFields query param fields
      * @param requestBodyFields body fields used for PUT and POSTs
      * @param requestUrlMap url map
-     * @param additionalRequestJson additional JSON to merge into request body
+     * @param additionalRequestJsonNode pre-parsed additional JSON to merge into request body
+     *     (parsed once in factory to avoid re-parsing on every lookup)
      * @param lookupRow lookup row itself.
      */
     public GenericJsonAndUrlQueryCreator(
@@ -98,7 +99,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             final List<String> requestQueryParamsFields,
             final List<String> requestBodyFields,
             final Map<String, String> requestUrlMap,
-            final String additionalRequestJson,
+            final JsonNode additionalRequestJsonNode,
             final LookupRow lookupRow) {
         this.httpMethod = httpMethod;
         this.serializationSchema = serializationSchema;
@@ -106,7 +107,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         this.requestQueryParamsFields = requestQueryParamsFields;
         this.requestBodyFields = requestBodyFields;
         this.requestUrlMap = requestUrlMap;
-        this.additionalRequestJson = additionalRequestJson;
+        this.additionalRequestJsonNode = additionalRequestJsonNode;
     }
 
     @VisibleForTesting
@@ -151,31 +152,15 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             try {
                 ObjectNode bodyJsonObject = jsonObject.retain(requestBodyFields);
 
-                // Merge additional JSON if provided
-                if (additionalRequestJson != null && !additionalRequestJson.trim().isEmpty()) {
-                    try {
-                        JsonNode additionalNode =
-                                ObjectMapperAdapter.instance().readTree(additionalRequestJson);
-                        if (additionalNode.isObject()) {
-                            ObjectNode additionalObjectNode = (ObjectNode) additionalNode;
-                            // Merge all fields from additional JSON into the body
-                            // This preserves nested objects and arrays as-is
-                            additionalObjectNode
-                                    .fields()
-                                    .forEachRemaining(
-                                            entry ->
-                                                    bodyJsonObject.set(
-                                                            entry.getKey(), entry.getValue()));
-                        } else {
-                            log.warn(
-                                    "Additional request JSON is not a valid JSON object, skipping merge");
-                        }
-                    } catch (IOException e) {
-                        log.error(
-                                "Failed to parse additional request JSON: " + additionalRequestJson,
-                                e);
-                        throw new RuntimeException("Invalid additional request JSON", e);
-                    }
+                // Merge additional JSON if provided (already parsed in factory)
+                if (additionalRequestJsonNode != null && additionalRequestJsonNode.isObject()) {
+                    ObjectNode additionalObjectNode = (ObjectNode) additionalRequestJsonNode;
+                    // Merge all fields from additional JSON into the body
+                    // This preserves nested objects and arrays as-is
+                    additionalObjectNode
+                            .fields()
+                            .forEachRemaining(
+                                    entry -> bodyJsonObject.set(entry.getKey(), entry.getValue()));
                 }
 
                 lookupQuery = ObjectMapperAdapter.instance().writeValueAsString(bodyJsonObject);

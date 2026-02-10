@@ -126,8 +126,9 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         String additionalRequestJson =
                 readableConfig.getOptional(REQUEST_ADDITIONAL_BODY_JSON).orElse(null);
 
-        // Validate that additional JSON does not contain join keys
-        validateAdditionalJsonDoesNotOverrideJoinKeys(requestBodyFields, additionalRequestJson);
+        // Validate and parse additional JSON once (avoids re-parsing on every lookup)
+        JsonNode additionalJsonNode =
+                validateAndParseAdditionalJson(requestBodyFields, additionalRequestJson);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -160,7 +161,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                 requestQueryParamsFields,
                 requestBodyFields,
                 requestUrlMap,
-                additionalRequestJson,
+                additionalJsonNode,
                 lookupRow);
     }
 
@@ -190,14 +191,23 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
      * @param additionalRequestJson the additional JSON string to validate
      * @throws IllegalArgumentException if additional JSON contains join keys
      */
-    private void validateAdditionalJsonDoesNotOverrideJoinKeys(
+    /**
+     * Validates and parses the additional JSON configuration once during factory creation. This
+     * avoids re-parsing the JSON on every lookup request, improving runtime performance.
+     *
+     * @param requestBodyFields the list of request body field names (join keys)
+     * @param additionalRequestJson the additional JSON string to validate and parse
+     * @return the parsed JsonNode, or null if no additional JSON is provided
+     * @throws IllegalArgumentException if the JSON is invalid or contains conflicting fields
+     */
+    private JsonNode validateAndParseAdditionalJson(
             List<String> requestBodyFields, String additionalRequestJson) {
         if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
-            return;
+            return null;
         }
 
         try {
-            // Parse the additional JSON to get field names
+            // Parse the additional JSON once to avoid re-parsing on every lookup
             ObjectMapper mapper = new ObjectMapper();
             JsonNode jsonNode = mapper.readTree(additionalRequestJson);
 
@@ -229,6 +239,8 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                 conflictingFields.size() > 1 ? "s" : "",
                                 String.join(", ", conflictingFields)));
             }
+
+            return jsonNode;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(
                     "Invalid JSON in http.request.additional-body-json: " + e.getMessage(), e);
