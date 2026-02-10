@@ -35,6 +35,7 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -127,8 +128,8 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                 readableConfig.getOptional(REQUEST_ADDITIONAL_BODY_JSON).orElse(null);
 
         // Validate and parse additional JSON once (avoids re-parsing on every lookup)
-        JsonNode additionalJsonNode =
-                validateAndParseAdditionalJson(requestBodyFields, additionalRequestJson);
+        ObjectNode additionalRequestObject =
+                createAdditionalJsonNode(requestBodyFields, additionalRequestJson);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -161,7 +162,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                 requestQueryParamsFields,
                 requestBodyFields,
                 requestUrlMap,
-                additionalJsonNode,
+                additionalRequestObject,
                 lookupRow);
     }
 
@@ -185,22 +186,16 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
     }
 
     /**
-     * Validates that additional JSON fields do not override join keys.
-     *
-     * @param requestBodyFields the list of body field names (join keys for POST/PUT)
-     * @param additionalRequestJson the additional JSON string to validate
-     * @throws IllegalArgumentException if additional JSON contains join keys
-     */
-    /**
-     * Validates and parses the additional JSON configuration once during factory creation. This
-     * avoids re-parsing the JSON on every lookup request, improving runtime performance.
+     * Creates and validates the additional JSON node from configuration. This method parses the
+     * JSON once during factory creation to avoid re-parsing on every lookup request, improving
+     * runtime performance.
      *
      * @param requestBodyFields the list of request body field names (join keys)
      * @param additionalRequestJson the additional JSON string to validate and parse
-     * @return the parsed JsonNode, or null if no additional JSON is provided
+     * @return the parsed ObjectNode, or null if no additional JSON is provided
      * @throws IllegalArgumentException if the JSON is invalid or contains conflicting fields
      */
-    private JsonNode validateAndParseAdditionalJson(
+    private ObjectNode createAdditionalJsonNode(
             List<String> requestBodyFields, String additionalRequestJson) {
         if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
             return null;
@@ -240,7 +235,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                 String.join(", ", conflictingFields)));
             }
 
-            return jsonNode;
+            return (ObjectNode) jsonNode;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(
                     "Invalid JSON in http.request.additional-body-json: " + e.getMessage(), e);
