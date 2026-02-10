@@ -129,7 +129,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
 
         // Validate and parse additional JSON once (avoids re-parsing on every lookup)
         ObjectNode additionalRequestObject =
-                createAdditionalJsonNode(requestBodyFields, additionalRequestJson);
+                createAdditionalObjectNode(requestBodyFields, additionalRequestJson);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -195,7 +195,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
      * @return the parsed ObjectNode, or null if no additional JSON is provided
      * @throws IllegalArgumentException if the JSON is invalid or contains conflicting fields
      */
-    private ObjectNode createAdditionalJsonNode(
+    private ObjectNode createAdditionalObjectNode(
             List<String> requestBodyFields, String additionalRequestJson) {
         if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
             return null;
