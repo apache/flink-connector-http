@@ -499,7 +499,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         assertThat(exception.getMessage())
                 .contains(
                         "as join keys are expected to target different enrichments on a request basis");
-        assertThat(exception.getMessage()).contains("Found conflicting fields:");
+        assertThat(exception.getMessage()).contains("Found conflicting field(s):");
         assertThat(exception.getMessage()).contains("key1");
         assertThat(exception.getMessage()).contains("key2");
     }
@@ -537,7 +537,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         assertThat(exception.getMessage())
                 .contains(
                         "as join keys are expected to target different enrichments on a request basis");
-        assertThat(exception.getMessage()).contains("Found conflicting fields:");
+        assertThat(exception.getMessage()).contains("Found conflicting field(s):");
         assertThat(exception.getMessage()).contains("key1");
         assertThat(exception.getMessage()).contains("key2");
     }

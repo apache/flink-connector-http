@@ -34,11 +34,9 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -108,8 +106,9 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                     + " for PUT and POST operations. The value should be a valid"
                                     + " JSON object string (e.g., '{\"c\":789}') that will be parsed"
                                     + " and its fields merged at the top level with the generated"
-                                    + " request body. For example, if the body is {\"a\":123,\"b\":456}"
-                                    + " and additional-json is '{\"c\":789}', the result will be"
+                                    + " request body. For example, if the body (join keys and runtime values)"
+                                    + " is {\"a\":123,\"b\":456}"
+                                    + " and additional-body-json is '{\"c\":789}', the result will be"
                                     + " {\"a\":123,\"b\":456,\"c\":789}.");
 
     @Override
@@ -127,9 +126,8 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         String additionalRequestJson =
                 readableConfig.getOptional(REQUEST_ADDITIONAL_BODY_JSON).orElse(null);
 
-        // Validate and parse additional JSON once (avoids re-parsing on every lookup)
         ObjectNode additionalRequestObject =
-                createAdditionalObjectNode(requestBodyFields, additionalRequestJson);
+                getValidatedAdditionalObjectNode(requestBodyFields, additionalRequestJson);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -195,7 +193,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
      * @return the parsed ObjectNode, or null if no additional JSON is provided
      * @throws IllegalArgumentException if the JSON is invalid or contains conflicting fields
      */
-    private ObjectNode createAdditionalObjectNode(
+    private ObjectNode getValidatedAdditionalObjectNode(
             List<String> requestBodyFields, String additionalRequestJson) {
         if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
             return null;
@@ -203,42 +201,38 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
 
         try {
             // Parse the additional JSON once to avoid re-parsing on every lookup
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonNode = mapper.readTree(additionalRequestJson);
+            JsonNode jsonNode = ObjectMapperAdapter.instance().readTree(additionalRequestJson);
 
             if (!jsonNode.isObject()) {
                 throw new IllegalArgumentException(
-                        "The http.request.additional-body-json must be a valid JSON object.");
+                        String.format(
+                                "The %s must be a valid JSON object.",
+                                REQUEST_ADDITIONAL_BODY_JSON.key()));
             }
-
-            // Get join key names from request body fields (case-sensitive)
-            Set<String> joinKeyNames = new HashSet<>(requestBodyFields);
 
             // Collect all conflicting fields
             Set<String> conflictingFields = new HashSet<>();
-            Iterator<String> fieldNames = jsonNode.fieldNames();
-            while (fieldNames.hasNext()) {
-                String fieldName = fieldNames.next();
-                if (joinKeyNames.contains(fieldName)) {
-                    conflictingFields.add(fieldName);
-                }
-            }
+            jsonNode.fieldNames().forEachRemaining(conflictingFields::add);
+            conflictingFields.retainAll(requestBodyFields);
 
             // If there are conflicts, throw exception with all conflicting fields
             if (!conflictingFields.isEmpty()) {
                 throw new IllegalArgumentException(
                         String.format(
-                                "The http.request.additional-body-json option should not override join keys, "
+                                "The %s option should not override join keys, "
                                         + "as join keys are expected to target different enrichments on a request basis. "
-                                        + "Found conflicting field%s: %s",
-                                conflictingFields.size() > 1 ? "s" : "",
+                                        + "Found conflicting field(s): %s",
+                                REQUEST_ADDITIONAL_BODY_JSON.key(),
                                 String.join(", ", conflictingFields)));
             }
 
             return (ObjectNode) jsonNode;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(
-                    "Invalid JSON in http.request.additional-body-json: " + e.getMessage(), e);
+                    String.format(
+                            "Invalid JSON in %s:",
+                            REQUEST_ADDITIONAL_BODY_JSON.key(), e.getMessage()),
+                    e);
         }
     }
 }
