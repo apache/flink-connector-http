@@ -79,6 +79,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     private final List<String> requestQueryParamsFields;
     private final List<String> requestBodyFields;
     private final Map<String, String> requestUrlMap;
+    private final ObjectNode additionalRequestObject;
 
     /**
      * Construct a Generic JSON and URL query creator.
@@ -88,6 +89,8 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @param requestQueryParamsFields query param fields
      * @param requestBodyFields body fields used for PUT and POSTs
      * @param requestUrlMap url map
+     * @param additionalRequestObject pre-parsed additional JSON object to merge into request body
+     *     (parsed once in factory to avoid re-parsing on every lookup)
      * @param lookupRow lookup row itself.
      */
     public GenericJsonAndUrlQueryCreator(
@@ -96,6 +99,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             final List<String> requestQueryParamsFields,
             final List<String> requestBodyFields,
             final Map<String, String> requestUrlMap,
+            final ObjectNode additionalRequestObject,
             final LookupRow lookupRow) {
         this.httpMethod = httpMethod;
         this.serializationSchema = serializationSchema;
@@ -103,6 +107,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         this.requestQueryParamsFields = requestQueryParamsFields;
         this.requestBodyFields = requestBodyFields;
         this.requestUrlMap = requestUrlMap;
+        this.additionalRequestObject = additionalRequestObject;
     }
 
     @VisibleForTesting
@@ -145,9 +150,19 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             // Body-based queries
             // serialize to a string for the body.
             try {
-                lookupQuery =
-                        ObjectMapperAdapter.instance()
-                                .writeValueAsString(jsonObject.retain(requestBodyFields));
+                ObjectNode bodyJsonObject = jsonObject.retain(requestBodyFields);
+
+                // Merge additional JSON if provided (already validated as object in factory)
+                if (additionalRequestObject != null) {
+                    // Merge all fields from additional JSON into the body
+                    // This preserves nested objects and arrays as-is
+                    additionalRequestObject
+                            .fields()
+                            .forEachRemaining(
+                                    entry -> bodyJsonObject.set(entry.getKey(), entry.getValue()));
+                }
+
+                lookupQuery = ObjectMapperAdapter.instance().writeValueAsString(bodyJsonObject);
             } catch (JsonProcessingException e) {
                 final String message = "Unable to convert Json Object to a string";
                 throw new RuntimeException(message, e);

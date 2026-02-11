@@ -32,6 +32,11 @@ import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -92,6 +97,19 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                     + "The expected format of the map is:"
                                     + "<br>"
                                     + " key1:value1,key2:value2");
+    public static final ConfigOption<String> REQUEST_ADDITIONAL_BODY_JSON =
+            key("http.request.additional-body-json")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Additional JSON content to be merged into the request body"
+                                    + " for PUT and POST operations. The value should be a valid"
+                                    + " JSON object string (e.g., '{\"c\":789}') that will be parsed"
+                                    + " and its fields merged at the top level with the generated"
+                                    + " request body. For example, if the body (join keys and runtime values)"
+                                    + " is {\"a\":123,\"b\":456}"
+                                    + " and additional-body-json is '{\"c\":789}', the result will be"
+                                    + " {\"a\":123,\"b\":456,\"c\":789}.");
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(
@@ -103,8 +121,13 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         // get the information from config
         final List<String> requestQueryParamsFields =
                 readableConfig.get(REQUEST_QUERY_PARAM_FIELDS);
-        final List<String> requestBodyFields = readableConfig.get(REQUEST_BODY_FIELDS);
         Map<String, String> requestUrlMap = readableConfig.get(REQUEST_URL_MAP);
+        final List<String> requestBodyFields = readableConfig.get(REQUEST_BODY_FIELDS);
+        String additionalRequestJson =
+                readableConfig.getOptional(REQUEST_ADDITIONAL_BODY_JSON).orElse(null);
+
+        ObjectNode additionalRequestObject =
+                getValidatedAdditionalObjectNode(requestBodyFields, additionalRequestJson);
 
         final SerializationFormatFactory jsonFormatFactory =
                 FactoryUtil.discoverFactory(
@@ -137,6 +160,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                 requestQueryParamsFields,
                 requestBodyFields,
                 requestUrlMap,
+                additionalRequestObject,
                 lookupRow);
     }
 
@@ -152,6 +176,63 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
-        return Set.of(REQUEST_QUERY_PARAM_FIELDS, REQUEST_BODY_FIELDS, REQUEST_URL_MAP);
+        return Set.of(
+                REQUEST_QUERY_PARAM_FIELDS,
+                REQUEST_BODY_FIELDS,
+                REQUEST_URL_MAP,
+                REQUEST_ADDITIONAL_BODY_JSON);
+    }
+
+    /**
+     * Creates and validates the additional JSON node from configuration. This method parses the
+     * JSON once during factory creation to avoid re-parsing on every lookup request, improving
+     * runtime performance.
+     *
+     * @param requestBodyFields the list of request body field names (join keys)
+     * @param additionalRequestJson the additional JSON string to validate and parse
+     * @return the parsed ObjectNode, or null if no additional JSON is provided
+     * @throws IllegalArgumentException if the JSON is invalid or contains conflicting fields
+     */
+    private ObjectNode getValidatedAdditionalObjectNode(
+            List<String> requestBodyFields, String additionalRequestJson) {
+        if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Parse the additional JSON once to avoid re-parsing on every lookup
+            JsonNode jsonNode = ObjectMapperAdapter.instance().readTree(additionalRequestJson);
+
+            if (!jsonNode.isObject()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The %s must be a valid JSON object.",
+                                REQUEST_ADDITIONAL_BODY_JSON.key()));
+            }
+
+            // Collect all conflicting fields
+            Set<String> conflictingFields = new HashSet<>();
+            jsonNode.fieldNames().forEachRemaining(conflictingFields::add);
+            conflictingFields.retainAll(requestBodyFields);
+
+            // If there are conflicts, throw exception with all conflicting fields
+            if (!conflictingFields.isEmpty()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The %s option should not override join keys, "
+                                        + "as join keys are expected to target different enrichments on a request basis. "
+                                        + "Found conflicting field(s): %s",
+                                REQUEST_ADDITIONAL_BODY_JSON.key(),
+                                String.join(", ", conflictingFields)));
+            }
+
+            return (ObjectNode) jsonNode;
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid JSON in %s:",
+                            REQUEST_ADDITIONAL_BODY_JSON.key(), e.getMessage()),
+                    e);
+        }
     }
 }
