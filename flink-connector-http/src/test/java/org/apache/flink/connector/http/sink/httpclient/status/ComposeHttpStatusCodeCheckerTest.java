@@ -37,8 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link ComposeHttpStatusCodeChecker}. */
 class ComposeHttpStatusCodeCheckerTest {
@@ -76,15 +75,12 @@ class ComposeHttpStatusCodeCheckerTest {
 
         codeChecker = new ComposeHttpStatusCodeChecker(checkerConfig);
 
-        assertAll(
-                () -> {
-                    assertThat(codeChecker.isErrorCode(100)).isFalse();
-                    assertThat(codeChecker.isErrorCode(200)).isFalse();
-                    assertThat(codeChecker.isErrorCode(500)).isTrue();
-                    assertThat(codeChecker.isErrorCode(501)).isTrue();
-                    assertThat(codeChecker.isErrorCode(400)).isTrue();
-                    assertThat(codeChecker.isErrorCode(404)).isTrue();
-                });
+        assertThat(codeChecker.isErrorCode(100)).isFalse();
+        assertThat(codeChecker.isErrorCode(200)).isFalse();
+        assertThat(codeChecker.isErrorCode(500)).isTrue();
+        assertThat(codeChecker.isErrorCode(501)).isTrue();
+        assertThat(codeChecker.isErrorCode(400)).isTrue();
+        assertThat(codeChecker.isErrorCode(404)).isTrue();
     }
 
     @Test
@@ -100,16 +96,13 @@ class ComposeHttpStatusCodeCheckerTest {
 
         codeChecker = new ComposeHttpStatusCodeChecker(checkerConfig);
 
-        assertAll(
-                () -> {
-                    CODES.forEach(code -> assertThat(codeChecker.isErrorCode(code)).isFalse());
+        CODES.forEach(code -> assertThat(codeChecker.isErrorCode(code)).isFalse());
 
-                    assertThat(codeChecker.isErrorCode(301))
-                            .withFailMessage(
-                                    "Not in include list but matches 3XX range. "
-                                            + "Should be considered as error code.")
-                            .isTrue();
-                });
+        assertThat(codeChecker.isErrorCode(301))
+                .withFailMessage(
+                        "Not in include list but matches 3XX range. "
+                                + "Should be considered as error code.")
+                .isTrue();
     }
 
     @Test
@@ -123,7 +116,7 @@ class ComposeHttpStatusCodeCheckerTest {
 
         codeChecker = new ComposeHttpStatusCodeChecker(checkerConfig);
 
-        assertAll(() -> CODES.forEach(code -> assertThat(codeChecker.isErrorCode(code)).isTrue()));
+        CODES.forEach(code -> assertThat(codeChecker.isErrorCode(code)).isTrue());
     }
 
     @Test
@@ -139,15 +132,12 @@ class ComposeHttpStatusCodeCheckerTest {
 
         codeChecker = new ComposeHttpStatusCodeChecker(checkerConfig);
 
-        assertAll(
-                () -> {
-                    codes.forEach(code -> assertThat(codeChecker.isErrorCode(code)).isTrue());
+        codes.forEach(code -> assertThat(codeChecker.isErrorCode(code)).isTrue());
 
-                    assertThat(codeChecker.isErrorCode(303))
-                            .withFailMessage(
-                                    "Out ot Error code type range therefore should be not marked as error code.")
-                            .isFalse();
-                });
+        assertThat(codeChecker.isErrorCode(303))
+                .withFailMessage(
+                        "Out ot Error code type range therefore should be not marked as error code.")
+                .isFalse();
     }
 
     @ParameterizedTest
@@ -159,7 +149,8 @@ class ComposeHttpStatusCodeCheckerTest {
 
         ComposeHttpStatusCodeCheckerConfig checkerConfig = prepareCheckerConfig(properties);
 
-        assertThrows(Exception.class, () -> new ComposeHttpStatusCodeChecker(checkerConfig));
+        assertThatThrownBy(() -> new ComposeHttpStatusCodeChecker(checkerConfig))
+                .isInstanceOf(Exception.class);
     }
 
     private static Properties prepareErrorCodeProperties(String errorCodeList, String includeList) {

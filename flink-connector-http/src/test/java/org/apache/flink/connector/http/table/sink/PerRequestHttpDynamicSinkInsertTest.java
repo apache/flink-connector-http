@@ -38,8 +38,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test Per Request Request. */
 public class PerRequestHttpDynamicSinkInsertTest {
@@ -127,16 +126,16 @@ public class PerRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals(
-                "{\"id\":1,\"first_name\":\"Ninette\",\"last_name\":\"Clee\","
-                        + "\"gender\":\"Female\",\"stock\":\"CDZI\",\"currency\":\"RUB\","
-                        + "\"tx_date\":\"2021-08-24 15:22:59\"}",
-                request.getBodyAsString());
-        assertEquals(RequestMethod.POST, request.getMethod());
-        assertEquals(contentTypeHeaderValue, request.getHeader("Content-Type"));
+        assertThat(request.getBodyAsString())
+                .isEqualTo(
+                        "{\"id\":1,\"first_name\":\"Ninette\",\"last_name\":\"Clee\","
+                                + "\"gender\":\"Female\",\"stock\":\"CDZI\",\"currency\":\"RUB\","
+                                + "\"tx_date\":\"2021-08-24 15:22:59\"}");
+        assertThat(request.getMethod()).isEqualTo(RequestMethod.POST);
+        assertThat(request.getHeader("Content-Type")).isEqualTo(contentTypeHeaderValue);
     }
 
     @Test
@@ -177,7 +176,7 @@ public class PerRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(2, postedRequests.size());
+        assertThat(postedRequests).hasSize(2);
 
         var jsonRequests =
                 new HashSet<>(
@@ -187,9 +186,9 @@ public class PerRequestHttpDynamicSinkInsertTest {
                                 "{\"id\":2,\"first_name\":\"Hedy\",\"last_name\":\"Hedgecock\",\"gender\":\"Female\","
                                         + "\"stock\":\"DGICA\",\"currency\":\"CNY\",\"tx_date\":\"2021-10-24 20:53:54\"}"));
         for (var request : postedRequests) {
-            assertEquals(RequestMethod.PUT, request.getMethod());
-            assertEquals(contentTypeHeaderValue, request.getHeader("Content-Type"));
-            assertTrue(jsonRequests.contains(request.getBodyAsString()));
+            assertThat(request.getMethod()).isEqualTo(RequestMethod.PUT);
+            assertThat(request.getHeader("Content-Type")).isEqualTo(contentTypeHeaderValue);
+            assertThat(jsonRequests).contains(request.getBodyAsString());
             jsonRequests.remove(request.getBodyAsString());
         }
     }
@@ -220,12 +219,12 @@ public class PerRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals("Clee", request.getBodyAsString());
-        assertEquals(RequestMethod.POST, request.getMethod());
-        assertEquals(contentTypeHeaderValue, request.getHeader("Content-Type"));
+        assertThat(request.getBodyAsString()).isEqualTo("Clee");
+        assertThat(request.getMethod()).isEqualTo(RequestMethod.POST);
+        assertThat(request.getHeader("Content-Type")).isEqualTo(contentTypeHeaderValue);
     }
 
     @Test
@@ -262,14 +261,15 @@ public class PerRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals("Clee", request.getBodyAsString());
-        assertEquals(RequestMethod.POST, request.getMethod());
-        assertEquals(contentTypeHeaderValue, request.getHeader("Content-Type"));
-        assertEquals(originHeaderValue, request.getHeader("Origin"));
-        assertEquals(xContentTypeOptionsHeaderValue, request.getHeader("X-Content-Type-Options"));
+        assertThat(request.getBodyAsString()).isEqualTo("Clee");
+        assertThat(request.getMethod()).isEqualTo(RequestMethod.POST);
+        assertThat(request.getHeader("Content-Type")).isEqualTo(contentTypeHeaderValue);
+        assertThat(request.getHeader("Origin")).isEqualTo(originHeaderValue);
+        assertThat(request.getHeader("X-Content-Type-Options"))
+                .isEqualTo(xContentTypeOptionsHeaderValue);
     }
 
     @Test
@@ -319,13 +319,13 @@ public class PerRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals(
-                "{\"id\":1,\"first_name\":\"Ninette\",\"last_name\":\"Clee\","
-                        + "\"gender\":\"Female\",\"stock\":\"CDZI\",\"currency\":\"RUB\","
-                        + "\"tx_date\":\"2021-08-24 15:22:59\"}",
-                request.getBodyAsString());
+        assertThat(request.getBodyAsString())
+                .isEqualTo(
+                        "{\"id\":1,\"first_name\":\"Ninette\",\"last_name\":\"Clee\","
+                                + "\"gender\":\"Female\",\"stock\":\"CDZI\",\"currency\":\"RUB\","
+                                + "\"tx_date\":\"2021-08-24 15:22:59\"}");
     }
 }

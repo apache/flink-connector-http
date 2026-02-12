@@ -79,9 +79,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.put;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link HttpLookupTableSource} connection. */
 @Slf4j
@@ -233,7 +231,8 @@ class HttpLookupTableSourceITCaseTest {
                         + ")";
 
         // WHEN/THEN
-        assertThrows(TimeoutException.class, () -> testLookupJoin(lookupTable, 4));
+        assertThatThrownBy(() -> testLookupJoin(lookupTable, 4))
+                .isInstanceOf(TimeoutException.class);
     }
 
     @Test
@@ -285,7 +284,7 @@ class HttpLookupTableSourceITCaseTest {
 
         var result = testLookupJoin(lookupTable, 1);
 
-        assertEquals(1, result.size());
+        assertThat(result).hasSize(1);
         wireMockServer.verify(2, getRequestedFor(urlPathEqualTo(ENDPOINT)));
     }
 
@@ -335,7 +334,7 @@ class HttpLookupTableSourceITCaseTest {
 
         var result = testLookupJoin(lookupTable, 3);
 
-        assertEquals(2, result.size());
+        assertThat(result).hasSize(2);
         wireMockServer.verify(3, getRequestedFor(urlPathEqualTo(ENDPOINT)));
     }
 
@@ -1074,30 +1073,26 @@ class HttpLookupTableSourceITCaseTest {
 
         final int rowArity = withMetadata ? 10 : 6;
         // validate every row and its column.
-        assertAll(
-                () -> {
-                    assertThat(collectedRows.size()).isEqualTo(4);
-                    int intElement = 0;
-                    for (Row row : collectedRows) {
-                        intElement++;
-                        assertThat(row.getArity()).isEqualTo(rowArity);
-                        // "id" and "id2" columns should be different for every row.
-                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
-                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+        assertThat(collectedRows.size()).isEqualTo(4);
+        int intElement = 0;
+        for (Row row : collectedRows) {
+            intElement++;
+            assertThat(row.getArity()).isEqualTo(rowArity);
+            // "id" and "id2" columns should be different for every row.
+            assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+            assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
 
-                        assertThat(row.getField("uuid"))
-                                .isEqualTo("fbb68a46-80a9-46da-9d40-314b5287079c");
-                        assertThat(row.getField("isActive")).isEqualTo(true);
-                        assertThat(row.getField("balance")).isEqualTo("$1,729.34");
-                        if (withMetadata) {
-                            assertThat(row.getField("errStr")).isNull();
-                            assertThat(row.getField("headers")).isNotNull();
-                            assertThat(row.getField("statusCode")).isEqualTo(200);
-                            assertThat(row.getField("completionState"))
-                                    .isEqualTo(HttpCompletionState.SUCCESS.name());
-                        }
-                    }
-                });
+            assertThat(row.getField("uuid")).isEqualTo("fbb68a46-80a9-46da-9d40-314b5287079c");
+            assertThat(row.getField("isActive")).isEqualTo(true);
+            assertThat(row.getField("balance")).isEqualTo("$1,729.34");
+            if (withMetadata) {
+                assertThat(row.getField("errStr")).isNull();
+                assertThat(row.getField("headers")).isNotNull();
+                assertThat(row.getField("statusCode")).isEqualTo(200);
+                assertThat(row.getField("completionState"))
+                        .isEqualTo(HttpCompletionState.SUCCESS.name());
+            }
+        }
     }
 
     private void assertEnrichedRowsNoDataBadStatus(Collection<Row> collectedRows) {
@@ -1105,28 +1100,24 @@ class HttpLookupTableSourceITCaseTest {
         final int rowArity = 10;
         // validate every row and its column.
 
-        assertAll(
-                () -> {
-                    assertThat(collectedRows.size()).isEqualTo(4);
-                    int intElement = 0;
-                    for (Row row : collectedRows) {
-                        intElement++;
-                        assertThat(row.getArity()).isEqualTo(rowArity);
-                        // "id" and "id2" columns should be different for every row.
-                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
-                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
-                        assertThat(row.getField("uuid")).isNull();
-                        assertThat(row.getField("isActive")).isNull();
-                        assertThat(row.getField("balance")).isNull();
-                        // metadata
-                        assertThat(row.getField("errStr")).isEqualTo("");
-                        assertThat(row.getField("headers")).isNotNull();
-                        assertThat(row.getField("statusCode")).isEqualTo(500);
-                        assertEquals(
-                                row.getField("completionState"),
-                                HttpCompletionState.HTTP_ERROR_STATUS.name());
-                    }
-                });
+        assertThat(collectedRows.size()).isEqualTo(4);
+        int intElement = 0;
+        for (Row row : collectedRows) {
+            intElement++;
+            assertThat(row.getArity()).isEqualTo(rowArity);
+            // "id" and "id2" columns should be different for every row.
+            assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+            assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+            assertThat(row.getField("uuid")).isNull();
+            assertThat(row.getField("isActive")).isNull();
+            assertThat(row.getField("balance")).isNull();
+            // metadata
+            assertThat(row.getField("errStr")).isEqualTo("");
+            assertThat(row.getField("headers")).isNotNull();
+            assertThat(row.getField("statusCode")).isEqualTo(500);
+            assertThat(row.getField("completionState"))
+                    .isEqualTo(HttpCompletionState.HTTP_ERROR_STATUS.name());
+        }
     }
 
     private void assertEnrichedRowsNoDataGoodStatus(Collection<Row> collectedRows) {
@@ -1134,28 +1125,24 @@ class HttpLookupTableSourceITCaseTest {
         final int rowArity = 10;
         // validate every row and its column.
 
-        assertAll(
-                () -> {
-                    assertThat(collectedRows.size()).isEqualTo(4);
-                    int intElement = 0;
-                    for (Row row : collectedRows) {
-                        intElement++;
-                        assertThat(row.getArity()).isEqualTo(rowArity);
-                        // "id" and "id2" columns should be different for every row.
-                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
-                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
-                        assertThat(row.getField("uuid")).isNull();
-                        assertThat(row.getField("isActive")).isNull();
-                        assertThat(row.getField("balance")).isNull();
-                        // metadata
-                        assertThat(row.getField("errStr")).isNull();
-                        assertThat(row.getField("headers")).isNotNull();
-                        assertThat(row.getField("statusCode")).isEqualTo(200);
-                        assertEquals(
-                                row.getField("completionState"),
-                                HttpCompletionState.SUCCESS.name());
-                    }
-                });
+        assertThat(collectedRows.size()).isEqualTo(4);
+        int intElement = 0;
+        for (Row row : collectedRows) {
+            intElement++;
+            assertThat(row.getArity()).isEqualTo(rowArity);
+            // "id" and "id2" columns should be different for every row.
+            assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+            assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+            assertThat(row.getField("uuid")).isNull();
+            assertThat(row.getField("isActive")).isNull();
+            assertThat(row.getField("balance")).isNull();
+            // metadata
+            assertThat(row.getField("errStr")).isNull();
+            assertThat(row.getField("headers")).isNotNull();
+            assertThat(row.getField("statusCode")).isEqualTo(200);
+            assertThat(row.getField("completionState"))
+                    .isEqualTo(HttpCompletionState.SUCCESS.name());
+        }
     }
 
     private void assertEnrichedRowsDeserException(Collection<Row> collectedRows) {
@@ -1163,29 +1150,24 @@ class HttpLookupTableSourceITCaseTest {
         final int rowArity = 10;
         // validate every row and its column.
 
-        assertAll(
-                () -> {
-                    assertThat(collectedRows.size()).isEqualTo(4);
-                    int intElement = 0;
-                    for (Row row : collectedRows) {
-                        intElement++;
-                        assertThat(row.getArity()).isEqualTo(rowArity);
-                        // "id" and "id2" columns should be different for every row.
-                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
-                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
-                        assertThat(row.getField("uuid")).isNull();
-                        assertThat(row.getField("isActive")).isNull();
-                        assertThat(row.getField("balance")).isNull();
-                        // metadata
-                        assertThat(row.getField("errStr"))
-                                .isEqualTo(A_TEST_STRING_THAT_IS_NOT_JSON);
-                        assertThat(row.getField("headers")).isNotNull();
-                        assertThat(row.getField("statusCode")).isEqualTo(200);
-                        assertEquals(
-                                row.getField("completionState"),
-                                HttpCompletionState.UNABLE_TO_DESERIALIZE_RESPONSE.name());
-                    }
-                });
+        assertThat(collectedRows.size()).isEqualTo(4);
+        int intElement = 0;
+        for (Row row : collectedRows) {
+            intElement++;
+            assertThat(row.getArity()).isEqualTo(rowArity);
+            // "id" and "id2" columns should be different for every row.
+            assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+            assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+            assertThat(row.getField("uuid")).isNull();
+            assertThat(row.getField("isActive")).isNull();
+            assertThat(row.getField("balance")).isNull();
+            // metadata
+            assertThat(row.getField("errStr")).isEqualTo(A_TEST_STRING_THAT_IS_NOT_JSON);
+            assertThat(row.getField("headers")).isNotNull();
+            assertThat(row.getField("statusCode")).isEqualTo(200);
+            assertThat(row.getField("completionState"))
+                    .isEqualTo(HttpCompletionState.UNABLE_TO_DESERIALIZE_RESPONSE.name());
+        }
     }
 
     private void assertEnrichedRowsException(Collection<Row> collectedRows) {
@@ -1193,28 +1175,24 @@ class HttpLookupTableSourceITCaseTest {
         final int rowArity = 10;
         // validate every row and its column.
 
-        assertAll(
-                () -> {
-                    assertThat(collectedRows.size()).isEqualTo(4);
-                    int intElement = 0;
-                    for (Row row : collectedRows) {
-                        intElement++;
-                        assertThat(row.getArity()).isEqualTo(rowArity);
-                        // "id" and "id2" columns should be different for every row.
-                        assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
-                        assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
-                        assertThat(row.getField("uuid")).isNull();
-                        assertThat(row.getField("isActive")).isNull();
-                        assertThat(row.getField("balance")).isNull();
-                        // metadata
-                        assertThat(row.getField("errStr")).isNotNull();
-                        assertThat(row.getField("headers")).isNull();
-                        assertThat(row.getField("statusCode")).isNull();
-                        assertEquals(
-                                row.getField("completionState"),
-                                HttpCompletionState.EXCEPTION.name());
-                    }
-                });
+        assertThat(collectedRows.size()).isEqualTo(4);
+        int intElement = 0;
+        for (Row row : collectedRows) {
+            intElement++;
+            assertThat(row.getArity()).isEqualTo(rowArity);
+            // "id" and "id2" columns should be different for every row.
+            assertThat(row.getField("id")).isEqualTo(String.valueOf(intElement));
+            assertThat(row.getField("id2")).isEqualTo(String.valueOf(intElement + 1));
+            assertThat(row.getField("uuid")).isNull();
+            assertThat(row.getField("isActive")).isNull();
+            assertThat(row.getField("balance")).isNull();
+            // metadata
+            assertThat(row.getField("errStr")).isNotNull();
+            assertThat(row.getField("headers")).isNull();
+            assertThat(row.getField("statusCode")).isNull();
+            assertThat(row.getField("completionState"))
+                    .isEqualTo(HttpCompletionState.EXCEPTION.name());
+        }
     }
 
     private SortedSet<Row> getCollectedRows(TableResult result) throws Exception {

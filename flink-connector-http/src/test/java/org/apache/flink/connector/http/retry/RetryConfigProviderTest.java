@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.stream.IntStream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
@@ -41,12 +41,12 @@ class RetryConfigProviderTest {
 
         var retryConfig = RetryConfigProvider.create(config);
 
-        assertEquals(13, retryConfig.getMaxAttempts());
+        assertThat(retryConfig.getMaxAttempts()).isEqualTo(13);
         IntStream.range(1, 12)
                 .forEach(
                         attempt ->
-                                assertEquals(
-                                        10000, retryConfig.getIntervalFunction().apply(attempt)));
+                                assertThat(retryConfig.getIntervalFunction().apply(attempt))
+                                        .isEqualTo(10000));
     }
 
     @Test
@@ -65,13 +65,13 @@ class RetryConfigProviderTest {
         var retryConfig = RetryConfigProvider.create(config);
         var intervalFunction = retryConfig.getIntervalFunction();
 
-        assertEquals(7, retryConfig.getMaxAttempts());
-        assertEquals(15, intervalFunction.apply(1));
-        assertEquals(30, intervalFunction.apply(2));
-        assertEquals(60, intervalFunction.apply(3));
-        assertEquals(120, intervalFunction.apply(4));
-        assertEquals(120, intervalFunction.apply(5));
-        assertEquals(120, intervalFunction.apply(6));
+        assertThat(retryConfig.getMaxAttempts()).isEqualTo(7);
+        assertThat(intervalFunction.apply(1)).isEqualTo(15);
+        assertThat(intervalFunction.apply(2)).isEqualTo(30);
+        assertThat(intervalFunction.apply(3)).isEqualTo(60);
+        assertThat(intervalFunction.apply(4)).isEqualTo(120);
+        assertThat(intervalFunction.apply(5)).isEqualTo(120);
+        assertThat(intervalFunction.apply(6)).isEqualTo(120);
     }
 
     @Test
@@ -83,7 +83,8 @@ class RetryConfigProviderTest {
             var dummyStrategy = mock(RetryStrategyType.class);
             mockedStatic.when(() -> RetryStrategyType.fromCode("dummy")).thenReturn(dummyStrategy);
 
-            assertThrows(IllegalArgumentException.class, () -> RetryConfigProvider.create(config));
+            assertThatThrownBy(() -> RetryConfigProvider.create(config))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

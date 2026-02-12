@@ -26,8 +26,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link RetryStrategyType}. */
 class RetryStrategyTypeTest {
@@ -45,17 +45,19 @@ class RetryStrategyTypeTest {
     void parseFromCodes(String code, RetryStrategyType expectedType) {
         var result = RetryStrategyType.fromCode(code);
 
-        assertEquals(expectedType, result);
+        assertThat(result).isEqualTo(expectedType);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"fixed_delay", "FIXED_DELAY", "ABC", "FIXED-DELA", "exponential_delay"})
     void failWhenCodeIsIllegal(String code) {
-        assertThrows(IllegalArgumentException.class, () -> RetryStrategyType.fromCode(code));
+        assertThatThrownBy(() -> RetryStrategyType.fromCode(code))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void failWhenCodeIsNull() {
-        assertThrows(NullPointerException.class, () -> RetryStrategyType.fromCode(null));
+        assertThatThrownBy(() -> RetryStrategyType.fromCode(null))
+                .isInstanceOf(NullPointerException.class);
     }
 }

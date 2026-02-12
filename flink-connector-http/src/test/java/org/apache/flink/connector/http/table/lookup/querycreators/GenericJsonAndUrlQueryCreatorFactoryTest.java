@@ -43,7 +43,7 @@ import static org.apache.flink.connector.http.table.lookup.querycreators.Generic
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP;
 import static org.apache.flink.connector.http.table.lookup.querycreators.QueryCreatorUtils.getTableContext;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link GenericGetQueryCreatorFactory}. */
 class GenericJsonAndUrlQueryCreatorFactoryTest {
@@ -88,19 +88,19 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
     public void lookupQueryInfoTestRequiredConfig() {
         GenericJsonAndUrlQueryCreatorFactory genericJsonAndUrlQueryCreatorFactory =
                 new GenericJsonAndUrlQueryCreatorFactory();
-        assertThrows(
-                RuntimeException.class,
-                () -> {
-                    genericJsonAndUrlQueryCreatorFactory.createLookupQueryCreator(
-                            config, null, null);
-                });
+        assertThatThrownBy(
+                        () -> {
+                            genericJsonAndUrlQueryCreatorFactory.createLookupQueryCreator(
+                                    config, null, null);
+                        })
+                .isInstanceOf(RuntimeException.class);
         // do not specify REQUEST_ARG_PATHS_CONFIG
-        assertThrows(
-                RuntimeException.class,
-                () -> {
-                    genericJsonAndUrlQueryCreatorFactory.createLookupQueryCreator(
-                            config, null, null);
-                });
+        assertThatThrownBy(
+                        () -> {
+                            genericJsonAndUrlQueryCreatorFactory.createLookupQueryCreator(
+                                    config, null, null);
+                        })
+                .isInstanceOf(RuntimeException.class);
     }
 
     private void createUsingFactory(boolean async) {

@@ -31,8 +31,6 @@ import org.junit.jupiter.api.Test;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.INSERT_METHOD;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.URL;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /** Test for {@link HttpDynamicSink}. */
 public class HttpDynamicSinkTest {
@@ -70,8 +68,8 @@ public class HttpDynamicSinkTest {
                         .setHttpPostRequestCallback(new Slf4jHttpPostRequestCallback())
                         .build();
 
-        assertEquals(sink, sink.copy());
-        assertEquals(sink.hashCode(), sink.copy().hashCode());
+        assertThat(sink.copy()).isEqualTo(sink);
+        assertThat(sink.copy().hashCode()).isEqualTo(sink.hashCode());
     }
 
     private HttpDynamicTableSinkBuilder getSinkBuilder() {
@@ -122,13 +120,13 @@ public class HttpDynamicSinkTest {
                         .setHttpPostRequestCallback(new Slf4jHttpPostRequestCallback())
                         .build();
 
-        assertEquals(sink, sink);
-        assertNotEquals(null, sink);
-        assertNotEquals("test-string", sink);
-        assertNotEquals(sink, sinkBatchSize);
-        assertNotEquals(sink, sinkSinkConfig);
-        assertNotEquals(sink, sinkDataType);
-        assertNotEquals(sink, sinkFormat);
-        assertNotEquals(sink, sinkHttpPostRequestCallback);
+        assertThat(sink).isEqualTo(sink);
+        assertThat(sink).isNotEqualTo(null);
+        assertThat(sink).isNotEqualTo("test-string");
+        assertThat(sink).isNotEqualTo(sinkBatchSize);
+        assertThat(sink).isNotEqualTo(sinkSinkConfig);
+        assertThat(sink).isNotEqualTo(sinkDataType);
+        assertThat(sink).isNotEqualTo(sinkFormat);
+        assertThat(sink).isNotEqualTo(sinkHttpPostRequestCallback);
     }
 }

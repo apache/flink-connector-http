@@ -48,7 +48,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.apache.flink.connector.http.TestHelper.readTestFile;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Test Batch Request Http Dynamic Sink Insert. */
 public class BatchRequestHttpDynamicSinkInsertTest {
@@ -255,12 +254,12 @@ public class BatchRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals("[Clee,John]", request.getBodyAsString());
-        assertEquals(RequestMethod.POST, request.getMethod());
-        assertEquals(contentTypeHeaderValue, request.getHeader("Content-Type"));
+        assertThat(request.getBodyAsString()).isEqualTo("[Clee,John]");
+        assertThat(request.getMethod()).isEqualTo(RequestMethod.POST);
+        assertThat(request.getHeader("Content-Type")).isEqualTo(contentTypeHeaderValue);
     }
 
     @Test
@@ -296,14 +295,15 @@ public class BatchRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals("[Clee,John]", request.getBodyAsString());
-        assertEquals(RequestMethod.POST, request.getMethod());
-        assertEquals(contentTypeHeaderValue, request.getHeader("Content-Type"));
-        assertEquals(originHeaderValue, request.getHeader("Origin"));
-        assertEquals(xContentTypeOptionsHeaderValue, request.getHeader("X-Content-Type-Options"));
+        assertThat(request.getBodyAsString()).isEqualTo("[Clee,John]");
+        assertThat(request.getMethod()).isEqualTo(RequestMethod.POST);
+        assertThat(request.getHeader("Content-Type")).isEqualTo(contentTypeHeaderValue);
+        assertThat(request.getHeader("Origin")).isEqualTo(originHeaderValue);
+        assertThat(request.getHeader("X-Content-Type-Options"))
+                .isEqualTo(xContentTypeOptionsHeaderValue);
     }
 
     @Test
@@ -352,13 +352,13 @@ public class BatchRequestHttpDynamicSinkInsertTest {
         tEnv.executeSql(insert).await();
 
         var postedRequests = wireMockServer.findAll(anyRequestedFor(urlPathEqualTo("/myendpoint")));
-        assertEquals(1, postedRequests.size());
+        assertThat(postedRequests).hasSize(1);
 
         var request = postedRequests.get(0);
-        assertEquals(
-                "[{\"id\":1,\"first_name\":\"Ninette\",\"last_name\":\"Clee\","
-                        + "\"gender\":\"Female\",\"stock\":\"CDZI\",\"currency\":\"RUB\","
-                        + "\"tx_date\":\"2021-08-24 15:22:59\"}]",
-                request.getBodyAsString());
+        assertThat(request.getBodyAsString())
+                .isEqualTo(
+                        "[{\"id\":1,\"first_name\":\"Ninette\",\"last_name\":\"Clee\","
+                                + "\"gender\":\"Female\",\"stock\":\"CDZI\",\"currency\":\"RUB\","
+                                + "\"tx_date\":\"2021-08-24 15:22:59\"}]");
     }
 }

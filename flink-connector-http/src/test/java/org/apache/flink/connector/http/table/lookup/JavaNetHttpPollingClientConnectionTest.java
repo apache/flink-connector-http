@@ -77,8 +77,8 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_SUCCESS_CODES;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 
 /** Test for {@link JavaNetHttpPollingClient} connection. */
 @ExtendWith(MockitoExtension.class)
@@ -311,7 +311,8 @@ class JavaNetHttpPollingClientConnectionTest {
         this.stubMapping = setUpServerStub(500);
         JavaNetHttpPollingClient pollingClient = setUpPollingClient();
 
-        assertThrows(RuntimeException.class, () -> pollingClient.pull(lookupRowData));
+        assertThatThrownBy(() -> pollingClient.pull(lookupRowData))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test

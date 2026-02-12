@@ -26,7 +26,6 @@ import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +45,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.apache.flink.connector.http.TestLookupPostRequestCallbackFactory.TEST_LOOKUP_POST_REQUEST_CALLBACK_IDENT;
 import static org.apache.flink.connector.http.TestPostRequestCallbackFactory.TEST_POST_REQUEST_CALLBACK_IDENT;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test for {@link HttpPostRequestCallbackFactory}. */
 public class HttpPostRequestCallbackFactoryTest {
@@ -107,15 +106,15 @@ public class HttpPostRequestCallbackFactoryTest {
         final String insert = "INSERT INTO http VALUES (1)";
         tEnv.executeSql(insert).await();
 
-        assertEquals(1, requestEntries.size());
-        assertEquals(1, responses.size());
+        assertThat(requestEntries).hasSize(1);
+        assertThat(responses).hasSize(1);
 
         String actualRequest =
                 requestEntries.get(0).getElements().stream()
                         .map(element -> new String(element, StandardCharsets.UTF_8))
                         .collect(Collectors.joining());
 
-        Assertions.assertThat(actualRequest).isEqualToIgnoringNewLines(expectedRequest);
+        assertThat(actualRequest).isEqualToIgnoringNewLines(expectedRequest);
     }
 
     @Test
@@ -161,8 +160,8 @@ public class HttpPostRequestCallbackFactoryTest {
         final TableResult resultTable = tEnv.sqlQuery(joinTable).execute();
         resultTable.await();
 
-        assertEquals(1, lookupRequestEntries.size());
-        assertEquals(1, responses.size());
+        assertThat(lookupRequestEntries).hasSize(1);
+        assertThat(responses).hasSize(1);
     }
 
     /** TestPostRequestCallback. */

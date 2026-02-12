@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test http codes parser. */
 class HttpCodesParserTest {
@@ -44,7 +44,8 @@ class HttpCodesParserTest {
     @ParameterizedTest
     @ValueSource(strings = {"6XX", "1XXX", "600", "99", "1XX,11", "abc", "!1XX", "1 2 3", "1X X"})
     void failWhenCodeExpressionIsInvalid(String codeExpression) {
-        assertThrows(ConfigurationException.class, () -> HttpCodesParser.parse(codeExpression));
+        assertThatThrownBy(() -> HttpCodesParser.parse(codeExpression))
+                .isInstanceOf(ConfigurationException.class);
     }
 
     private static Stream<InputArgs> inputArgsStream() {
@@ -80,12 +81,7 @@ class HttpCodesParserTest {
 
         var result = HttpCodesParser.parse(inputArgs.getCodeExpression());
 
-        for (var code : expectedCodes) {
-            assertTrue(result.contains(code), "Missing code " + code);
-        }
-        for (var code : result) {
-            assertTrue(expectedCodes.contains(code), "Improper code " + code);
-        }
+        assertThat(result).containsExactlyInAnyOrderElementsOf(expectedCodes);
     }
 
     private static List<Integer> range(int start, int endExclusive, int... exclusions) {

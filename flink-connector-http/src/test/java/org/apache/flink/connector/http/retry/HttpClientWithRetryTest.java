@@ -37,8 +37,8 @@ import java.net.http.HttpResponse;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -76,7 +76,7 @@ class HttpClientWithRetryTest {
         var result = client.send(mock(Supplier.class), mock(HttpResponse.BodyHandler.class));
 
         verify(httpClient, times(2)).send(any(), any());
-        assertEquals(response, result);
+        assertThat(result).isEqualTo(response);
     }
 
     @Test
@@ -92,7 +92,7 @@ class HttpClientWithRetryTest {
         var result = client.send(mock(Supplier.class), mock(HttpResponse.BodyHandler.class));
 
         verify(httpClient, times(3)).send(any(), any());
-        assertEquals(responseB, result);
+        assertThat(result).isEqualTo(responseB);
     }
 
     @Test
@@ -102,16 +102,15 @@ class HttpClientWithRetryTest {
         when(responseChecker.isSuccessful(response)).thenReturn(false);
         when(responseChecker.isTemporalError(response)).thenReturn(true);
 
-        var exception =
-                assertThrows(
-                        HttpStatusCodeValidationFailedException.class,
+        assertThatThrownBy(
                         () ->
                                 client.send(
-                                        mock(Supplier.class),
-                                        mock(HttpResponse.BodyHandler.class)));
+                                        mock(Supplier.class), mock(HttpResponse.BodyHandler.class)))
+                .isInstanceOf(HttpStatusCodeValidationFailedException.class)
+                .extracting(e -> ((HttpStatusCodeValidationFailedException) e).getResponse())
+                .isEqualTo(response);
 
         verify(httpClient, times(3)).send(any(), any());
-        assertEquals(response, exception.getResponse());
     }
 
     @Test
@@ -121,9 +120,11 @@ class HttpClientWithRetryTest {
         when(responseChecker.isSuccessful(response)).thenReturn(false);
         when(responseChecker.isTemporalError(response)).thenReturn(false);
 
-        assertThrows(
-                HttpStatusCodeValidationFailedException.class,
-                () -> client.send(mock(Supplier.class), mock(HttpResponse.BodyHandler.class)));
+        assertThatThrownBy(
+                        () ->
+                                client.send(
+                                        mock(Supplier.class), mock(HttpResponse.BodyHandler.class)))
+                .isInstanceOf(HttpStatusCodeValidationFailedException.class);
 
         verify(httpClient, times(1)).send(any(), any());
     }
@@ -132,9 +133,11 @@ class HttpClientWithRetryTest {
     void shouldHandleUncheckedExceptionFromRetry() throws IOException, InterruptedException {
         when(httpClient.send(any(), any())).thenThrow(RuntimeException.class);
 
-        assertThrows(
-                RuntimeException.class,
-                () -> client.send(mock(Supplier.class), mock(HttpResponse.BodyHandler.class)));
+        assertThatThrownBy(
+                        () ->
+                                client.send(
+                                        mock(Supplier.class), mock(HttpResponse.BodyHandler.class)))
+                .isInstanceOf(RuntimeException.class);
 
         verify(httpClient, times(1)).send(any(), any());
     }
@@ -149,7 +152,7 @@ class HttpClientWithRetryTest {
         var result = client.send(mock(Supplier.class), mock(HttpResponse.BodyHandler.class));
 
         verify(httpClient).send(any(), any());
-        assertEquals(response, result);
+        assertThat(result).isEqualTo(response);
     }
 
     private static Stream<Class<? extends Throwable>> failures() {
@@ -162,9 +165,11 @@ class HttpClientWithRetryTest {
             throws IOException, InterruptedException {
         when(httpClient.send(any(), any())).thenThrow(exceptionClass);
 
-        assertThrows(
-                exceptionClass,
-                () -> client.send(mock(Supplier.class), mock(HttpResponse.BodyHandler.class)));
+        assertThatThrownBy(
+                        () ->
+                                client.send(
+                                        mock(Supplier.class), mock(HttpResponse.BodyHandler.class)))
+                .isInstanceOf(exceptionClass);
 
         verify(httpClient).send(any(), any());
     }

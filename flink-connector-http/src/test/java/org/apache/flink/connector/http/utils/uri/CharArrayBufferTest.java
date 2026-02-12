@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.http.utils.uri;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -27,14 +26,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CharArrayBufferTest {
 
     @Test
     public void testInvalidCapacity() {
-        assertThrows(IllegalArgumentException.class, () -> new CharArrayBuffer(0));
+        assertThatThrownBy(() -> new CharArrayBuffer(0))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -54,23 +53,15 @@ class CharArrayBufferTest {
         CharArrayBuffer charArrayBuffer = new CharArrayBuffer(1);
         charArrayBuffer.append(testText);
 
-        assertAll(
-                () -> {
-                    Assertions.assertThrows(
-                            IndexOutOfBoundsException.class,
-                            () -> charArrayBuffer.subSequence(-1, 1));
-                    Assertions.assertThrows(
-                            IndexOutOfBoundsException.class,
-                            () -> charArrayBuffer.subSequence(1, -1));
-                    Assertions.assertThrows(
-                            IndexOutOfBoundsException.class,
-                            () -> charArrayBuffer.subSequence(2, 1));
-                    Assertions.assertThrows(
-                            IndexOutOfBoundsException.class,
-                            () -> charArrayBuffer.subSequence(2, testText.length() + 5));
-                    assertThat(charArrayBuffer.subSequence(2, 10).toString())
-                            .isEqualTo("llo My Fri");
-                });
+        assertThatThrownBy(() -> charArrayBuffer.subSequence(-1, 1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> charArrayBuffer.subSequence(1, -1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> charArrayBuffer.subSequence(2, 1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> charArrayBuffer.subSequence(2, testText.length() + 5))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThat(charArrayBuffer.subSequence(2, 10).toString()).isEqualTo("llo My Fri");
     }
 
     private static Stream<Arguments> appendArgs() {
@@ -86,11 +77,8 @@ class CharArrayBufferTest {
         CharArrayBuffer charArrayBuffer = new CharArrayBuffer(1);
         charArrayBuffer.append("baseString");
 
-        assertAll(
-                () -> {
-                    assertThat(charArrayBuffer.toString()).isEqualTo("baseString");
-                    charArrayBuffer.append(stringToAppend);
-                    assertThat(charArrayBuffer.toString()).isEqualTo(expected);
-                });
+        assertThat(charArrayBuffer.toString()).isEqualTo("baseString");
+        charArrayBuffer.append(stringToAppend);
+        assertThat(charArrayBuffer.toString()).isEqualTo(expected);
     }
 }

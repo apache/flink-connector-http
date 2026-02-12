@@ -66,8 +66,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test for {@link HttpSink }. */
 public class HttpSinkConnectionTest {
@@ -143,12 +142,12 @@ public class HttpSinkConnectionTest {
         var idsSet = new HashSet<>(messageIds);
         for (var request : responses) {
             var el = (Integer) request.get("http-sink-id");
-            assertTrue(idsSet.contains(el));
+            assertThat(idsSet).contains(el);
             idsSet.remove(el);
         }
 
         // check that we hot responses for all requests.
-        assertTrue(idsSet.isEmpty());
+        assertThat(idsSet).isEmpty();
     }
 
     @Test
@@ -173,13 +172,13 @@ public class HttpSinkConnectionTest {
         for (var requests : responses) {
             for (var request : requests) {
                 var el = (Integer) request.get("http-sink-id");
-                assertTrue(idsSet.contains(el));
+                assertThat(idsSet).contains(el);
                 idsSet.remove(el);
             }
         }
 
         // check that we hot responses for all requests.
-        assertTrue(idsSet.isEmpty());
+        assertThat(idsSet).isEmpty();
     }
 
     public <T> List<T> testConnection(
@@ -217,23 +216,12 @@ public class HttpSinkConnectionTest {
         env.execute("Http Sink test connection");
 
         var responses = wireMockServer.getAllServeEvents();
-        assertTrue(
-                responses.stream()
-                        .allMatch(
-                                response ->
-                                        Objects.equals(response.getRequest().getUrl(), endpoint)));
-        assertTrue(
-                responses.stream().allMatch(response -> response.getResponse().getStatus() == 200));
-        assertTrue(
-                responses.stream()
-                        .allMatch(
-                                response ->
-                                        Objects.equals(response.getRequest().getUrl(), endpoint)));
-        assertTrue(
-                responses.stream().allMatch(response -> response.getResponse().getStatus() == 200));
+        assertThat(responses)
+                .allMatch(response -> Objects.equals(response.getRequest().getUrl(), endpoint))
+                .allMatch(response -> response.getResponse().getStatus() == 200);
 
         List<T> collect = responses.stream().map(responseMapper).collect(Collectors.toList());
-        assertTrue(collect.stream().allMatch(Objects::nonNull));
+        assertThat(collect).allMatch(Objects::nonNull);
         return collect;
     }
 
@@ -267,13 +255,13 @@ public class HttpSinkConnectionTest {
         source.sinkTo(httpSink);
         env.execute("Http Sink test failed connection");
 
-        assertEquals(1, SendErrorsTestReporterFactory.getCount());
+        assertThat(SendErrorsTestReporterFactory.getCount()).isEqualTo(1);
         // TODO: reintroduce along with the retries
         //  var postedRequests = wireMockServer
         //  .findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
-        //  assertEquals(2, postedRequests.size());
-        //  assertEquals(postedRequests.get(0).getBodyAsString(),
-        //  postedRequests.get(1).getBodyAsString());
+        //  assertThat(postedRequests).hasSize(2);
+        //  assertThat(postedRequests.get(0).getBodyAsString())
+        //      .isEqualTo(postedRequests.get(1).getBodyAsString());
     }
 
     @Test
@@ -307,12 +295,12 @@ public class HttpSinkConnectionTest {
         source.sinkTo(httpSink);
         env.execute("Http Sink test failed connection");
 
-        assertEquals(1, SendErrorsTestReporterFactory.getCount());
+        assertThat(SendErrorsTestReporterFactory.getCount()).isEqualTo(1);
         // var postedRequests = wireMockServer
         // .findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
-        // assertEquals(2, postedRequests.size());
-        // assertEquals(postedRequests.get(0).getBodyAsString(),
-        // postedRequests.get(1).getBodyAsString());
+        // assertThat(postedRequests).hasSize(2);
+        // assertThat(postedRequests.get(0).getBodyAsString())
+        //     .isEqualTo(postedRequests.get(1).getBodyAsString());
     }
 
     @Test
@@ -337,7 +325,7 @@ public class HttpSinkConnectionTest {
         source.sinkTo(httpSink);
         env.execute("Http Sink test failed connection");
 
-        assertEquals(0, SendErrorsTestReporterFactory.getCount());
+        assertThat(SendErrorsTestReporterFactory.getCount()).isEqualTo(0);
     }
 
     /** must be public because of the reflection. */

@@ -20,30 +20,24 @@ package org.apache.flink.connector.http.utils.uri;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link ParserCursor}. */
 class ParserCursorTest {
 
     @Test
     public void testBoundsValidation() {
-
-        assertAll(
-                () -> {
-                    assertThrows(IndexOutOfBoundsException.class, () -> new ParserCursor(-1, 1));
-                    assertThrows(IndexOutOfBoundsException.class, () -> new ParserCursor(1, -1));
-                });
+        assertThatThrownBy(() -> new ParserCursor(-1, 1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> new ParserCursor(1, -1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
     public void testUpdatePostValidation() {
         ParserCursor cursor = new ParserCursor(1, 2);
 
-        assertAll(
-                () -> {
-                    assertThrows(IndexOutOfBoundsException.class, () -> cursor.updatePos(0));
-                    assertThrows(IndexOutOfBoundsException.class, () -> cursor.updatePos(3));
-                });
+        assertThatThrownBy(() -> cursor.updatePos(0)).isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> cursor.updatePos(3)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 }

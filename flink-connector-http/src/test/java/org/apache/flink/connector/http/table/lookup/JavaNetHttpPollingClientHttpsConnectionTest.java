@@ -63,7 +63,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static org.apache.flink.connector.http.TestHelper.readTestFile;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link JavaNetHttpPollingClient} with https. */
 @ExtendWith(MockitoExtension.class)
@@ -262,7 +262,8 @@ public class JavaNetHttpPollingClientHttpsConnectionTest extends HttpsConnection
                 HttpConnectorConfigConstants.CLIENT_PRIVATE_KEY,
                 clientPrivateKey.getAbsolutePath());
 
-        assertThrows(RuntimeException.class, () -> setUpPollingClient(properties));
+        assertThatThrownBy(() -> setUpPollingClient(properties))
+                .isInstanceOf(RuntimeException.class);
     }
 
     private void testPollingClientConnection() throws ConfigurationException {

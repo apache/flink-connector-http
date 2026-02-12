@@ -49,7 +49,7 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.apache.flink.connector.http.table.lookup.querycreators.QueryCreatorUtils.getTableContext;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link GenericJsonQueryCreator}. */
 class GenericJsonAndUrlQueryCreatorTest {
@@ -160,11 +160,8 @@ class GenericJsonAndUrlQueryCreatorTest {
         genericJsonAndUrlQueryCreator.setSerializationSchema(mockSerialiationSchema);
         var row = new GenericRowData(1);
         // THEN
-        assertThrows(
-                RuntimeException.class,
-                () -> {
-                    genericJsonAndUrlQueryCreator.createLookupQuery(row);
-                });
+        assertThatThrownBy(() -> genericJsonAndUrlQueryCreator.createLookupQuery(row))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -175,12 +172,11 @@ class GenericJsonAndUrlQueryCreatorTest {
         // WHEN
         JsonNode personNode = mapper.valueToTree(person);
         // THEN
-        assertThrows(
-                RuntimeException.class,
-                () -> {
-                    GenericJsonAndUrlQueryCreator.convertToQueryParameters(
-                            (ObjectNode) personNode, "bad encoding");
-                });
+        assertThatThrownBy(
+                        () ->
+                                GenericJsonAndUrlQueryCreator.convertToQueryParameters(
+                                        (ObjectNode) personNode, "bad encoding"))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -406,13 +402,14 @@ class GenericJsonAndUrlQueryCreatorTest {
                 "{invalid json}");
 
         // WHEN/THEN - Should throw IllegalArgumentException during factory creation
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> {
-                    new GenericJsonAndUrlQueryCreatorFactory()
-                            .createLookupQueryCreator(
-                                    config, lookupRow, getTableContext(config, RESOLVED_SCHEMA));
-                });
+        assertThatThrownBy(
+                        () ->
+                                new GenericJsonAndUrlQueryCreatorFactory()
+                                        .createLookupQueryCreator(
+                                                config,
+                                                lookupRow,
+                                                getTableContext(config, RESOLVED_SCHEMA)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -448,25 +445,19 @@ class GenericJsonAndUrlQueryCreatorTest {
                 "{\"key1\":\"override_value\",\"c\":789}");
 
         // WHEN/THEN - Should throw IllegalArgumentException
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> {
-                            new GenericJsonAndUrlQueryCreatorFactory()
-                                    .createLookupQueryCreator(
-                                            config,
-                                            lookupRow,
-                                            getTableContext(config, RESOLVED_SCHEMA));
-                        });
-
-        // Verify the error message
-        assertThat(exception.getMessage())
-                .contains(
-                        "The http.request.additional-body-json option should not override join keys");
-        assertThat(exception.getMessage())
-                .contains(
-                        "as join keys are expected to target different enrichments on a request basis");
-        assertThat(exception.getMessage()).contains("key1");
+        assertThatThrownBy(
+                        () ->
+                                new GenericJsonAndUrlQueryCreatorFactory()
+                                        .createLookupQueryCreator(
+                                                config,
+                                                lookupRow,
+                                                getTableContext(config, RESOLVED_SCHEMA)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "The http.request.additional-body-json option should not override join keys")
+                .hasMessageContaining(
+                        "as join keys are expected to target different enrichments on a request basis")
+                .hasMessageContaining("key1");
     }
 
     @Test
@@ -481,27 +472,21 @@ class GenericJsonAndUrlQueryCreatorTest {
                 "{\"key1\":\"override1\",\"key2\":\"override2\",\"c\":789}");
 
         // WHEN/THEN - Should throw IllegalArgumentException with all conflicting fields
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> {
-                            new GenericJsonAndUrlQueryCreatorFactory()
-                                    .createLookupQueryCreator(
-                                            config,
-                                            lookupRow,
-                                            getTableContext(config, RESOLVED_SCHEMA));
-                        });
-
-        // Verify the error message contains both fields
-        assertThat(exception.getMessage())
-                .contains(
-                        "The http.request.additional-body-json option should not override join keys");
-        assertThat(exception.getMessage())
-                .contains(
-                        "as join keys are expected to target different enrichments on a request basis");
-        assertThat(exception.getMessage()).contains("Found conflicting field(s):");
-        assertThat(exception.getMessage()).contains("key1");
-        assertThat(exception.getMessage()).contains("key2");
+        assertThatThrownBy(
+                        () ->
+                                new GenericJsonAndUrlQueryCreatorFactory()
+                                        .createLookupQueryCreator(
+                                                config,
+                                                lookupRow,
+                                                getTableContext(config, RESOLVED_SCHEMA)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "The http.request.additional-body-json option should not override join keys")
+                .hasMessageContaining(
+                        "as join keys are expected to target different enrichments on a request basis")
+                .hasMessageContaining("Found conflicting field(s):")
+                .hasMessageContaining("key1")
+                .hasMessageContaining("key2");
     }
 
     @Test
@@ -519,27 +504,21 @@ class GenericJsonAndUrlQueryCreatorTest {
                 "{\"key2\":\"override2\",\"key1\":\"override1\",\"c\":789}");
 
         // WHEN/THEN - Should throw IllegalArgumentException with all conflicting fields
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> {
-                            new GenericJsonAndUrlQueryCreatorFactory()
-                                    .createLookupQueryCreator(
-                                            config,
-                                            lookupRow,
-                                            getTableContext(config, RESOLVED_SCHEMA));
-                        });
-
-        // Verify the error message contains both fields regardless of order
-        assertThat(exception.getMessage())
-                .contains(
-                        "The http.request.additional-body-json option should not override join keys");
-        assertThat(exception.getMessage())
-                .contains(
-                        "as join keys are expected to target different enrichments on a request basis");
-        assertThat(exception.getMessage()).contains("Found conflicting field(s):");
-        assertThat(exception.getMessage()).contains("key1");
-        assertThat(exception.getMessage()).contains("key2");
+        assertThatThrownBy(
+                        () ->
+                                new GenericJsonAndUrlQueryCreatorFactory()
+                                        .createLookupQueryCreator(
+                                                config,
+                                                lookupRow,
+                                                getTableContext(config, RESOLVED_SCHEMA)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "The http.request.additional-body-json option should not override join keys")
+                .hasMessageContaining(
+                        "as join keys are expected to target different enrichments on a request basis")
+                .hasMessageContaining("Found conflicting field(s):")
+                .hasMessageContaining("key1")
+                .hasMessageContaining("key2");
     }
 
     @Test
@@ -599,21 +578,17 @@ class GenericJsonAndUrlQueryCreatorTest {
 
         // WHEN/THEN - Should throw IllegalArgumentException because additional JSON tries to
         // override body field
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> {
-                            new GenericJsonAndUrlQueryCreatorFactory()
-                                    .createLookupQueryCreator(
-                                            config,
-                                            lookupRow,
-                                            getTableContext(config, RESOLVED_SCHEMA));
-                        });
-
-        // Verify error message mentions the conflicting field
-        assertThat(exception.getMessage()).contains("customerId");
-        assertThat(exception.getMessage())
-                .contains("http.request.additional-body-json option should not override join keys");
+        assertThatThrownBy(
+                        () ->
+                                new GenericJsonAndUrlQueryCreatorFactory()
+                                        .createLookupQueryCreator(
+                                                config,
+                                                lookupRow,
+                                                getTableContext(config, RESOLVED_SCHEMA)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("customerId")
+                .hasMessageContaining(
+                        "http.request.additional-body-json option should not override join keys");
     }
 
     @Test
