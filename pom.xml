@@ -451,12 +451,24 @@ under the License.
                     <artifactId>hamcrest-core</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>net.javacrumbs.json-unit</groupId>
+                    <artifactId>json-unit-core</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
                     <artifactId>jackson-databind</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.networknt</groupId>
+                    <artifactId>json-schema-validator</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-fileupload</groupId>
+                    <artifactId>commons-fileupload</artifactId>
                 </exclusion>
             </exclusions>
 
