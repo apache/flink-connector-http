@@ -29,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link HttpSink }. */
 public class HttpSinkBuilderTest {
@@ -39,45 +39,47 @@ public class HttpSinkBuilderTest {
 
     @Test
     public void testEmptyUrl() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        HttpSink.<String>builder()
-                                .setElementConverter(ELEMENT_CONVERTER)
-                                .setSinkHttpClientBuilder(
-                                        (properties,
-                                                httpPostRequestCallback,
-                                                headerPreprocessor,
-                                                requestSubmitterFactory) -> new MockHttpClient())
-                                .setEndpointUrl("")
-                                .build());
+        assertThatThrownBy(
+                        () ->
+                                HttpSink.<String>builder()
+                                        .setElementConverter(ELEMENT_CONVERTER)
+                                        .setSinkHttpClientBuilder(
+                                                (properties,
+                                                        httpPostRequestCallback,
+                                                        headerPreprocessor,
+                                                        requestSubmitterFactory) ->
+                                                        new MockHttpClient())
+                                        .setEndpointUrl("")
+                                        .build())
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void testNullUrl() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        HttpSink.<String>builder()
-                                .setElementConverter(ELEMENT_CONVERTER)
-                                .setSinkHttpClientBuilder(
-                                        (properties,
-                                                httpPostRequestCallback,
-                                                headerPreprocessor,
-                                                requestSubmitterFactory) -> new MockHttpClient())
-                                .build());
+        assertThatThrownBy(
+                        () ->
+                                HttpSink.<String>builder()
+                                        .setElementConverter(ELEMENT_CONVERTER)
+                                        .setSinkHttpClientBuilder(
+                                                (properties,
+                                                        httpPostRequestCallback,
+                                                        headerPreprocessor,
+                                                        requestSubmitterFactory) ->
+                                                        new MockHttpClient())
+                                        .build())
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void testNullHttpClient() {
-        assertThrows(
-                NullPointerException.class,
-                () ->
-                        HttpSink.<String>builder()
-                                .setElementConverter(ELEMENT_CONVERTER)
-                                .setSinkHttpClientBuilder(null)
-                                .setEndpointUrl("localhost:8000")
-                                .build());
+        assertThatThrownBy(
+                        () ->
+                                HttpSink.<String>builder()
+                                        .setElementConverter(ELEMENT_CONVERTER)
+                                        .setSinkHttpClientBuilder(null)
+                                        .setEndpointUrl("localhost:8000")
+                                        .build())
+                .isInstanceOf(NullPointerException.class);
     }
 
     private static class MockHttpClient implements SinkHttpClient {

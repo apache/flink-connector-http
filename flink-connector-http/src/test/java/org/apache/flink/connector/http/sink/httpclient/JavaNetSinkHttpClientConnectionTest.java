@@ -41,8 +41,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.any;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link JavaNetSinkHttpClient }. */
 class JavaNetSinkHttpClientConnectionTest extends HttpsConnectionTestBase {
@@ -246,25 +245,22 @@ class JavaNetSinkHttpClientConnectionTest extends HttpsConnectionTestBase {
                 HttpConnectorConfigConstants.CLIENT_PRIVATE_KEY,
                 clientPrivateKey.getAbsolutePath());
 
-        assertAll(
-                () -> {
-                    assertThrows(
-                            RuntimeException.class,
-                            () ->
-                                    new JavaNetSinkHttpClient(
-                                            properties,
-                                            postRequestCallback,
-                                            headerPreprocessor,
-                                            perRequestSubmitterFactory));
-                    assertThrows(
-                            RuntimeException.class,
-                            () ->
-                                    new JavaNetSinkHttpClient(
-                                            properties,
-                                            postRequestCallback,
-                                            headerPreprocessor,
-                                            batchRequestSubmitterFactory));
-                });
+        assertThatThrownBy(
+                        () ->
+                                new JavaNetSinkHttpClient(
+                                        properties,
+                                        postRequestCallback,
+                                        headerPreprocessor,
+                                        perRequestSubmitterFactory))
+                .isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(
+                        () ->
+                                new JavaNetSinkHttpClient(
+                                        properties,
+                                        postRequestCallback,
+                                        headerPreprocessor,
+                                        batchRequestSubmitterFactory))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @ParameterizedTest

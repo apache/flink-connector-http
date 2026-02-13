@@ -60,7 +60,6 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSource
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSource;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HttpLookupTableSourceTest {
 
@@ -289,7 +288,7 @@ class HttpLookupTableSourceTest {
         HttpLookupConfig options = HttpLookupConfig.builder().useAsync(testSpec.isAsync).build();
         LookupTableSource.LookupRuntimeProvider lookupRuntimeProvider =
                 getLookupRuntimeProvider(testSpec.hasCache ? cache : null, options);
-        assertTrue(testSpec.expected.isInstance(lookupRuntimeProvider));
+        assertThat(lookupRuntimeProvider).isInstanceOf(testSpec.expected);
     }
 
     private static class TestSpec {

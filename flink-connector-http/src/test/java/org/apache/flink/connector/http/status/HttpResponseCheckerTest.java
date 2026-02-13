@@ -32,9 +32,8 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptySet;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,16 +42,14 @@ class HttpResponseCheckerTest {
 
     @Test
     void failWhenTheSameCodeIsMarkedSuccessAndError() {
-        assertThrows(
-                ConfigurationException.class,
-                () -> new HttpResponseChecker(Set.of(404), Set.of(404)));
+        assertThatThrownBy(() -> new HttpResponseChecker(Set.of(404), Set.of(404)))
+                .isInstanceOf(ConfigurationException.class);
     }
 
     @Test
     void failWhenSuccessListIsEmpty() {
-        assertThrows(
-                ConfigurationException.class,
-                () -> new HttpResponseChecker(emptySet(), Set.of(500)));
+        assertThatThrownBy(() -> new HttpResponseChecker(emptySet(), Set.of(500)))
+                .isInstanceOf(ConfigurationException.class);
     }
 
     private static Stream<InputArgs> testData() {
@@ -92,18 +89,18 @@ class HttpResponseCheckerTest {
     }
 
     private void assertSuccessful(HttpResponseChecker checker, HttpResponse<?> response) {
-        assertTrue(checker.isSuccessful(response));
-        assertFalse(checker.isTemporalError(response));
+        assertThat(checker.isSuccessful(response)).isTrue();
+        assertThat(checker.isTemporalError(response)).isFalse();
     }
 
     private void assertTemporalError(HttpResponseChecker checker, HttpResponse<?> response) {
-        assertFalse(checker.isSuccessful(response));
-        assertTrue(checker.isTemporalError(response));
+        assertThat(checker.isSuccessful(response)).isFalse();
+        assertThat(checker.isTemporalError(response)).isTrue();
     }
 
     private void assertError(HttpResponseChecker checker, HttpResponse<?> response) {
-        assertFalse(checker.isSuccessful(response));
-        assertFalse(checker.isTemporalError(response));
+        assertThat(checker.isSuccessful(response)).isFalse();
+        assertThat(checker.isTemporalError(response)).isFalse();
     }
 
     @RequiredArgsConstructor

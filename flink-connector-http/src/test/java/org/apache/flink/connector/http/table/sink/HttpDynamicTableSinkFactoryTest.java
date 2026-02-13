@@ -25,7 +25,7 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unfortunately it seems that Flink is lazy with connector instantiation, so one has to call INSERT
@@ -54,9 +54,8 @@ public class HttpDynamicTableSinkFactoryTest {
                                 + ")",
                         HttpDynamicTableSinkFactory.IDENTIFIER, "http://localhost/");
         tEnv.executeSql(noFormatOptionCreate);
-        assertThrows(
-                ValidationException.class,
-                () -> tEnv.executeSql("INSERT INTO formatHttp VALUES (1)").await());
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO formatHttp VALUES (1)").await())
+                .isInstanceOf(ValidationException.class);
 
         final String noUrlOptionCreate =
                 String.format(
@@ -68,9 +67,8 @@ public class HttpDynamicTableSinkFactoryTest {
                                 + ")",
                         HttpDynamicTableSinkFactory.IDENTIFIER);
         tEnv.executeSql(noUrlOptionCreate);
-        assertThrows(
-                ValidationException.class,
-                () -> tEnv.executeSql("INSERT INTO urlHttp VALUES (1)").await());
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO urlHttp VALUES (1)").await())
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test
@@ -87,9 +85,8 @@ public class HttpDynamicTableSinkFactoryTest {
                                 + ")",
                         HttpDynamicTableSinkFactory.IDENTIFIER, "http://localhost/");
         tEnv.executeSql(invalidInsertMethod);
-        assertThrows(
-                ValidationException.class,
-                () -> tEnv.executeSql("INSERT INTO http VALUES (1)").await());
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO http VALUES (1)").await())
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test
@@ -106,8 +103,7 @@ public class HttpDynamicTableSinkFactoryTest {
                                 + ")",
                         HttpDynamicTableSinkFactory.IDENTIFIER, "http://localhost/");
         tEnv.executeSql(invalidInsertMethod);
-        assertThrows(
-                ValidationException.class,
-                () -> tEnv.executeSql("INSERT INTO http VALUES (1)").await());
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO http VALUES (1)").await())
+                .isInstanceOf(ValidationException.class);
     }
 }

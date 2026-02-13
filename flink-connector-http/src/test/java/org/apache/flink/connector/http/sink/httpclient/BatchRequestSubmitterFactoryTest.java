@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link BatchRequestSubmitterFactory}. */
 class BatchRequestSubmitterFactoryTest {
@@ -36,9 +36,8 @@ class BatchRequestSubmitterFactoryTest {
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
     public void shouldThrowIfInvalidDefaultSize(int invalidArgument) {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new BatchRequestSubmitterFactory(invalidArgument));
+        assertThatThrownBy(() -> new BatchRequestSubmitterFactory(invalidArgument))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -76,8 +75,8 @@ class BatchRequestSubmitterFactoryTest {
 
         BatchRequestSubmitterFactory factory = new BatchRequestSubmitterFactory(10);
 
-        assertThrows(
-                ConfigException.class, () -> factory.createSubmitter(properties, new String[0]));
+        assertThatThrownBy(() -> factory.createSubmitter(properties, new String[0]))
+                .isInstanceOf(ConfigException.class);
     }
 
     @ParameterizedTest
@@ -90,7 +89,7 @@ class BatchRequestSubmitterFactoryTest {
 
         BatchRequestSubmitterFactory factory = new BatchRequestSubmitterFactory(10);
 
-        assertThrows(
-                ConfigException.class, () -> factory.createSubmitter(properties, new String[0]));
+        assertThatThrownBy(() -> factory.createSubmitter(properties, new String[0]))
+                .isInstanceOf(ConfigException.class);
     }
 }

@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.fail;
 
 /** Test for {@link OidcAccessTokenManager}. */
 public class OidcAccessTokenManagerTest {
@@ -83,7 +83,7 @@ public class OidcAccessTokenManagerTest {
 
         try {
             oidcAuth.authenticate();
-            assertTrue(false, "Bad status code should result in an exception.");
+            fail("Bad status code should result in an exception.");
         } catch (IllegalStateException e) {
             // expected
         }

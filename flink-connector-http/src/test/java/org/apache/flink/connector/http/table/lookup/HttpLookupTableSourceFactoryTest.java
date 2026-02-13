@@ -38,7 +38,7 @@ import java.util.Map;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.assertj.core.api.Assertions.fail;
 
 /** Test for {@link HttpLookupTableSourceFactory}. */
 public class HttpLookupTableSourceFactoryTest {
@@ -76,7 +76,7 @@ public class HttpLookupTableSourceFactoryTest {
 
         try {
             httpLookupTableSourceFactory.validateHttpLookupSourceOptions(tableConfig);
-            assertFalse(true, "Expected an error.");
+            fail("Expected an error.");
         } catch (IllegalArgumentException e) {
             // expected
         }
