@@ -319,25 +319,18 @@ under the License.
                     <groupId>net.javacrumbs.json-unit</groupId>
                     <artifactId>json-unit-core</artifactId>
                 </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>net.javacrumbs.json-unit</groupId>
+            <artifactId>json-unit-core</artifactId>
+            <version>2.40.1</version>
+            <scope>test</scope>
+            <exclusions>
                 <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-io</groupId>
-                    <artifactId>commons-io</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.networknt</groupId>
-                    <artifactId>json-schema-validator</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-fileupload</groupId>
-                    <artifactId>commons-fileupload</artifactId>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -451,6 +444,7 @@ under the License.
                                 <ignoredDependency>net.bytebuddy:byte-buddy:jar:1.14.17</ignoredDependency>
                                 <ignoredDependency>com.google.guava:guava:jar:32.0.1-jre</ignoredDependency>
                                 <ignoredDependency>org.apache.flink:flink-clients:jar:1.20.0</ignoredDependency>
+                                <ignoredDependency>net.javacrumbs.json-unit:json-unit-core:jar:2.40.1</ignoredDependency>
                                 <ignoredUnusedDeclaredDependencies>org.apache.flink:flink-table-planner_${scala.binary.version}
                                 </ignoredUnusedDeclaredDependencies>
                                 <ignoredDependency>org.apache.flink:flink-table-test-utils:jar:1.20.0</ignoredDependency>
