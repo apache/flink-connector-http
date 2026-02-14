@@ -454,6 +454,10 @@ under the License.
                     <groupId>net.javacrumbs.json-unit</groupId>
                     <artifactId>json-unit-core</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.networknt</groupId>
+                    <artifactId>json-schema-validator</artifactId>
+                </exclusion>
             </exclusions>
 
         </dependency>
