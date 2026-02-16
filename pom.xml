@@ -83,7 +83,7 @@ under the License.
         <mockito-inline.version>5.2.0</mockito-inline.version>
         <!-- explicitly include a java 21 supporting version of byte buddy -->
         <bytebuddy.version>1.14.17</bytebuddy.version>
-        <wiremock.version>2.27.2</wiremock.version>
+        <wiremock.version>3.13.2</wiremock.version>
         <maven.shade.plugin.version>3.1.1</maven.shade.plugin.version>
         <resilence4j.version>1.7.1</resilence4j.version>
         <japicmp.skip>false</japicmp.skip>
@@ -413,7 +413,7 @@ under the License.
         </dependency>
 
         <dependency>
-            <groupId>com.github.tomakehurst</groupId>
+            <groupId>org.wiremock</groupId>
             <artifactId>wiremock</artifactId>
             <version>${wiremock.version}</version>
             <!--exclusion required to pass convergence check in CI -->
@@ -445,6 +445,18 @@ under the License.
                 <exclusion>
                     <groupId>org.ow2.asm</groupId>
                     <artifactId>asm</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.javacrumbs.json-unit</groupId>
+                    <artifactId>json-unit-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.networknt</groupId>
+                    <artifactId>json-schema-validator</artifactId>
                 </exclusion>
             </exclusions>
 
