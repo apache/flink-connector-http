@@ -64,44 +64,51 @@ under the License.
              TODO is this still valid in Flink connector.
              -->
 
-        <flink.version>1.20.0</flink.version>
-        <flink.shaded.version>20.0</flink.shaded.version>
-        <flink.shaded.jackson.version>2.18.2</flink.shaded.jackson.version>
-        <target.java.version>11</target.java.version>
-        <scala.binary.version>2.12</scala.binary.version>
-        <scala-library.version>2.12.17</scala-library.version>
-        <maven.compiler.source>${target.java.version}</maven.compiler.source>
-        <maven.compiler.target>${target.java.version}</maven.compiler.target>
-        <lombok.version>1.18.38</lombok.version>
-        <jackson.version>2.18.1</jackson.version>
-        <junit5.version>5.10.1</junit5.version>
-        <junit.jupiter.version>${junit5.version}</junit.jupiter.version>
         <assertj.core.version>3.27.7</assertj.core.version>
-        <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
-        <!-- TODO remove mockito dependency 4.6.1 use level that supports java 21-->
-        <mockito.version>5.2.0</mockito.version>
-        <mockito-inline.version>5.2.0</mockito-inline.version>
         <!-- explicitly include a java 21 supporting version of byte buddy -->
         <bytebuddy.version>1.14.17</bytebuddy.version>
-        <wiremock.version>3.13.2</wiremock.version>
-        <maven.shade.plugin.version>3.1.1</maven.shade.plugin.version>
-        <resilence4j.version>1.7.1</resilence4j.version>
-        <japicmp.skip>false</japicmp.skip>
-        <japicmp.referenceVersion>1.17.0</japicmp.referenceVersion>
-        <!-- to match flink's level -->
-        <slf4j.version>1.7.36</slf4j.version>
-        <!-- can be removed with maven-spotless-plugin:2.38+ -->
-        <spotless.skip>false</spotless.skip>
-        <scala-reflect.version>2.12.19</scala-reflect.version>
-        <scala-library.version>2.12.19</scala-library.version>
         <!-- This property should contain the add-opens/add-exports commands required for the tests
  in the given connector's module to pass.
  It MUST be a space-separated list not containing any newlines,
  of entries in the form '[-]{2}add-[opens|exports]=<module>/<package>=ALL-UNNAMED'.-->
         <flink.connector.module.config/>
+        <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
+        <flink.shaded.jackson.version>2.18.2</flink.shaded.jackson.version>
+        <flink.shaded.version>20.0</flink.shaded.version>
         <flink.surefire.baseArgLine>-XX:+UseG1GC -Xms256m -XX:+IgnoreUnrecognizedVMOptions
             ${flink.connector.module.config}
         </flink.surefire.baseArgLine>
+        <flink.version>1.20.0</flink.version>
+        <guava.test.version>32.0.1-jre</guava.test.version>
+        <guava.version>27.0-jre</guava.version>
+        <jackson.version>2.18.1</jackson.version>
+        <japicmp.referenceVersion>1.17.0</japicmp.referenceVersion>
+        <japicmp.skip>false</japicmp.skip>
+        <json-smart.version>2.5.2</json-smart.version>
+        <json-unit-core.version>2.40.1</json-unit-core.version>
+        <jsr305.version>1.3.9</jsr305.version>
+        <junit.jupiter.version>${junit5.version}</junit.jupiter.version>
+        <junit5.version>5.10.1</junit5.version>
+        <lombok.version>1.18.38</lombok.version>
+        <maven.compiler.source>${target.java.version}</maven.compiler.source>
+        <maven.compiler.target>${target.java.version}</maven.compiler.target>
+        <maven.dependency.plugin.version>3.7.1</maven.dependency.plugin.version>
+        <maven.shade.plugin.version>3.1.1</maven.shade.plugin.version>
+        <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
+        <!-- TODO remove mockito dependency 4.6.1 use level that supports java 21-->
+        <mockito.version>5.2.0</mockito.version>
+        <mockito-inline.version>5.2.0</mockito-inline.version>
+        <resilence4j.version>1.7.1</resilence4j.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <scala-library.version>2.12.19</scala-library.version>
+        <scala-reflect.version>2.12.19</scala-reflect.version>
+        <!-- to match flink's level -->
+        <slf4j.version>1.7.36</slf4j.version>
+        <!-- can be removed with maven-spotless-plugin:2.38+ -->
+        <spotless.skip>false</spotless.skip>
+        <target.java.version>11</target.java.version>
+        <vavr.version>0.10.2</vavr.version>
+        <wiremock.version>3.13.2</wiremock.version>
     </properties>
 
     <repositories>
@@ -164,6 +171,13 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-clients</artifactId>
             <version>${flink.version}</version>
+            <!--exclusion required to pass convergence check in CI -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-shaded-jackson</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -175,6 +189,10 @@ under the License.
                 <exclusion>
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-lang3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-shaded-jackson</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -233,14 +251,14 @@ under the License.
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>1.3.9</version>
+            <version>${jsr305.version}</version>
         </dependency>
 
         <!-- direct dependencies -->
         <dependency>
             <groupId>io.vavr</groupId>
             <artifactId>vavr</artifactId>
-            <version>0.10.2</version>
+            <version>${vavr.version}</version>
             <scope>compile</scope>
         </dependency>
 
@@ -295,6 +313,23 @@ under the License.
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-test-utils</artifactId>
+            <version>${flink.version}</version>
+            <!--exclusion required to pass convergence check in CI -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- brings in junit 5.10.1 which mismatches our junit so we need to exclude it-->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -331,6 +366,13 @@ under the License.
             <artifactId>flink-streaming-java</artifactId>
             <version>${flink.version}</version>
             <scope>provided</scope>
+            <!--exclusion required to pass convergence check in CI -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-shaded-jackson</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -361,13 +403,19 @@ under the License.
         <dependency>
             <groupId> com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>27.0-jre</version>
+            <version>${guava.test.version}</version>
         </dependency>
 
         <dependency>
             <groupId>net.minidev</groupId>
             <artifactId>json-smart</artifactId>
-            <version>2.5.2</version>
+            <version>${json-smart.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-shaded-jackson</artifactId>
+            <version>${flink.shaded.jackson.version}-${flink.shaded.version}</version>
         </dependency>
 
         <dependency>
@@ -459,7 +507,19 @@ under the License.
                     <artifactId>json-schema-validator</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
 
+        <dependency>
+            <groupId>net.javacrumbs.json-unit</groupId>
+            <artifactId>json-unit-core</artifactId>
+            <version>${json-unit-core.version}</version>
+            <!--exclusion required to pass convergence check in CI -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
     </dependencyManagement>
@@ -482,7 +542,7 @@ under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M5</version>
+                <version>${maven.surefire.plugin.version}</version>
                 <configuration>
                     <!-- enables TCP/IP communication between surefire and forked JVM-->
                     <forkNode implementation="org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory"/>
@@ -568,7 +628,7 @@ under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.7.1</version>
+                <version>${maven.dependency.plugin.version}</version>
                 <executions>
                     <execution>
                         <id>analyze-deps</id>
