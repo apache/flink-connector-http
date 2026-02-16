@@ -413,7 +413,7 @@ under the License.
         </dependency>
 
         <dependency>
-            <groupId>com.github.tomakehurst</groupId>
+            <groupId>org.wiremock</groupId>
             <artifactId>wiremock</artifactId>
             <version>${wiremock.version}</version>
             <!--exclusion required to pass convergence check in CI -->
