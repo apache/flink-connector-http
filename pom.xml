@@ -57,11 +57,6 @@ under the License.
     </scm>
 
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <target.java.version>11</target.java.version>
-        <scala.binary.version>2.12</scala.binary.version>
-        <maven.compiler.source>${target.java.version}</maven.compiler.source>
-        <maven.compiler.target>${target.java.version}</maven.compiler.target>
 
         <!-- Flink versions -->
         <!-- IMPORTANT: If you update Flink, remember to update link to its docs in maven-javadoc-plugin <links>
@@ -71,6 +66,13 @@ under the License.
         <flink.shaded.jackson.version>2.18.2</flink.shaded.jackson.version>
         <flink.shaded.version>20.0</flink.shaded.version>
         <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
+
+        <!-- Compiler versions -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <target.java.version>11</target.java.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <maven.compiler.source>${target.java.version}</maven.compiler.source>
+        <maven.compiler.target>${target.java.version}</maven.compiler.target>
 
         <!-- 3rd party versions -->
         <assertj.core.version>3.27.7</assertj.core.version>
@@ -91,10 +93,11 @@ under the License.
         <resilence4j.version>1.7.1</resilence4j.version>
         <scala-library.version>2.12.19</scala-library.version>
         <scala-reflect.version>2.12.19</scala-reflect.version>
-        <!-- to match flink's level -->
-        <slf4j.version>1.7.36</slf4j.version>
         <vavr.version>0.10.2</vavr.version>
         <wiremock.version>3.13.2</wiremock.version>
+
+        <!-- to match flink's level -->
+        <slf4j.version>1.7.36</slf4j.version>
 
         <!-- Plugin versions -->
         <japicmp.referenceVersion>1.17.0</japicmp.referenceVersion>
