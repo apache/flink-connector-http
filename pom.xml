@@ -58,57 +58,62 @@ under the License.
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <target.java.version>11</target.java.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <maven.compiler.source>${target.java.version}</maven.compiler.source>
+        <maven.compiler.target>${target.java.version}</maven.compiler.target>
 
+        <!-- Flink versions -->
         <!-- IMPORTANT: If you update Flink, remember to update link to its docs in maven-javadoc-plugin <links>
              section, omitting the patch part (so for 1.15.0 use 1.15).
-             TODO is this still valid in Flink connector.
-             -->
+             TODO is this still valid in Flink connector. -->
+        <flink.version>1.20.0</flink.version>
+        <flink.shaded.jackson.version>2.18.2</flink.shaded.jackson.version>
+        <flink.shaded.version>20.0</flink.shaded.version>
+        <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
 
+        <!-- 3rd party versions -->
         <assertj.core.version>3.27.7</assertj.core.version>
         <!-- explicitly include a java 21 supporting version of byte buddy -->
         <bytebuddy.version>1.14.17</bytebuddy.version>
-        <!-- This property should contain the add-opens/add-exports commands required for the tests
- in the given connector's module to pass.
- It MUST be a space-separated list not containing any newlines,
- of entries in the form '[-]{2}add-[opens|exports]=<module>/<package>=ALL-UNNAMED'.-->
-        <flink.connector.module.config/>
-        <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
-        <flink.shaded.jackson.version>2.18.2</flink.shaded.jackson.version>
-        <flink.shaded.version>20.0</flink.shaded.version>
-        <flink.surefire.baseArgLine>-XX:+UseG1GC -Xms256m -XX:+IgnoreUnrecognizedVMOptions
-            ${flink.connector.module.config}
-        </flink.surefire.baseArgLine>
-        <flink.version>1.20.0</flink.version>
-        <guava.test.version>32.0.1-jre</guava.test.version>
         <guava.version>27.0-jre</guava.version>
+        <guava.test.version>32.0.1-jre</guava.test.version>
         <jackson.version>2.18.1</jackson.version>
-        <japicmp.referenceVersion>1.17.0</japicmp.referenceVersion>
-        <japicmp.skip>false</japicmp.skip>
         <json-smart.version>2.5.2</json-smart.version>
         <json-unit-core.version>2.40.1</json-unit-core.version>
         <jsr305.version>1.3.9</jsr305.version>
-        <junit.jupiter.version>${junit5.version}</junit.jupiter.version>
         <junit5.version>5.10.1</junit5.version>
+        <junit.jupiter.version>${junit5.version}</junit.jupiter.version>
         <lombok.version>1.18.38</lombok.version>
-        <maven.compiler.source>${target.java.version}</maven.compiler.source>
-        <maven.compiler.target>${target.java.version}</maven.compiler.target>
-        <maven.dependency.plugin.version>3.7.1</maven.dependency.plugin.version>
-        <maven.shade.plugin.version>3.1.1</maven.shade.plugin.version>
-        <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
         <!-- TODO remove mockito dependency 4.6.1 use level that supports java 21-->
         <mockito.version>5.2.0</mockito.version>
         <mockito-inline.version>5.2.0</mockito-inline.version>
         <resilence4j.version>1.7.1</resilence4j.version>
-        <scala.binary.version>2.12</scala.binary.version>
         <scala-library.version>2.12.19</scala-library.version>
         <scala-reflect.version>2.12.19</scala-reflect.version>
         <!-- to match flink's level -->
         <slf4j.version>1.7.36</slf4j.version>
-        <!-- can be removed with maven-spotless-plugin:2.38+ -->
-        <spotless.skip>false</spotless.skip>
-        <target.java.version>11</target.java.version>
         <vavr.version>0.10.2</vavr.version>
         <wiremock.version>3.13.2</wiremock.version>
+
+        <!-- Plugin versions -->
+        <japicmp.referenceVersion>1.17.0</japicmp.referenceVersion>
+        <japicmp.skip>false</japicmp.skip>
+        <maven.dependency.plugin.version>3.7.1</maven.dependency.plugin.version>
+        <maven.shade.plugin.version>3.1.1</maven.shade.plugin.version>
+        <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
+
+        <!-- Config args -->
+        <!-- This property should contain the add-opens/add-exports commands required for the tests
+             in the given connector's module to pass.
+             It MUST be a space-separated list not containing any newlines,
+             of entries in the form '[-]{2}add-[opens|exports]=<module>/<package>=ALL-UNNAMED'. -->
+        <flink.connector.module.config/>
+        <flink.surefire.baseArgLine>-XX:+UseG1GC -Xms256m -XX:+IgnoreUnrecognizedVMOptions
+            ${flink.connector.module.config}
+        </flink.surefire.baseArgLine>
+        <!-- can be removed with maven-spotless-plugin:2.38+ -->
+        <spotless.skip>false</spotless.skip>
     </properties>
 
     <repositories>
