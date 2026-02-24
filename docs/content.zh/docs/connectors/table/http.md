@@ -49,7 +49,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Format considerations](#format-considerations)
       * [For HTTP requests](#for-http-requests)
       * [For HTTP responses](#for-http-responses)
-    * [http-generic-json-url Query Creator](#http-generic-json-url-query-creator-1)
+    * [Default Query Creator Implementation](#default-query-creator-implementation)
     * [Http headers](#http-headers)
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
@@ -119,7 +119,7 @@ CREATE TABLE Customers (
 
 ### Using a HTTP Lookup Source in a lookup join
 
-To easy see how the lookup enrichment works, we can define a data source using datagen:
+To easily see how the lookup enrichment works, we can define a data source using datagen:
 ```roomsql
 CREATE TABLE Orders (
     id STRING,
@@ -206,12 +206,12 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.request.query-param-fields                                        | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                |                                                                                                                                                                                                                                                                                                                                                               
 | http.request.body-fields                                               | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The names of the fields that will be mapped to the body. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                        |                                                                                                                                                                                                                                                                                                                                                                         |
 | http.request.additional-body-json                                      | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. Additional JSON content to be merged into the request body for PUT and POST operations. The value should be a valid JSON object string (e.g., `'{"opportunity":{"source":"flink"},"priority":1}'`) that will be parsed and its fields merged at the top level with the generated request body. For example, if the body is `{"id":123}` and additional-body-json is `'{"extra":"value"}'`, the result will be `{"id":123,"extra":"value"}`. Supports nested objects and arrays.                      |
-| http.request.url-map                                                   | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid1,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url. The expected format of the map is: `key1:value1,key2:value2`. |
+| http.request.url-map                                                   | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
 
 ### Query Creators
 
 In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the
-HTTP request content. In reality, you will want to have move control over how the SQL columns are mapped to the HTTP content.
+HTTP request content. In reality, you will want to have more control over how the SQL columns are mapped to the HTTP content.
 The HTTP connector supplies a number of Query Creators that you can use define these mappings.
 
 <table class="table table-bordered">
@@ -232,7 +232,7 @@ The HTTP connector supplies a number of Query Creators that you can use define t
     </tr>
     <tr>
       <td><h5>http-generic-get-query</h5></td>
-      <td><✓ for GETs/td>
+      <td>✓ for GETs</td>
       <td></td>
       <td>✓ for PUTs and POSTs</td>
     </tr>
@@ -268,11 +268,10 @@ Specify your format options at the top level. For example:
        'json.ignore-parse-errors' = 'true',
 ```
 
-### http-generic-json-url Query Creator
+### Default Query Creator Implementation
 
-The default Query Creator is called _http-generic-json-url_.  For body based queries such as POST/PUT requests, the
-([GenericGetQueryCreator](flink-connector-http/src/main/java/org/apache/flink/connectors/http/internal/table/lookup/querycreators/GenericGetQueryCreator.java))is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/)  to convert RowData object into Json String.
-For GET requests can be used for query parameter based queries.
+The default Query Creator is called _http-generic-json-url_. For body based queries such as POST/PUT requests, the GenericGetQueryCreator is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/) to convert RowData object into Json String.
+For GET requests it can be used for query parameter based queries.
 
 The _http-generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
@@ -463,7 +462,7 @@ An example of Http Sink batch request body containing data for three events:
 ```
 
 By default, batch size is set to 500 which is the same as Http Sink's `maxBatchSize` property and has value of 500.
-The `maxBatchSize' property sets maximal number of events that will by buffered by Flink runtime before passing it to Http Sink for processing.
+The `maxBatchSize` property sets maximal number of events that will by buffered by Flink runtime before passing it to Http Sink for processing.
 
 ```roomsql
 CREATE TABLE http (
@@ -496,10 +495,10 @@ CREATE TABLE http (
 ## Available Metadata
 
 The metadata column `http-status-code`, if specified in the table definition, will get the HTTP status code.
-The metadata column `http-headers-map `, if specified in the table definition, will get a map of the HTTP headers.
+The metadata column `http-headers-map`, if specified in the table definition, will get a map of the HTTP headers.
 
 HTTP requests can fail either immediately or after temporary error retries. The usual behaviour after such failures is to end the job. If you would like to continue
-processing after these failures then specify `http.source.lookup.continue-on-error` as true. THe lookup join will complete without content in the expected enrichment columns from the http call,
+processing after these failures then specify `http.source.lookup.continue-on-error` as true. The lookup join will complete without content in the expected enrichment columns from the http call,
 this means that these columns will be null for nullable columns and hold a default value for the type for non-nullable columns.
 
 When using `http.source.lookup.continue-on-error` as true, consider adding extra metadata columns that will surface information about failures into your stream.
@@ -605,7 +604,7 @@ If the used value starts with the prefix `Basic`, or `http.source.lookup.use-raw
 is set to `'true'`, it will be used as header value as is, without any extra modification.
 
 ### OIDC Bearer Authentication
-The connector supports Bearer Authentication using a HTTP `Authorization` header. The [OAuth 2.0 rcf](https://datatracker.ietf.org/doc/html/rfc6749) mentions [Obtaining Authorization](https://datatracker.ietf.org/doc/html/rfc6749#section-4)
+The connector supports Bearer Authentication using a HTTP `Authorization` header. The [OAuth 2.0 RFC](https://datatracker.ietf.org/doc/html/rfc6749) mentions [Obtaining Authorization](https://datatracker.ietf.org/doc/html/rfc6749#section-4)
 and an authorization grant. OIDC makes use of this [authorisation grant](https://datatracker.ietf.org/doc/html/rfc6749#section-1.3) in a [Token Request](https://openid.net/specs/openid-connect-core-1_0.html#TokenRequest) by including a [OAuth grant type](https://oauth.net/2/grant-types/) and associated properties, the response is the [token response](https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse).
 
 If you want to use this authorization then you should supply the `Token Request` body in `application/x-www-form-urlencoded` encoding
