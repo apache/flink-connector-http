@@ -50,13 +50,13 @@ The HTTP sink connector supports the Flink streaming API.
 In order to change submission batch size use `flink.connector.http.sink.request.batch.size` property. For example:
 
 ### Sink Connector options 
-These option are specified on the builder using the setProperty method.
+These options are specified on the builder using the setProperty method.
 
 | Option                                                  | Required | Description/Value                                                                                                                                                                                                                                |
 |---------------------------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | connector                                               | required | Specify what connector to use. For HTTP Sink it should be set to _'http-sink'_.                                                                                                                                                                  |
 | format                                                  | required | Specify what format to use.                                                                                                                                                                                                                      |
-| url                                                     | required | The base URL that should be use for HTTP requests. For example _http://localhost:8080/client_.                                                                                                                                                   |
+| url                                                     | required | The base URL that should be used for HTTP requests. For example _http://localhost:8080/client_.                                                                                                                                                   |
 | insert-method                                           | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                              |
 | sink.batch.max-size                                     | optional | Maximum number of elements that may be passed in a batch to be written downstream.                                                                                                                                                               |
 | sink.requests.max-inflight                              | optional | The maximum number of in flight requests that may exist, if any more in flight requests need to be initiated once the maximum has been reached, then it will be blocked until some have completed.                                               |
@@ -66,7 +66,7 @@ These option are specified on the builder using the setProperty method.
 | flink.connector.http.sink.request-callback                | optional | Specify which `HttpPostRequestCallback` implementation to use. By default, it is set to `slf4j-logger` corresponding to `Slf4jHttpPostRequestCallback`.                                                                                          |
 | flink.connector.http.sink.error.code                      | optional | List of HTTP status codes that should be treated as errors by HTTP Sink, separated with comma.                                                                                                                                                   |
 | flink.connector.http.sink.error.code.exclude              | optional | List of HTTP status codes that should be excluded from the `flink.connector.http.sink.error.code` list, separated with comma.                                                                                                                      |
-| flink.connector.http.security.cert.server                 | optional | Path to trusted HTTP server certificate that should be add to connectors key store. More than one path can be specified using `,` as path delimiter.                                                                                             |
+| flink.connector.http.security.cert.server                 | optional | Path to trusted HTTP server certificate that should be added to connectors key store. More than one path can be specified using `,` as path delimiter.                                                                                             |
 | flink.connector.http.security.cert.client                 | optional | Path to trusted certificate that should be used by connector's HTTP client for mTLS communication.                                                                                                                                               |
 | flink.connector.http.security.key.client                  | optional | Path to trusted private key that should be used by connector's HTTP client for mTLS communication.                                                                                                                                               |
 | flink.connector.http.security.cert.server.allowSelfSigned | optional | Accept untrusted certificates for TLS communication.                                                                                                                                                                                             |
@@ -80,7 +80,7 @@ These option are specified on the builder using the setProperty method.
 ### Batch submission mode
 
 By default, batch size is set to 500 which is the same as Http Sink's `maxBatchSize` property and has value of 500.
-The `maxBatchSize' property sets maximal number of events that will by buffered by Flink runtime before passing it to Http Sink for processing.
+The `maxBatchSize` property sets maximal number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
 
 Streaming API:
 ```java
@@ -105,7 +105,7 @@ HttpSink.<String>builder()
       .build();
 ```
 ### Http headers
-It is possible to set HTTP headers that will be added to HTTP request send by sink connector.
+It is possible to set HTTP headers that will be added to HTTP request sent by sink connector.
 Headers are defined via property key `flink.connector.http.sink.header.HEADER_NAME = header value` for example:
 `flink.connector.http.sink.header.X-Content-Type-Options = nosniff`.
 Properties can be set via Sink builder or Property object:
