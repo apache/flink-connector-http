@@ -120,7 +120,7 @@ HttpSink.<String>builder()
 or
 
 ```java
-Properties properties = Properties();
+Properties properties = new Properties();
 properties.setProperty("http.sink.header.X-Content-Type-Options", "nosniff");
 
 HttpSink.<String>builder()
@@ -146,7 +146,7 @@ used - allowing use of globally recognized CAs without the need for configuratio
 
 You can also configure the connector to use mTLS. For this simply use `flink.connector.http.security.cert.client`
 and `flink.connector.http.security.key.client` connector properties to specify paths to the certificate and
-private key. The key MUST be in `PCKS8` format. Both PEM and DER keys are
+private key. The key MUST be in `PKCS8` format. Both PEM and DER keys are
 allowed.
 
 All properties can be set via Sink's builder `.setProperty(...)` method or through Sink and Source table DDL.
@@ -162,7 +162,7 @@ If the used value starts with the prefix `Basic`, or `flink.connector.http.sourc
 is set to `'true'`, it will be used as header value as is, without any extra modification.
 
 ## OIDC Bearer Authentication
-The connector supports Bearer Authentication using a HTTP `Authorization` header. The [OAuth 2.0 rcf](https://datatracker.ietf.org/doc/html/rfc6749) mentions [Obtaining Authorization](https://datatracker.ietf.org/doc/html/rfc6749#section-4)
+The connector supports Bearer Authentication using a HTTP `Authorization` header. The [OAuth 2.0 RFC](https://datatracker.ietf.org/doc/html/rfc6749) mentions [Obtaining Authorization](https://datatracker.ietf.org/doc/html/rfc6749#section-4)
 and an authorization grant. OIDC makes use of this [authorisation grant](https://datatracker.ietf.org/doc/html/rfc6749#section-1.3) in a [Token Request](https://openid.net/specs/openid-connect-core-1_0.html#TokenRequest) by including a [OAuth grant type](https://oauth.net/2/grant-types/) and associated properties, the response is the [token response](https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse).
 
 If you want to use this authorization then you should supply the `Token Request` body in `application/x-www-form-urlencoded` encoding
@@ -175,5 +175,5 @@ be requested if the current time is later than the cached token expiry time minu
 
 ### Restrictions at this time
 * No authentication is applied to the token request.
-* The processing does not use the refresh token if it present.
+* The processing does not use the refresh token if it is present.
   {{< top >}}
