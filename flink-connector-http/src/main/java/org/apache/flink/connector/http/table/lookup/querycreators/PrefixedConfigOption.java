@@ -70,7 +70,7 @@ public class PrefixedConfigOption<T> {
              * configOption as this object is loaded using a different classloader.
              * Without changing Flink to make the constructor, methods and fields public, we need
              * to use reflection to access and create the new prefixed ConfigOption. It is not
-             * great practise to use reflection, but getting round this classloader issue
+             * great practice to use reflection, but getting round this classloader issue
              * necessitates it's use.
              */
             Constructor constructor = other.getClass().getDeclaredConstructors()[0];

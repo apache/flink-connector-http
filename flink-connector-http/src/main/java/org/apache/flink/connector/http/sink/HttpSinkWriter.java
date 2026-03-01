@@ -90,7 +90,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
         var metrics = context.metricGroup();
         this.numRecordsSendErrorsCounter = metrics.getNumRecordsSendErrorsCounter();
 
-        int sinkWriterThreadPollSize =
+        int sinkWriterThreadPoolSize =
                 Integer.parseInt(
                         properties.getProperty(
                                 HttpConnectorConfigConstants.SINK_HTTP_WRITER_THREAD_POOL_SIZE,
@@ -98,7 +98,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
 
         this.sinkWriterThreadPool =
                 Executors.newFixedThreadPool(
-                        sinkWriterThreadPollSize,
+                        sinkWriterThreadPoolSize,
                         new ExecutorThreadFactory(
                                 "http-sink-writer-worker", ThreadUtils.LOGGING_EXCEPTION_HANDLER));
     }
@@ -127,9 +127,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                         // requestResult.accept(requestEntries);
                     } else if (response.getFailedRequests().size() > 0) {
                         int failedRequestsNumber = response.getFailedRequests().size();
-                        log.error(
-                                "Http Sink failed to write and will retry {} requests",
-                                failedRequestsNumber);
+                        log.error("Http Sink failed to write {} requests", failedRequestsNumber);
                         numRecordsSendErrorsCounter.inc(failedRequestsNumber);
 
                         // TODO: Make `HttpSinkInternal` retry the failed requests. Currently,
