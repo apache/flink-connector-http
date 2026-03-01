@@ -98,7 +98,7 @@ class AsyncHttpTableLookupFunctionTest {
         assertThat(latch.await(3, TimeUnit.SECONDS))
                 .withFailMessage(
                         "Future complete in AsyncHttpTableLookupFunction was not called"
-                                + " for at lest one event.")
+                                + " for at least one event.")
                 .isEqualTo(true);
 
         assertThat(result.size()).isEqualTo(rowKeys.length);
@@ -138,7 +138,7 @@ class AsyncHttpTableLookupFunctionTest {
         assertThat(latch.await(3, TimeUnit.SECONDS))
                 .withFailMessage(
                         "Future complete in AsyncHttpTableLookupFunction was not called"
-                                + " for at lest one event.")
+                                + " for at least one event.")
                 .isEqualTo(true);
 
         assertThat(wasException).isTrue();
@@ -176,13 +176,13 @@ class AsyncHttpTableLookupFunctionTest {
         assertThat(latch.await(3, TimeUnit.SECONDS))
                 .withFailMessage(
                         "Future complete in AsyncHttpTableLookupFunction was not called"
-                                + " for at lest one event.")
+                                + " for at least one event.")
                 .isEqualTo(true);
 
         assertThat(completeCount.get())
                 .withFailMessage(
                         "Future complete in AsyncHttpTableLookupFunction was not called"
-                                + " for at lest one event.")
+                                + " for at least one event.")
                 .isEqualTo(rowKeys.length);
 
         // -1 since one will have one empty result.

@@ -122,7 +122,7 @@ public final class HttpConnectorConfigConstants {
     public static final String SINK_HTTP_TIMEOUT_SECONDS =
             FLINK_CONNECTOR_HTTP + "sink.request.timeout";
 
-    public static final String LOOKUP_HTTP_PULING_THREAD_POOL_SIZE =
+    public static final String LOOKUP_HTTP_POLLING_THREAD_POOL_SIZE =
             SOURCE_LOOKUP_PREFIX + "request.thread-pool.size";
 
     public static final String LOOKUP_HTTP_RESPONSE_THREAD_POOL_SIZE =

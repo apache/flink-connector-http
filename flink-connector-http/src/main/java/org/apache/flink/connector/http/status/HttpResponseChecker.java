@@ -64,7 +64,7 @@ public class HttpResponseChecker {
 
     private void validate() throws ConfigurationException {
         if (successCodes.isEmpty()) {
-            throw new ConfigurationException("Success code list can not be empty");
+            throw new ConfigurationException("Success code list cannot be empty");
         }
         var intersection = new HashSet<>(successCodes);
         intersection.retainAll(temporalErrorCodes);
@@ -72,7 +72,7 @@ public class HttpResponseChecker {
             throw new ConfigurationException(
                     "Http codes "
                             + intersection
-                            + " can not be used as both success and retry codes");
+                            + " cannot be used as both success and retry codes");
         }
     }
 }

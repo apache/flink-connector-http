@@ -199,7 +199,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
      * If using OIDC, update the http request using the oidc header pre processor to supply the
      * authentication header, with a short lived bearer token.
      *
-     * @param request http reauest to amend
+     * @param request http request to amend
      * @param oidcHeaderPreProcessor OIDC header pre processor
      * @return http request, which for OIDC will have the bearer token as the authentication header
      */
