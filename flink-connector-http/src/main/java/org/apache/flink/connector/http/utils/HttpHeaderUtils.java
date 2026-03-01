@@ -63,7 +63,8 @@ public final class HttpHeaderUtils {
         for (Entry<String, String> headerAndValue : propertyHeaderMap.entrySet()) {
             String propertyName = headerAndValue.getKey();
             String headerValue = headerAndValue.getValue();
-            log.info("prepareHeaderMap propertyName={}, headerValue={}", propertyName, headerValue);
+            log.info(
+                    "prepareHeaderMap propertyName={}, headerValue={}", propertyName, headerValue);
             String headerName = ConfigUtils.extractPropertyLastElement(propertyName);
             String preProcessedHeader =
                     headerPreprocessor.preprocessValueForHeader(headerName, headerValue);
@@ -147,3 +148,4 @@ public final class HttpHeaderUtils {
         return headerPreprocessor;
     }
 }
+
