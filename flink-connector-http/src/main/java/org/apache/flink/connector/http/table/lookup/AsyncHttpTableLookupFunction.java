@@ -64,7 +64,7 @@ public class AsyncHttpTableLookupFunction extends AsyncLookupFunction {
                                 .getProperties()
                                 .getProperty(
                                         HttpConnectorConfigConstants
-                                                .LOOKUP_HTTP_PULING_THREAD_POOL_SIZE,
+                                                .LOOKUP_HTTP_POLLING_THREAD_POOL_SIZE,
                                         PULLING_THREAD_POOL_SIZE));
 
         int publishingThreadPoolSize =

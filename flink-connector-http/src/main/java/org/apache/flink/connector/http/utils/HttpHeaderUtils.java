@@ -64,11 +64,11 @@ public final class HttpHeaderUtils {
             String propertyName = headerAndValue.getKey();
             String headerValue = headerAndValue.getValue();
             log.info(
-                    "prepareHeaderMap propertyName=" + propertyName + ",headerValue" + headerValue);
+                    "prepareHeaderMap propertyName={}, headerValue={}", propertyName, headerValue);
             String headerName = ConfigUtils.extractPropertyLastElement(propertyName);
             String preProcessedHeader =
                     headerPreprocessor.preprocessValueForHeader(headerName, headerValue);
-            log.info("prepareHeaderMap preProcessedHeader=" + preProcessedHeader);
+            log.info("prepareHeaderMap preProcessedHeader={}", preProcessedHeader);
             headerMap.put(headerName, preProcessedHeader);
         }
         return headerMap;
@@ -85,7 +85,7 @@ public final class HttpHeaderUtils {
      * )
      * }</pre>
      *
-     * <p>will be converter to an array of:
+     * <p>will be converted to an array of:
      *
      * <pre>{@code
      * String[] headers = {"header1", "val1", "header2", "val2"};
