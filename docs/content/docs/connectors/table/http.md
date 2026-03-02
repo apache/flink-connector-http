@@ -403,7 +403,7 @@ another format name.
 | http.security.cert.server.allowSelfSigned | optional | Accept untrusted certificates for TLS communication.                                                                                                                                                                               |
 | http.sink.request.timeout                 | optional | Sets HTTP request timeout in seconds. If not specified, the default value of 30 seconds will be used.                                                                                                                              |
 | http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
-| http.sink.writer.request.mode             | optional | Sets Http Sink request submission mode. Two modes are available to select, `single` and `batch` which is the default mode if option is not specified.                                                                              |
+| http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified.                                                                                                   |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
 
 ### Sink table HTTP status codes
