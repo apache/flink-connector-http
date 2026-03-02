@@ -49,7 +49,7 @@ public class ComposeHttpStatusCodeChecker implements HttpStatusCodeChecker {
     private final Set<IncludeListHttpStatusCodeChecker> includedCodes;
 
     /**
-     * Set of {@link HttpStatusCodeChecker} that check status code againts value match or {@link
+     * Set of {@link HttpStatusCodeChecker} that check status code against value match or {@link
      * HttpResponseCodeType} match.
      */
     private final Set<HttpStatusCodeChecker> errorCodes;

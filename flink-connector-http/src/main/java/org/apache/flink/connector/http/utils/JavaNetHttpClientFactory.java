@@ -150,7 +150,7 @@ public class JavaNetHttpClientFactory {
 
         if (StringUtils.isNullOrWhitespaceOnly(keyStorePath)
                 && !selfSignedCert
-                // checking the property in this way so that serverTrustedCerts is not left and null
+                // checking the property in this way so that serverTrustedCerts is not left as null
                 // or empty, which causes the http client to error.
                 && (properties.getProperty(HttpConnectorConfigConstants.SERVER_TRUSTED_CERT)
                         == null)
@@ -194,11 +194,11 @@ public class JavaNetHttpClientFactory {
 
     private static List<TrustManager> wrapWithSelfSignedManagers(TrustManager[] trustManagers) {
         log.warn(
-                "Creating Trust Managers for self-signed certificates - not Recommended. "
+                "Creating Trust Managers for self-signed certificates - not recommended. "
                         + "Use ["
                         + HttpConnectorConfigConstants.SERVER_TRUSTED_CERT
                         + "] "
-                        + "connector property to add certificated as trusted.");
+                        + "connector property to add certificates as trusted.");
 
         List<TrustManager> selfSignedManagers = new ArrayList<>(trustManagers.length);
         for (TrustManager trustManager : trustManagers) {
