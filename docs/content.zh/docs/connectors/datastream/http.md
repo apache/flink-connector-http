@@ -26,7 +26,7 @@ under the License.
 -->
 
 # Apache HTTP Connector
-The HTTP connector allows for pulling data from external system via HTTP methods and HTTP Sink that allows for sending data to external system via HTTP requests.
+The HTTP connector allows for pulling data from an external system via HTTP methods and HTTP Sink that allows for sending data to an external system via HTTP requests.
 
 Note this connector was donated to Flink in [FLIP-532](https://cwiki.apache.org/confluence/display/FLINK/FLIP-532%3A+Donate+GetInData+HTTP+Connector+to+Flink).
 Existing java applications built using the original repository will need to be recompiled to pick up the new flink package names.
@@ -72,15 +72,15 @@ These options are specified on the builder using the setProperty method.
 | flink.connector.http.security.cert.server.allowSelfSigned | optional | Accept untrusted certificates for TLS communication.                                                                                                                                                                                             |
 | flink.connector.http.sink.request.timeout                 | optional | Sets HTTP request timeout in seconds. If not specified, the default value of 30 seconds will be used.                                                                                                                                            |
 | flink.connector.http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.                   |
-| flink.connector.http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified.                                                                                                                |
+| flink.connector.http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | flink.connector.http.sink.request.batch.size              | optional | Applicable only for `flink.connector.http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
 
 
 
 ### Batch submission mode
 
-By default, batch size is set to 500 which is the same as Http Sink's `maxBatchSize` property and has value of 500.
-The `maxBatchSize` property sets maximal number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
+By default, batch size is set to 500 which is the same as Http Sink's `maxBatchSize` property.
+The `maxBatchSize` property sets the maximum number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
 
 Streaming API:
 ```java
@@ -93,7 +93,7 @@ HttpSink.<String>builder()
 ```
 
 ### Single submission mode
-In this mode every processed event is submitted as individual HTTP POST/PUT request.
+In this mode every processed event is submitted as an individual HTTP POST/PUT request.
 
 Streaming API:
 ```java
@@ -135,7 +135,7 @@ HttpSink.<String>builder()
 ## TLS (more secure replacement for SSL) and mTLS support
 
 Both Http Sink and Lookup Source connectors support HTTPS communication using TLS 1.2 and mTLS.
-To enable Https communication simply use `https` protocol in endpoint's URL.
+To enable HTTPS communication simply use `https` protocol in endpoint's URL.
 
 To specify certificate(s) to be used by the server, use `flink.connector.http.security.cert.server` connector property;
 the value is a comma separated list of paths to certificate(s), for example you can use your organization's CA
@@ -151,7 +151,7 @@ allowed.
 
 All properties can be set via Sink's builder `.setProperty(...)` method or through Sink and Source table DDL.
 
-For non production environments it is sometimes necessary to use Https connection and accept all certificates.
+For non production environments it is sometimes necessary to use an HTTPS connection and accept all certificates.
 In this special case, you can configure connector to trust all certificates without adding them to keystore.
 To enable this option use `flink.connector.http.security.cert.server.allowSelfSigned` property setting its value to `true`.
 
