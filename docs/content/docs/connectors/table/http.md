@@ -461,7 +461,7 @@ An example of Http Sink batch request body containing data for three events:
 ]
 ```
 
-By default, batch size is set to 500 which is the same as Http Sink's `maxBatchSize` property.
+By default, the `flink.connector.http.sink.request.batch.size` property is set to 500, which matches the default value of Http Sink's `maxBatchSize` property.
 The `maxBatchSize` property sets the maximum number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
 
 ```roomsql
