@@ -26,12 +26,12 @@ under the License.
 -->
 
 # Apache HTTP Connector
-The HTTP connector allows for pulling data from an external system via HTTP methods and HTTP Sink that allows for sending data to an external system via HTTP requests.
+The HTTP Sink connector allows for sending data to an external system via HTTP requests.
 
 Note this connector was donated to Flink in [FLIP-532](https://cwiki.apache.org/confluence/display/FLINK/FLIP-532%3A+Donate+GetInData+HTTP+Connector+to+Flink).
 Existing java applications built using the original repository will need to be recompiled to pick up the new flink package names.
 
-The HTTP sink connector supports the Flink streaming API.
+The HTTP Sink connector supports the Flink DataStream API.
 
 <!-- TOC -->
 * [Apache HTTP Connector](#apache-http-connector)
