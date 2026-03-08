@@ -423,7 +423,7 @@ This behavior can be changed by using the below properties in the table definiti
 ### Request submission
 HTTP Sink by default submits events in batch. The submission mode can be changed using `http.sink.writer.request.mode` property using `single` or `batch` as property value.
 
-### Batch submission mode
+#### Batch submission mode
 In batch mode, a number of events (processed elements) will be batched and submitted in one HTTP request.
 In this mode, HTTP PUT/POST request's body contains a Json array, where every element of this array represents
 individual event.
@@ -461,8 +461,13 @@ An example of Http Sink batch request body containing data for three events:
 ]
 ```
 
-By default, the `flink.connector.http.sink.request.batch.size` property is set to 500, which matches the default value of Http Sink's `maxBatchSize` property.
-The `maxBatchSize` property sets the maximum number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
+The HTTP Sink uses a two-stage batching mechanism that decouples the rate and size of incoming records from how they are sent as HTTP requests.
+
+**Stage 1 - Flink Runtime Buffering**: Controlled by `sink.batch.max-size` property (default: 500). Flink buffers records internally until reaching `sink.batch.max-size` records, `sink.flush-buffer.size`, or timeout `sink.flush-buffer.timeout`. When triggered, Flink flushes the buffered records to the HTTP Sink.
+
+**Stage 2 - HTTP Request Batching**: Controlled by `http.sink.request.batch.size` property (default: 500). The HTTP Sink receives the flushed records and groups them into HTTP requests. Each HTTP request contains up to `http.sink.request.batch.size` records as a JSON array `[record1, record2, ...]`. If more records are flushed than this size, multiple HTTP requests are created.
+
+By default, both values are 500, creating a 1:1 mapping where 500 buffered records result in 1 HTTP request.
 
 ```roomsql
 CREATE TABLE http (
@@ -476,7 +481,9 @@ CREATE TABLE http (
 )
 ```
 
-### Single submission mode
+In this example, the default `sink.batch.max-size` of 500 is used. When Flink flushes 500 records, the HTTP Sink splits them into 10 HTTP POST requests (50 records each).
+
+#### Single submission mode
 In this mode every processed event is submitted as an individual HTTP POST/PUT request.
 
 SQL:

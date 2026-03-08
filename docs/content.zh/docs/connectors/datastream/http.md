@@ -47,8 +47,6 @@ The HTTP sink connector supports the Flink streaming API.
 <!-- TOC -->
 ## Working with HTTP sink Flink streaming API
 
-In order to change submission batch size use `flink.connector.http.sink.request.batch.size` property. For example:
-
 ### Sink Connector options 
 These options are specified on the builder using the setProperty method.
 
@@ -77,10 +75,18 @@ These options are specified on the builder using the setProperty method.
 
 
 
-### Batch submission mode
+### Request submission
+HTTP Sink by default submits events in batch. The submission mode can be changed using `flink.connector.http.sink.writer.request.mode` property using `single` or `batch` as property value.
 
-By default, the `flink.connector.http.sink.request.batch.size` property is set to 500, which matches the default value of Http Sink's `maxBatchSize` property.
-The `maxBatchSize` property sets the maximum number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
+#### Batch submission mode
+
+The HTTP Sink uses a two-stage batching mechanism that decouples the rate and size of incoming records from how they are sent as HTTP requests.
+
+**Stage 1 - Flink Runtime Buffering**: Controlled by `sink.batch.max-size` property (default: 500). Flink buffers records internally until reaching `sink.batch.max-size` records, `sink.flush-buffer.size`, or timeout `sink.flush-buffer.timeout`. When triggered, Flink flushes the buffered records to the HTTP Sink.
+
+**Stage 2 - HTTP Request Batching**: Controlled by `http.sink.request.batch.size` property (default: 500). The HTTP Sink receives the flushed records and groups them into HTTP requests. Each HTTP request contains up to `http.sink.request.batch.size` records as a JSON array `[record1, record2, ...]`. If more records are flushed than this size, multiple HTTP requests are created.
+
+By default, both values are 500, creating a 1:1 mapping where 500 buffered records result in 1 HTTP request.
 
 Streaming API:
 ```java
@@ -92,7 +98,9 @@ HttpSink.<String>builder()
       .build();
 ```
 
-### Single submission mode
+In this example, the default `sink.batch.max-size` of 500 is used. When Flink flushes 500 records, the HTTP Sink splits them into 10 HTTP POST requests (50 records each).
+
+#### Single submission mode
 In this mode every processed event is submitted as an individual HTTP POST/PUT request.
 
 Streaming API:
