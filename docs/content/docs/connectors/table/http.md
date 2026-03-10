@@ -32,7 +32,7 @@ under the License.
 {{< label "Lookup Source: Async Mode" >}}
 {{< label "Sink: Batch" >}}
 
-The HTTP connector allows for pulling data from external system via HTTP methods and HTTP Sink that allows for sending data to external system via HTTP requests.
+The HTTP connector allows for pulling data from an external system via HTTP methods and HTTP Sink that allows for sending data to an external system via HTTP requests.
 
 The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sourcessinks/#lookup-table-source) in [Table API and SQL](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/overview/).
 
@@ -212,7 +212,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 
 In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the
 HTTP request content. In reality, you will want to have more control over how the SQL columns are mapped to the HTTP content.
-The HTTP connector supplies a number of Query Creators that you can use define to these mappings.
+The HTTP connector supplies a number of Query Creators that you can use to define these mappings.
 
 <table class="table table-bordered">
     <thead>
@@ -275,7 +275,7 @@ For GET requests it can be used for query parameter based queries.
 
 The _http-generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
-To create a custom format user has to implement Flink's `SerializationSchema` and `SerializationFormatFactory` interfaces and register custom format factory along other factories in
+To create a custom format user has to implement Flink's `SerializationSchema` and `SerializationFormatFactory` interfaces and register a custom format factory alongside other factories in
 `resources/META-INF.services/org.apache.flink.table.factories.Factory` file. This is common Flink mechanism for providing custom implementations for various factories.
 
 ### Http headers
@@ -341,7 +341,7 @@ For temporary errors that have reached max retries attempts (per request) and er
 succeed if `http.source.lookup.continue-on-error` is true, otherwise the job will fail.
 
 ##### Retry strategy
-User can choose retry strategy type for source table:
+Users can choose a retry strategy type for source table:
 - fixed-delay - http request will be re-sent after specified delay.
 - exponential-delay - request will be re-sent with exponential backoff strategy, limited by `lookup.max-retries` attempts. The delay for each retry is calculated as the previous attempt's delay multiplied by the backoff multiplier (parameter `http.source.lookup.retry-strategy.exponential-delay.backoff-multiplier`) up to `http.source.lookup.retry-strategy.exponential-delay.max-backoff`. The initial delay value is defined in the table configuration as `http.source.lookup.retry-strategy.exponential-delay.initial-backoff`.
 
@@ -403,14 +403,14 @@ another format name.
 | http.security.cert.server.allowSelfSigned | optional | Accept untrusted certificates for TLS communication.                                                                                                                                                                               |
 | http.sink.request.timeout                 | optional | Sets HTTP request timeout in seconds. If not specified, the default value of 30 seconds will be used.                                                                                                                              |
 | http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
-| http.sink.writer.request.mode             | optional | Sets Http Sink request submission mode. Two modes are available to select, `single` and `batch` which is the default mode if option is not specified.                                                                              |
+| http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
 
 ### Sink table HTTP status codes
 You can configure a list of HTTP status codes that should be treated as errors for HTTP sink table.
-By default all 400 and 500 response codes will be interpreted as error code.
+By default all 400 and 500 response codes will be interpreted as an error code.
 
-This behavior can be changed by using below properties in table definition. The property name are:
+This behavior can be changed by using the below properties in the table definition. The property names are:
 - `http.sink.error.code` used to define HTTP status code value that should be treated as error for example 404.
   Many status codes can be defined in one value, where each code should be separated with comma, for example:
   `401, 402, 403`. User can use this property also to define a type code mask. In that case, all codes from given HTTP response type will be treated as errors.
@@ -423,7 +423,7 @@ This behavior can be changed by using below properties in table definition. The 
 ### Request submission
 HTTP Sink by default submits events in batch. The submission mode can be changed using `http.sink.writer.request.mode` property using `single` or `batch` as property value.
 
-### Batch submission mode
+#### Batch submission mode
 In batch mode, a number of events (processed elements) will be batched and submitted in one HTTP request.
 In this mode, HTTP PUT/POST request's body contains a Json array, where every element of this array represents
 individual event.
@@ -461,8 +461,13 @@ An example of Http Sink batch request body containing data for three events:
 ]
 ```
 
-By default, batch size is set to 500 which is the same as Http Sink's `maxBatchSize` property and has value of 500.
-The `maxBatchSize` property sets maximal number of events that will be buffered by Flink runtime before passing it to Http Sink for processing.
+The HTTP Sink uses a two-stage batching mechanism that decouples the rate and size of incoming records from how they are sent as HTTP requests.
+
+**Stage 1 - Flink Runtime Buffering**: Controlled by `sink.batch.max-size` property (default: 500). Flink buffers records internally until reaching `sink.batch.max-size` records, `sink.flush-buffer.size`, or timeout `sink.flush-buffer.timeout`. When triggered, Flink flushes the buffered records to the HTTP Sink.
+
+**Stage 2 - HTTP Request Batching**: Controlled by `http.sink.request.batch.size` property (default: 500). The HTTP Sink receives the flushed records and groups them into HTTP requests. Each HTTP request contains up to `http.sink.request.batch.size` records as a JSON array `[record1, record2, ...]`. If more records are flushed than this size, multiple HTTP requests are created.
+
+By default, both values are 500, creating a 1:1 mapping where 500 buffered records result in 1 HTTP request.
 
 ```roomsql
 CREATE TABLE http (
@@ -476,8 +481,10 @@ CREATE TABLE http (
 )
 ```
 
-### Single submission mode
-In this mode every processed event is submitted as individual HTTP POST/PUT request.
+In this example, the default `sink.batch.max-size` of 500 is used. When Flink flushes 500 records, the HTTP Sink splits them into 10 HTTP POST requests (50 records each).
+
+#### Single submission mode
+In this mode every processed event is submitted as an individual HTTP POST/PUT request.
 
 SQL:
 ```roomsql
