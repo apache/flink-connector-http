@@ -46,6 +46,7 @@ public class URLEncodedUtils {
     private static final char PATH_SEPARATOR = '/';
 
     private static final BitSet PATH_SEPARATORS = new BitSet(256);
+
     /**
      * Unreserved characters, i.e. alphanumeric, plus: {@code _ - ! . ~ ' ( ) *}
      *
@@ -53,27 +54,32 @@ public class URLEncodedUtils {
      * href="http://www.ietf.org/rfc/rfc2396.txt">RFC 2396</a>
      */
     private static final BitSet UNRESERVED = new BitSet(256);
+
     /**
      * Punctuation characters: , ; : $ & + =
      *
      * <p>These are the additional characters allowed by userinfo.
      */
     private static final BitSet PUNCT = new BitSet(256);
+
     /**
      * Characters which are safe to use in userinfo, i.e. {@link #UNRESERVED} plus {@link
      * #PUNCT}uation
      */
     private static final BitSet USERINFO = new BitSet(256);
+
     /**
      * Characters which are safe to use in a path, i.e. {@link #UNRESERVED} plus {@link
      * #PUNCT}uation plus / @
      */
     private static final BitSet PATHSAFE = new BitSet(256);
+
     /**
      * Characters which are safe to use in a query or a fragment, i.e. {@link #RESERVED} plus {@link
      * #UNRESERVED}
      */
     private static final BitSet URIC = new BitSet(256);
+
     /**
      * Reserved characters, i.e. {@code ;/?:@&=+$,[]}
      *
@@ -82,6 +88,7 @@ public class URLEncodedUtils {
      * href="http://www.ietf.org/rfc/rfc2732.txt">RFC 2732</a>
      */
     private static final BitSet RESERVED = new BitSet(256);
+
     /**
      * Safe characters for x-www-form-urlencoded data, as per java.net.URLEncoder and browser
      * behaviour, i.e. alphanumeric plus {@code "-", "_", ".", "*"}

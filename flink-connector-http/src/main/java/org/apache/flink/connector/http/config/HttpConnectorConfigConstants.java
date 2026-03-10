@@ -46,6 +46,7 @@ public final class HttpConnectorConfigConstants {
 
     public static final String OIDC_AUTH_TOKEN_EXPIRY_REDUCTION =
             FLINK_CONNECTOR_HTTP + "security.oidc.token.expiry.reduction";
+
     /**
      * Whether to use the raw value of the Authorization header. If set, it prevents the special
      * treatment of the header for Basic Authentication, thus preserving the passed raw value.
