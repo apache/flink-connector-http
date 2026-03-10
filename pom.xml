@@ -34,7 +34,7 @@ under the License.
 
     <artifactId>flink-connector-http-parent</artifactId>
     <name>Flink : Connectors : http : Parent</name>
-    <version>1.0.0</version>
+    <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <url>https://github.com/apache/flink-connector-http</url>
