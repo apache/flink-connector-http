@@ -118,6 +118,28 @@ public class HttpLookupTableSourceFactoryTest {
         assertThat(source).isInstanceOf(HttpLookupTableSource.class);
     }
 
+    @Test
+    void shouldAcceptWithRequestTimeout() {
+        Map<String, String> options =
+                getOptions(
+                        Map.of(
+                                HttpLookupConnectorOptions.SOURCE_LOOKUP_REQUEST_TIMEOUT.key(),
+                                "60s"));
+        DynamicTableSource source = createTableSource(SCHEMA, options);
+        assertThat(source).isNotNull();
+        assertThat(source).isInstanceOf(HttpLookupTableSource.class);
+    }
+
+    @Test
+    void shouldUseDefaultRequestTimeoutWhenNotConfigured() {
+        // When no request timeout is configured, the source should still be created
+        // successfully and the default of 30s applies at runtime.
+        Map<String, String> options = getMandatoryOptions();
+        DynamicTableSource source = createTableSource(SCHEMA, options);
+        assertThat(source).isNotNull();
+        assertThat(source).isInstanceOf(HttpLookupTableSource.class);
+    }
+
     private Map<String, String> getMandatoryOptions() {
         return Map.of(
                 "connector", "http",
