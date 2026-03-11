@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.INSERT_METHOD;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.REQUEST_CALLBACK_IDENTIFIER;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.URL;
 
 /** Factory for creating {@link HttpDynamicSink}. */
@@ -95,6 +96,7 @@ public class HttpDynamicTableSinkFactory extends AsyncDynamicTableSinkFactory {
     public Set<ConfigOption<?>> optionalOptions() {
         var options = super.optionalOptions();
         options.add(INSERT_METHOD);
+        options.add(SINK_REQUEST_TIMEOUT);
         options.add(REQUEST_CALLBACK_IDENTIFIER);
         return options;
     }
