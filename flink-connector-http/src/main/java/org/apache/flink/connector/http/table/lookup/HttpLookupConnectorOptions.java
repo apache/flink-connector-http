@@ -26,6 +26,7 @@ import java.time.Duration;
 
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.CONTINUE_ON_ERROR;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.HTTP_LOGGING_LEVEL;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.LOOKUP_HTTP_TIMEOUT_SECONDS;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.LOOKUP_SOURCE_HEADER_USE_RAW;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
@@ -130,6 +131,21 @@ public class HttpLookupConnectorOptions {
                     .durationType()
                     .noDefaultValue()
                     .withDescription("Http client connection timeout.");
+
+    /**
+     * HTTP request timeout for lookup source. Controls how long the HTTP client waits for a
+     * response before timing out a single request. If not set, defaults to 30 seconds (matching the
+     * default behaviour of the connector).
+     */
+    public static final ConfigOption<Duration> SOURCE_LOOKUP_REQUEST_TIMEOUT =
+            ConfigOptions.key(LOOKUP_HTTP_TIMEOUT_SECONDS)
+                    .durationType()
+                    .defaultValue(Duration.ofSeconds(30))
+                    .withDescription(
+                            "HTTP request timeout for lookup source. "
+                                    + "Controls how long the HTTP client waits for a response "
+                                    + "before timing out a single request. "
+                                    + "Specified as a Duration, e.g. '30s' or '1min'.");
 
     public static final ConfigOption<Boolean> SOURCE_LOOKUP_CONTINUE_ON_ERROR =
             ConfigOptions.key(CONTINUE_ON_ERROR)
