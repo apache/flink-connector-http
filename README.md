@@ -29,6 +29,8 @@ CREATE TABLE http_sink (
 INSERT INTO http_sink SELECT id, name, status FROM source_table;
 ```
 
+Note: Flink SQL uses single quotes for string literals in WITH clause options.
+
 ### SQL Example — HTTP Lookup Source
 
 Use the HTTP Lookup connector to enrich a stream with data from an external HTTP API:
@@ -60,22 +62,32 @@ Use the HTTP Sink connector in the Flink DataStream API:
 import org.apache.flink.connector.http.HttpSink;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.datastream.DataStream;
 
 import java.nio.charset.StandardCharsets;
 
-StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
-HttpSink<String> httpSink = HttpSink.<String>builder()
-    .setEndpointUrl("https://api.example.com/events")
-    .setElementConverter(
-        (element, context) ->
-            new HttpSinkRequestEntry("POST", element.getBytes(StandardCharsets.UTF_8)))
-    .build();
-
-env.fromElements("event1", "event2", "event3")
-    .sinkTo(httpSink);
-
-env.execute("HTTP Sink Example");
+public class HttpSinkExample {
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        
+        // Create a simple source stream
+        DataStream<String> sourceStream = env.fromElements("event1", "event2", "event3");
+        
+        // Configure the HTTP sink
+        HttpSink<String> httpSink = HttpSink.<String>builder()
+            .setEndpointUrl("https://api.example.com/events")
+            .setElementConverter(
+                (element, context) ->
+                    new HttpSinkRequestEntry("POST", element.getBytes(StandardCharsets.UTF_8)))
+            .build();
+        
+        // Send the source stream to the HTTP sink
+        sourceStream.sinkTo(httpSink);
+        
+        // Execute the Flink job
+        env.execute("HTTP Sink Example");
+    }
+}
 ```
 
 ### Common Configuration Options
@@ -86,12 +98,23 @@ env.execute("HTTP Sink Example");
 | `url`                                       | required | —       | The HTTP endpoint URL, e.g. `https://api.example.com/data`.            |
 | `format`                                    | required | —       | Serialization format, e.g. `json`.                                     |
 | `insert-method`                             | optional | `POST`  | HTTP method for sink: `POST` or `PUT`.                                 |
-| `http.sink.request.timeout`                 | optional | `30`    | Request timeout in seconds.                                            |
+| `http.sink.request.timeout`                 | optional | `30s`   | Request timeout as a Duration, e.g. `30s`.                            |
 | `http.sink.writer.request.mode`             | optional | `batch` | Request submission mode: `single` or `batch`.                          |
 | `http.sink.request.batch.size`              | optional | `500`   | Number of records per batch request (batch mode only).                 |
 | `http.source.lookup.request.timeout`        | optional | —       | Lookup request timeout as a Duration, e.g. `30s`.                     |
 | `http.logging.level`                        | optional | `MIN`   | HTTP content logging level: `MIN`, `REQ_RESP`, or `MAX`.               |
 | `http.security.cert.server.allowSelfSigned` | optional | `false` | Accept self-signed/untrusted TLS certificates.                         |
+
+Note: Timeout options accept Duration strings (e.g., `30s`, `1m`, `500ms`).
+
+### Error Handling and Retry
+
+The HTTP connector provides error handling and retry mechanisms for network failures:
+
+- **Retry on IOException**: The connector automatically retries on network errors (IOException).
+- **Retry configuration**: Configure retry behavior using `http.sink.retry.times` (default: 3, 0 disables retry).
+- **Exponential backoff**: Retries use exponential backoff strategy (1s, 2s, 4s, ...).
+- **Error metrics**: Failed records increment the `numRecordsSendErrors` metric.
 
 For a full list of configuration options and advanced features (TLS, mTLS, OIDC authentication,
 retry strategies, proxy support, etc.), refer to the
