@@ -118,6 +118,31 @@ public class HttpLookupTableSourceFactoryTest {
         assertThat(source).isInstanceOf(HttpLookupTableSource.class);
     }
 
+    @Test
+    void shouldAcceptCustomHeaders() {
+        Map<String, String> options =
+                getOptions(
+                        Map.of(
+                                "http.source.lookup.header.Content-Type", "application/json",
+                                "http.source.lookup.header.X-Custom-Header", "my-value"));
+        DynamicTableSource source = createTableSource(SCHEMA, options);
+        assertThat(source).isNotNull();
+        assertThat(source).isInstanceOf(HttpLookupTableSource.class);
+    }
+
+    @Test
+    void shouldAcceptMultipleCustomHeaders() {
+        Map<String, String> options =
+                getOptions(
+                        Map.of(
+                                "http.source.lookup.header.Content-Type", "application/json",
+                                "http.source.lookup.header.Authorization", "Bearer token123",
+                                "http.source.lookup.header.Accept", "application/json"));
+        DynamicTableSource source = createTableSource(SCHEMA, options);
+        assertThat(source).isNotNull();
+        assertThat(source).isInstanceOf(HttpLookupTableSource.class);
+    }
+
     private Map<String, String> getMandatoryOptions() {
         return Map.of(
                 "connector", "http",
