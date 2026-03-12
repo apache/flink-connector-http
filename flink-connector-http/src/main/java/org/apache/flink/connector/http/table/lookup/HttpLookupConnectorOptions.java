@@ -23,6 +23,8 @@ import org.apache.flink.connector.http.HttpLoggingLevelType;
 import org.apache.flink.connector.http.retry.RetryStrategyType;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.Map;
 
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.CONTINUE_ON_ERROR;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.HTTP_LOGGING_LEVEL;
@@ -227,4 +229,24 @@ public class HttpLookupConnectorOptions {
                                     + "Ignored responses togater with `"
                                     + SOURCE_RETRY_SUCCESS_CODES
                                     + "` are considered as successful.");
+
+    /**
+     * Custom HTTP headers for lookup requests.
+     *
+     * <p>Headers are specified as key-value pairs using the prefix {@code
+     * http.source.lookup.header.}, for example:
+     *
+     * <pre>{@code
+     * 'http.source.lookup.header.Content-Type' = 'application/json',
+     * 'http.source.lookup.header.Authorization' = 'Bearer my-token'
+     * }</pre>
+     */
+    public static final ConfigOption<Map<String, String>> SOURCE_LOOKUP_HEADERS =
+            ConfigOptions.key("http.source.lookup.header")
+                    .mapType()
+                    .defaultValue(Collections.emptyMap())
+                    .withDescription(
+                            "Custom HTTP headers for lookup requests, specified as key-value pairs "
+                                    + "with the prefix 'http.source.lookup.header.'. "
+                                    + "For example, 'http.source.lookup.header.Content-Type' = 'application/json'.");
 }

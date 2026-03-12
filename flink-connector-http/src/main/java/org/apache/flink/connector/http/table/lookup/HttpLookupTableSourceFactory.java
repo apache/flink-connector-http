@@ -53,6 +53,7 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_REQUEST_FORMAT;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.REQUEST_CALLBACK_IDENTIFIER;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_CONNECTION_TIMEOUT;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HEADERS;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_SUCCESS_CODES;
@@ -204,8 +205,8 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
                 SOURCE_LOOKUP_PROXY_PORT,
                 SOURCE_LOOKUP_PROXY_USERNAME,
                 SOURCE_LOOKUP_PROXY_PASSWORD,
-                SOURCE_LOOKUP_CONNECTION_TIMEOUT // TODO: add request timeout from properties
-                );
+                SOURCE_LOOKUP_CONNECTION_TIMEOUT, // TODO: add request timeout from properties
+                SOURCE_LOOKUP_HEADERS);
     }
 
     private HttpLookupConfig getHttpLookupOptions(Context context, ReadableConfig readableConfig) {
