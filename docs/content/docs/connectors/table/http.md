@@ -59,6 +59,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
     * [Sink Connector Options](#sink-connector-options)
+    * [Sink Http headers](#sink-http-headers)
     * [Sink table HTTP status codes](#sink-table-http-status-codes)
     * [Request submission](#request-submission)
     * [Batch submission mode](#batch-submission-mode)
@@ -206,6 +207,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.request.query-param-fields                                        | optional | Used for the `http-generic-json-url` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | http.request.body-template                                             | optional | Used for the `http-generic-json-url` query creator. A JSON template string for constructing the request body for PUT and POST operations. Use `{{fieldName}}` placeholders to reference top-level columns from the lookup table. Supports creating complex nested JSON structures with both placeholders and literal values. See the [Body Template](#body-template) section for details and examples.                                                                                                                          |
 | http.request.url-map                                                   | optional | Used for the `http-generic-json-url` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
+| http.source.lookup.header.*                                            | optional | Custom HTTP headers to be added to every lookup request. Each header is specified as an individual property using the prefix `http.source.lookup.header.`, followed by the header name. For example: `'http.source.lookup.header.Content-Type' = 'application/json'`. Multiple headers can be defined by adding multiple properties with this prefix. |
 
 ### Query Creators
 
@@ -346,11 +348,14 @@ To create a custom format user has to implement Flink's `SerializationSchema` an
 `resources/META-INF.services/org.apache.flink.table.factories.Factory` file. This is common Flink mechanism for providing custom implementations for various factories.
 
 ### Http headers
-It is possible to set HTTP headers that will be added to HTTP request sent by lookup source connector.
-Headers are defined via property key `http.source.lookup.header.HEADER_NAME = header value` for example:
-`http.source.lookup.header.X-Content-Type-Options = nosniff`.
+It is possible to set custom HTTP headers that will be added to every HTTP request sent by the lookup source connector.
+Headers are specified as individual properties using the prefix `http.source.lookup.header.`, followed by the header name.
+For example: `'http.source.lookup.header.Content-Type' = 'application/json'`.
 
-Headers can be set using http lookup source table DDL. In example below, HTTP request done for `http-lookup` table will contain three headers:
+> **Note:** As of [FLINK-HTTP-3], custom HTTP headers are formally supported as a `ConfigOption` (`http.source.lookup.header.*`),
+> enabling proper validation and discoverability of header configuration.
+
+Headers can be set using the HTTP lookup source table DDL. In the example below, every HTTP request for the `http-lookup` table will contain three headers:
 - `Origin`
 - `X-Content-Type-Options`
 - `Content-Type`
@@ -472,6 +477,30 @@ another format name.
 | http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
 | http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
+| http.sink.header.*                        | optional | Custom HTTP headers to be added to every sink request. Each header is specified as an individual property using the prefix `http.sink.header.`, followed by the header name. For example: `'http.sink.header.Content-Type' = 'application/json'`. Multiple headers can be defined by adding multiple properties with this prefix. |
+
+### Sink Http headers
+It is possible to set custom HTTP headers that will be added to every HTTP request sent by the HTTP sink connector.
+Headers are specified as individual properties using the prefix `http.sink.header.`, followed by the header name.
+
+> **Note:** As of [FLINK-HTTP-3], custom HTTP headers are formally supported as a `ConfigOption` (`http.sink.header.*`),
+> enabling proper validation and discoverability of header configuration.
+
+Headers can be set using the HTTP sink table DDL:
+
+```roomsql
+CREATE TABLE http_sink (
+  id bigint,
+  some_field string
+) WITH (
+  'connector' = 'http-sink',
+  'url' = 'http://example.com/myendpoint',
+  'format' = 'json',
+  'http.sink.header.Content-Type' = 'application/json',
+  'http.sink.header.Authorization' = 'Bearer my-token',
+  'http.sink.header.X-Custom-Header' = 'my-value'
+)
+```
 
 ### Sink table HTTP status codes
 You can configure a list of HTTP status codes that should be treated as errors for HTTP sink table.
