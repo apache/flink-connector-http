@@ -22,6 +22,7 @@ import org.apache.flink.configuration.ConfigOptions;
 
 import java.time.Duration;
 
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_RETRY_TIMES;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_TIMEOUT_SECONDS;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_REQUEST_CALLBACK_IDENTIFIER;
 
@@ -58,4 +59,13 @@ public class HttpDynamicSinkConnectorOptions {
             ConfigOptions.key(SINK_REQUEST_CALLBACK_IDENTIFIER)
                     .stringType()
                     .defaultValue(Slf4jHttpPostRequestCallbackFactory.IDENTIFIER);
+
+    public static final ConfigOption<Integer> RETRY_TIMES =
+            ConfigOptions.key(SINK_HTTP_RETRY_TIMES)
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription(
+                            "Maximum number of retry attempts for HTTP Sink requests on IOException. "
+                                    + "Retries use exponential backoff with an initial delay of 1 second. "
+                                    + "Set to 0 to disable retries.");
 }

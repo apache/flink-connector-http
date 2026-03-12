@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -51,6 +52,10 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
 
     private static final String HTTP_SINK_WRITER_THREAD_POOL_SIZE = "4";
 
+    private static final int DEFAULT_MAX_RETRY_TIMES = 3;
+
+    private static final long RETRY_INITIAL_BACKOFF_MS = 1000L;
+
     /** Thread pool to handle HTTP response from HTTP client. */
     private final ExecutorService sinkWriterThreadPool;
 
@@ -59,6 +64,8 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
     private final SinkHttpClient sinkHttpClient;
 
     private final Counter numRecordsSendErrorsCounter;
+
+    private final int maxRetryTimes;
 
     public HttpSinkWriter(
             ElementConverter<InputT, HttpSinkRequestEntry> elementConverter,
@@ -96,6 +103,12 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                                 HttpConnectorConfigConstants.SINK_HTTP_WRITER_THREAD_POOL_SIZE,
                                 HTTP_SINK_WRITER_THREAD_POOL_SIZE));
 
+        this.maxRetryTimes =
+                Integer.parseInt(
+                        properties.getProperty(
+                                HttpConnectorConfigConstants.SINK_HTTP_RETRY_TIMES,
+                                String.valueOf(DEFAULT_MAX_RETRY_TIMES)));
+
         this.sinkWriterThreadPool =
                 Executors.newFixedThreadPool(
                         sinkWriterThreadPoolSize,
@@ -103,45 +116,58 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                                 "http-sink-writer-worker", ThreadUtils.LOGGING_EXCEPTION_HANDLER));
     }
 
-    // TODO: Reintroduce retries by adding backoff policy
     @Override
     protected void submitRequestEntries(
             List<HttpSinkRequestEntry> requestEntries,
             Consumer<List<HttpSinkRequestEntry>> requestResult) {
+        submitWithRetry(requestEntries, requestResult, 0);
+    }
+
+    private void submitWithRetry(
+            List<HttpSinkRequestEntry> requestEntries,
+            Consumer<List<HttpSinkRequestEntry>> requestResult,
+            int attempt) {
         var future = sinkHttpClient.putRequests(requestEntries, endpointUrl);
         future.whenCompleteAsync(
                 (response, err) -> {
                     if (err != null) {
-                        int failedRequestsNumber = requestEntries.size();
-                        log.error(
-                                "Http Sink fatally failed to write all {} requests",
-                                failedRequestsNumber);
-                        numRecordsSendErrorsCounter.inc(failedRequestsNumber);
-
-                        // TODO: Make `HttpSinkInternal` retry the failed requests.
-                        //  Currently, it does not retry those at all, only adds their count
-                        //  to the `numRecordsSendErrors` metric. It is due to the fact we do not
-                        // have
-                        //  a clear image how we want to do it, so it would be both efficient and
-                        // correct.
-                        // requestResult.accept(requestEntries);
+                        if (attempt < maxRetryTimes) {
+                            long backoffMs = RETRY_INITIAL_BACKOFF_MS * (1L << attempt);
+                            log.warn(
+                                    "Http Sink failed to write {} requests due to error, "
+                                            + "retrying (attempt {}/{}) after {}ms: {}",
+                                    requestEntries.size(),
+                                    attempt + 1,
+                                    maxRetryTimes,
+                                    backoffMs,
+                                    err.getMessage());
+                            sinkWriterThreadPool.submit(
+                                    () -> {
+                                        try {
+                                            TimeUnit.MILLISECONDS.sleep(backoffMs);
+                                        } catch (InterruptedException ie) {
+                                            Thread.currentThread().interrupt();
+                                        }
+                                        submitWithRetry(requestEntries, requestResult, attempt + 1);
+                                    });
+                        } else {
+                            int failedRequestsNumber = requestEntries.size();
+                            log.error(
+                                    "Http Sink fatally failed to write all {} requests"
+                                            + " after {} retries",
+                                    failedRequestsNumber,
+                                    maxRetryTimes);
+                            numRecordsSendErrorsCounter.inc(failedRequestsNumber);
+                            requestResult.accept(Collections.emptyList());
+                        }
                     } else if (response.getFailedRequests().size() > 0) {
                         int failedRequestsNumber = response.getFailedRequests().size();
                         log.error("Http Sink failed to write {} requests", failedRequestsNumber);
                         numRecordsSendErrorsCounter.inc(failedRequestsNumber);
-
-                        // TODO: Make `HttpSinkInternal` retry the failed requests. Currently,
-                        //  it does not retry those at all, only adds their count to the
-                        //  `numRecordsSendErrors` metric. It is due to the fact we do not have
-                        //  a clear image how we want to do it, so it would be both efficient and
-                        // correct.
-
-                        // requestResult.accept(response.getFailedRequests());
-                        // } else {
-                        // requestResult.accept(Collections.emptyList());
-                        // }
+                        requestResult.accept(Collections.emptyList());
+                    } else {
+                        requestResult.accept(Collections.emptyList());
                     }
-                    requestResult.accept(Collections.emptyList());
                 },
                 sinkWriterThreadPool);
     }

@@ -132,6 +132,8 @@ public final class HttpConnectorConfigConstants {
     public static final String SINK_HTTP_WRITER_THREAD_POOL_SIZE =
             FLINK_CONNECTOR_HTTP + "sink.writer.thread-pool.size";
 
+    public static final String SINK_HTTP_RETRY_TIMES = FLINK_CONNECTOR_HTTP + "sink.retry.times";
+
     // -----------------------------------------------------
 
     // ------ Sink request submitter settings ------

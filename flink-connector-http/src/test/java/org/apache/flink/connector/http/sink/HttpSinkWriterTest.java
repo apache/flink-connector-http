@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -76,6 +77,12 @@ class HttpSinkWriterTest {
 
         Collection<BufferedRequestState<HttpSinkRequestEntry>> stateBuffer = new ArrayList<>();
 
+        Properties noRetryProperties = new Properties();
+        noRetryProperties.setProperty(
+                org.apache.flink.connector.http.config.HttpConnectorConfigConstants
+                        .SINK_HTTP_RETRY_TIMES,
+                "0");
+
         this.httpSinkWriter =
                 new HttpSinkWriter<>(
                         elementConverter,
@@ -89,7 +96,7 @@ class HttpSinkWriterTest {
                         "http://localhost/client",
                         httpClient,
                         stateBuffer,
-                        new Properties());
+                        noRetryProperties);
     }
 
     @Test
@@ -109,6 +116,54 @@ class HttpSinkWriterTest {
 
         // would be good to use Countdown Latch instead sleep...
         Thread.sleep(2000);
+        verify(errorCounter).inc(requestEntries.size());
+    }
+
+    @Test
+    public void testRetryOnError() throws InterruptedException {
+        // default maxRetryTimes is 3, so putRequests will be called 1 + 3 = 4 times
+        CompletableFuture<SinkHttpClientResponse> failedFuture = new CompletableFuture<>();
+        failedFuture.completeExceptionally(new Exception("Connection refused"));
+
+        when(httpClient.putRequests(anyList(), anyString())).thenReturn(failedFuture);
+
+        Properties properties = new Properties();
+        // set retry.times = 1 to speed up the test
+        properties.setProperty(
+                org.apache.flink.connector.http.config.HttpConnectorConfigConstants
+                        .SINK_HTTP_RETRY_TIMES,
+                "1");
+
+        Collection<
+                        org.apache.flink.connector.base.sink.writer.BufferedRequestState<
+                                HttpSinkRequestEntry>>
+                stateBuffer = new ArrayList<>();
+        HttpSinkWriter<String> writerWithRetry =
+                new HttpSinkWriter<>(
+                        elementConverter,
+                        context,
+                        10,
+                        10,
+                        100,
+                        10,
+                        10,
+                        10,
+                        "http://localhost/client",
+                        httpClient,
+                        stateBuffer,
+                        properties);
+
+        HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
+        Consumer<List<HttpSinkRequestEntry>> requestResult =
+                httpSinkRequestEntries -> log.info(String.valueOf(httpSinkRequestEntries));
+
+        List<HttpSinkRequestEntry> requestEntries = Collections.singletonList(request);
+        writerWithRetry.submitRequestEntries(requestEntries, requestResult);
+
+        // Wait for 1 initial attempt + 1 retry + exponential backoff (1s) + buffer
+        Thread.sleep(4000);
+        // 1 initial attempt + 1 retry = 2 total calls
+        verify(httpClient, times(2)).putRequests(anyList(), anyString());
         verify(errorCounter).inc(requestEntries.size());
     }
 }
