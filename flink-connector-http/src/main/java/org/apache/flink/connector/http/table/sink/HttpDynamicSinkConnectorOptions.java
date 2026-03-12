@@ -20,6 +20,9 @@ package org.apache.flink.connector.http.table.sink;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 
+import java.util.Collections;
+import java.util.Map;
+
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_REQUEST_CALLBACK_IDENTIFIER;
 
 /** Table API options for {@link HttpDynamicSink}. */
@@ -41,4 +44,24 @@ public class HttpDynamicSinkConnectorOptions {
             ConfigOptions.key(SINK_REQUEST_CALLBACK_IDENTIFIER)
                     .stringType()
                     .defaultValue(Slf4jHttpPostRequestCallbackFactory.IDENTIFIER);
+
+    /**
+     * Custom HTTP headers for sink requests.
+     *
+     * <p>Headers are specified as key-value pairs using the prefix {@code http.sink.header.}, for
+     * example:
+     *
+     * <pre>{@code
+     * 'http.sink.header.Content-Type' = 'application/json',
+     * 'http.sink.header.Authorization' = 'Bearer my-token'
+     * }</pre>
+     */
+    public static final ConfigOption<Map<String, String>> SINK_HEADERS =
+            ConfigOptions.key("http.sink.header")
+                    .mapType()
+                    .defaultValue(Collections.emptyMap())
+                    .withDescription(
+                            "Custom HTTP headers for sink requests, specified as key-value pairs "
+                                    + "with the prefix 'http.sink.header.'. "
+                                    + "For example, 'http.sink.header.Content-Type' = 'application/json'.");
 }
