@@ -26,6 +26,12 @@ under the License.
 -->
 
 # Apache HTTP Connector
+HTTP Sink连接器允许通过HTTP请求将数据发送到外部系统。
+
+注意，此连接器是在 [FLIP-532](https://cwiki.apache.org/confluence/display/FLINK/FLIP-532%3A+Donate+GetInData+HTTP+Connector+to+Flink) 中捐赠给Flink的。
+使用原始仓库构建的现有Java应用程序需要重新编译，以使用新的Flink包名称。
+
+HTTP Sink连接器支持Flink DataStream API。
 
 ## Quick Start
 
