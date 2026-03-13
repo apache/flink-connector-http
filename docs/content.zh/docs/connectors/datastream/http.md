@@ -1,5 +1,5 @@
 ---
-title: HTTP 
+title: HTTP
 weight: 3
 type: docs
 aliases:
@@ -26,12 +26,50 @@ under the License.
 -->
 
 # Apache HTTP Connector
-The HTTP Sink connector allows for sending data to an external system via HTTP requests.
 
-Note this connector was donated to Flink in [FLIP-532](https://cwiki.apache.org/confluence/display/FLINK/FLIP-532%3A+Donate+GetInData+HTTP+Connector+to+Flink).
-Existing java applications built using the original repository will need to be recompiled to pick up the new flink package names.
+## Quick Start
 
-The HTTP Sink connector supports the Flink DataStream API.
+### DataStream API示例 — HTTP Sink
+
+在Flink DataStream API中使用HTTP Sink连接器：
+
+```java
+import org.apache.flink.connector.http.HttpSink;
+import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+
+import java.nio.charset.StandardCharsets;
+
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+HttpSink<String> httpSink = HttpSink.<String>builder()
+    .setEndpointUrl("https://api.example.com/events")
+    .setElementConverter(
+        (element, context) ->
+            new HttpSinkRequestEntry("POST", element.getBytes(StandardCharsets.UTF_8)))
+    .build();
+
+env.fromElements("event1", "event2", "event3")
+    .sinkTo(httpSink);
+
+env.execute("HTTP Sink示例");
+```
+
+### 常用配置选项
+
+| 选项                                       | 必须 | 默认值 | 描述                                                            |
+|-------------------------------------------|------|--------|-----------------------------------------------------------------|
+| `connector`                               | 必须 | —      | 使用 `http-sink`。                                              |
+| `url`                                     | 必须 | —      | HTTP端点URL，例如 `https://api.example.com/data`。             |
+| `format`                                  | 必须 | —      | 序列化格式，例如 `json`。                                       |
+| `insert-method`                           | 可选 | `POST` | HTTP方法：`POST` 或 `PUT`。                                     |
+| `http.sink.request.timeout`               | 可选 | `30`   | 请求超时时间（秒）。                                            |
+| `http.sink.writer.request.mode`           | 可选 | `batch`| 请求提交模式：`single` 或 `batch`。                             |
+| `http.sink.request.batch.size`            | 可选 | `500`  | 每个批次请求的记录数（仅批处理模式）。                          |
+| `http.logging.level`                      | 可选 | `MIN`  | HTTP内容日志级别：`MIN`、`REQ_RESP` 或 `MAX`。                  |
+| `http.security.cert.server.allowSelfSigned` | 可选 | `false` | 接受自签名/不受信任的TLS证书。                                 |
+
+完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅[官方文档](https://nightlies.apache.org/flink/flink-connector-http-docs/)。
 
 <!-- TOC -->
 * [Apache HTTP Connector](#apache-http-connector)
@@ -47,7 +85,7 @@ The HTTP Sink connector supports the Flink DataStream API.
 <!-- TOC -->
 ## Working with HTTP sink Flink streaming API
 
-### Sink Connector options 
+### Sink Connector options
 These options are specified on the builder using the setProperty method.
 
 | Option                                                  | Required | Description/Value                                                                                                                                                                                                                                |

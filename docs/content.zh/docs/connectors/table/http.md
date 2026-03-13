@@ -1,4 +1,3 @@
-
 ---
 title: HTTP
 weight: 3
@@ -39,6 +38,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
 <!-- TOC -->
 * [HTTP Connector](#http-connector)
   * [Dependencies](#dependencies)
+  * [Quick Start](#quick-start)
   * [Migration from GetInData HTTP connector](#migration-from-getindata-http-connector)
   * [Working with HTTP lookup source tables](#working-with-http-lookup-source-tables)
     * [HTTP Lookup Table API and SQL Source example](#http-lookup-table-api-and-sql-source-example)
@@ -79,6 +79,67 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
 
 The HTTP connector is not part of the binary distribution.
 See how to link with it for cluster execution [here]({{< ref "docs/dev/configuration/overview" >}}).
+
+## Quick Start
+
+### SQL示例 — HTTP Sink
+
+使用HTTP Sink连接器通过SQL将Flink记录写入外部HTTP端点：
+
+```sql
+CREATE TABLE http_sink (
+  id     BIGINT,
+  name   STRING,
+  status STRING
+) WITH (
+  'connector'     = 'http-sink',
+  'url'           = 'https://api.example.com/events',
+  'format'        = 'json',
+  'insert-method' = 'POST'
+);
+
+INSERT INTO http_sink SELECT id, name, status FROM source_table;
+```
+
+### SQL示例 — HTTP Lookup Source
+
+使用HTTP Lookup连接器通过外部HTTP API丰富流数据：
+
+```sql
+-- 定义HTTP查找表
+CREATE TABLE http_lookup (
+  id      STRING,
+  payload STRING
+) WITH (
+  'connector'     = 'rest-lookup',
+  'url'           = 'https://api.example.com/data',
+  'format'        = 'json',
+  'lookup-method' = 'GET'
+);
+
+-- 使用查找连接丰富流数据
+SELECT s.event_id, h.payload
+FROM stream_table AS s
+JOIN http_lookup FOR SYSTEM_TIME AS OF s.proc_time AS h
+  ON s.event_id = h.id;
+```
+
+### 常用配置选项
+
+| 选项                                       | 必须 | 默认值 | 描述                                                            |
+|-------------------------------------------|------|--------|-----------------------------------------------------------------|
+| `connector`                               | 必须 | —      | 使用 `http-sink` 作为sink或 `rest-lookup` 作为查找源。          |
+| `url`                                     | 必须 | —      | HTTP端点URL，例如 `https://api.example.com/data`。             |
+| `format`                                  | 必须 | —      | 序列化格式，例如 `json`。                                       |
+| `insert-method`                           | 可选 | `POST` | HTTP方法：`POST` 或 `PUT`。                                     |
+| `http.sink.request.timeout`               | 可选 | `30`   | 请求超时时间（秒）。                                            |
+| `http.sink.writer.request.mode`           | 可选 | `batch`| 请求提交模式：`single` 或 `batch`。                             |
+| `http.sink.request.batch.size`            | 可选 | `500`  | 每个批次请求的记录数（仅批处理模式）。                          |
+| `http.source.lookup.request.timeout`      | 可选 | —      | 查找请求超时时间，例如 `30s`。                                  |
+| `http.logging.level`                      | 可选 | `MIN`  | HTTP内容日志级别：`MIN`、`REQ_RESP` 或 `MAX`。                  |
+| `http.security.cert.server.allowSelfSigned` | 可选 | `false` | 接受自签名/不受信任的TLS证书。                                 |
+
+完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅[官方文档](https://nightlies.apache.org/flink/flink-connector-http-docs/)。
 
 ## Migration from GetInData HTTP connector
 
@@ -140,7 +201,7 @@ CREATE TABLE Orders (
 Then we can enrich the _Orders_ table with the _Customers_ HTTP table with the following SQL:
 
 ```roomsql
-SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance FROM Orders AS o 
+SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance FROM Orders AS o
 JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c ON o.id = c.id AND o.id2 = c.id2
 ```
 
@@ -203,7 +264,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.source.lookup.proxy.port                                          | optional | Specify the port of the proxy.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | http.source.lookup.proxy.username                                      | optional | Specify the username used for proxy authentication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | http.source.lookup.proxy.password                                      | optional | Specify the password used for proxy authentication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| http.request.query-param-fields                                        | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                  |                                                                                                                                                                                                                                                                                                                                                               
+| http.request.query-param-fields                                        | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | http.request.body-fields                                               | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The names of the fields that will be mapped to the body. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                          |                                                                                                                                                                                                                                                                                                                                                                         |
 | http.request.additional-body-json                                      | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. Additional JSON content to be merged into the request body for PUT and POST operations. The value should be a valid JSON object string (e.g., `'{"opportunity":{"source":"flink"},"priority":1}'`) that will be parsed and its fields merged at the top level with the generated request body. For example, if the body is `{"id":123}` and additional-body-json is `'{"extra":"value"}'`, the result will be `{"id":123,"extra":"value"}`. Supports nested objects and arrays.                                                                        |
 | http.request.url-map                                                   | optional | Used for the `GenericJsonAndUrlQueryCreator` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
