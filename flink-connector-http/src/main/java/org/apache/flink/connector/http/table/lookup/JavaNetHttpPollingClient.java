@@ -21,6 +21,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.http.HttpErrorLogger;
 import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.HttpStatusCodeValidationFailedException;
@@ -84,6 +85,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
     private final Set<Integer> ignoredErrorCodes;
     private final boolean continueOnError;
     private final HttpLogger httpLogger;
+    private final HttpErrorLogger httpErrorLogger;
 
     public JavaNetHttpPollingClient(
             HttpClient httpClient,
@@ -115,6 +117,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
                         .responseChecker(new HttpResponseChecker(successCodes, errorCodes))
                         .build();
         this.httpLogger = HttpLogger.getHttpLogger(options.getProperties());
+        this.httpErrorLogger = HttpErrorLogger.getLogger(options.getProperties());
     }
 
     public void open(FunctionContext context) {
@@ -161,6 +164,9 @@ public class JavaNetHttpPollingClient implements PollingClient {
         } catch (HttpStatusCodeValidationFailedException e) {
             // log if we fail for status code reasons.
             httpLogger.logResponse((HttpResponse<String>) e.getResponse());
+            // Enhanced error logging
+            httpErrorLogger.logLookupError(
+                    request.getHttpRequest(), (HttpResponse<?>) e.getResponse(), e, 0);
             // Case 1 http non successful response
             if (!this.continueOnError) {
                 throw e;
@@ -170,6 +176,8 @@ public class JavaNetHttpPollingClient implements PollingClient {
             httpRowDataWrapper = processHttpResponse(response, request, true);
         } catch (Exception e) {
             httpLogger.logExceptionResponse(request, e);
+            // Enhanced error logging
+            httpErrorLogger.logLookupError(request.getHttpRequest(), e, 0);
             // Case 2 Exception occurred
             if (!this.continueOnError) {
                 throw e;
