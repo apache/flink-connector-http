@@ -73,6 +73,12 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                         properties,
                         headerPreprocessor);
 
+        // Add User-Agent header if configured
+        String userAgent = properties.getProperty("http.user.agent", "flink-http-connector");
+        if (userAgent != null && !userAgent.isEmpty()) {
+            this.headerMap.put("User-Agent", userAgent);
+        }
+
         // TODO Inject this via constructor when implementing a response processor.
         //  Processor will be injected and it will wrap statusChecker implementation.
         ComposeHttpStatusCodeCheckerConfig checkerConfig =

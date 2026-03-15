@@ -73,6 +73,14 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                         options.getProperties(),
                         headerPreprocessor);
 
+        // Add User-Agent header to header map
+        String userAgent =
+                options.getProperties()
+                        .getProperty("http.source.lookup.user.agent", "flink-http-connector");
+        if (userAgent != null && !userAgent.isEmpty()) {
+            headerMap.put("User-Agent", userAgent);
+        }
+
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(headerMap);
 
         this.httpRequestTimeOutSeconds =
