@@ -164,4 +164,15 @@ public final class HttpConnectorConfigConstants {
             SOURCE_RETRY_EXP_DELAY_PREFIX + "max-backoff";
     public static final String SOURCE_RETRY_EXP_DELAY_MULTIPLIER =
             SOURCE_RETRY_EXP_DELAY_PREFIX + "backoff-multiplier";
+
+    // -------------- Error logging configuration --------------
+
+    public static final String ERROR_LOG_LEVEL = FLINK_CONNECTOR_HTTP + "error.log.level";
+
+    public static final String ERROR_LOG_INCLUDE_BODY =
+            FLINK_CONNECTOR_HTTP + "error.log.include.body";
+
+    public static final String ERROR_LOG_BODY_MAX_SIZE =
+            FLINK_CONNECTOR_HTTP + "error.log.body.max.size";
+    // -----------------------------------------------------
 }
