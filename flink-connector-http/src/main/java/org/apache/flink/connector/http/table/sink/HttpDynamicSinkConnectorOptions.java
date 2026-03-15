@@ -41,4 +41,12 @@ public class HttpDynamicSinkConnectorOptions {
             ConfigOptions.key(SINK_REQUEST_CALLBACK_IDENTIFIER)
                     .stringType()
                     .defaultValue(Slf4jHttpPostRequestCallbackFactory.IDENTIFIER);
+
+    public static final ConfigOption<String> USER_AGENT =
+            ConfigOptions.key("http.user.agent")
+                    .stringType()
+                    .defaultValue("flink-http-connector")
+                    .withDescription(
+                            "The User-Agent header value for HTTP sink requests. "
+                                    + "Default value is 'flink-http-connector'.");
 }

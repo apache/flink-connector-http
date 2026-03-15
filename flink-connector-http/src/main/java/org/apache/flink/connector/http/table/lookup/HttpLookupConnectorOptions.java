@@ -227,4 +227,12 @@ public class HttpLookupConnectorOptions {
                                     + "Ignored responses togater with `"
                                     + SOURCE_RETRY_SUCCESS_CODES
                                     + "` are considered as successful.");
+
+    public static final ConfigOption<String> SOURCE_LOOKUP_USER_AGENT =
+            ConfigOptions.key("http.user.agent")
+                    .stringType()
+                    .defaultValue("flink-http-connector")
+                    .withDescription(
+                            "The User-Agent header value for HTTP lookup requests. "
+                                    + "Default value is 'flink-http-connector'.");
 }

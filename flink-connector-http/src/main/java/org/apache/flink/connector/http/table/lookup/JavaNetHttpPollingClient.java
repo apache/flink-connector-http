@@ -240,6 +240,44 @@ public class JavaNetHttpPollingClient implements PollingClient {
             builder.headers(headerAndValueArray);
             httpRequest = builder.build();
         }
+
+        // Ensure User-Agent header is present
+        String userAgent = readableConfig.get(HttpLookupConnectorOptions.SOURCE_LOOKUP_USER_AGENT);
+        if (userAgent != null && !userAgent.isEmpty()) {
+            HttpRequest.Builder builder =
+                    HttpRequest.newBuilder()
+                            .uri(httpRequest.uri())
+                            .method(
+                                    httpRequest.method() != null ? httpRequest.method() : "GET",
+                                    httpRequest
+                                            .bodyPublisher()
+                                            .orElse(HttpRequest.BodyPublishers.noBody()));
+
+            if (httpRequest.timeout().isPresent()) {
+                builder.timeout(httpRequest.timeout().get());
+            }
+
+            // Copy all existing headers
+            Map<String, String> headerMap = new HashMap<>();
+            if (httpRequest.headers() != null && !httpRequest.headers().map().isEmpty()) {
+                for (Map.Entry<String, List<String>> header :
+                        httpRequest.headers().map().entrySet()) {
+                    if (!header.getKey().equalsIgnoreCase("User-Agent")) {
+                        List<String> values = header.getValue();
+                        if (values.size() == 1) {
+                            headerMap.put(header.getKey(), values.get(0));
+                        }
+                    }
+                }
+            }
+
+            // Add or replace User-Agent
+            headerMap.put("User-Agent", userAgent);
+            String[] headerAndValueArray = HttpHeaderUtils.toHeaderAndValueArray(headerMap);
+            builder.headers(headerAndValueArray);
+            httpRequest = builder.build();
+        }
+
         return httpRequest;
     }
 

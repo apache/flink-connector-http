@@ -91,8 +91,11 @@ public class JavaNetHttpPollingClientTest {
                                 headerPreprocessor,
                                 options));
 
-        assertThat(((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues())
-                .isEmpty();
+        String[] headers = ((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues();
+        // By default, User-Agent header is always added with default value
+        assertThat(headers).hasSize(2);
+        assertThat(headers[0]).isEqualTo("User-Agent");
+        assertThat(headers[1]).isEqualTo("flink-http-connector");
     }
 
     @Test
@@ -225,7 +228,8 @@ public class JavaNetHttpPollingClientTest {
 
         String[] headersAndValues =
                 ((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues();
-        assertThat(headersAndValues).hasSize(6);
+        // 3 custom headers + default User-Agent header = 8 total (6 pairs)
+        assertThat(headersAndValues).hasSize(8);
 
         // THEN
         // assert that we have property followed by its value.
@@ -235,6 +239,8 @@ public class JavaNetHttpPollingClientTest {
                 "Cache-Control",
                 "no-cache, no-store, max-age=0, must-revalidate");
         assertPropertyArray(headersAndValues, "Access-Control-Allow-Origin", "*");
+        // Default User-Agent header should also be present
+        assertPropertyArray(headersAndValues, "User-Agent", "flink-http-connector");
     }
 
     @Test
@@ -457,5 +463,55 @@ public class JavaNetHttpPollingClientTest {
         // THEN - only valid deserialization should be included
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    public void shouldBuildClientWithUserAgentHeader() throws ConfigurationException {
+        // GIVEN
+        Properties properties = new Properties();
+        properties.setProperty("http.source.lookup.user.agent", "custom-agent/1.0");
+
+        HttpLookupConfig lookupConfig =
+                HttpLookupConfig.builder().url(BASE_URL).properties(properties).build();
+
+        // WHEN
+        JavaNetHttpPollingClient client =
+                new JavaNetHttpPollingClient(
+                        httpClient,
+                        decoder,
+                        lookupConfig,
+                        new GetRequestFactory(
+                                new GenericGetQueryCreator(lookupRow),
+                                headerPreprocessor,
+                                lookupConfig));
+
+        // THEN
+        String[] headers = ((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues();
+        assertThat(headers).hasSize(2);
+        assertThat(headers[0]).isEqualTo("User-Agent");
+        assertThat(headers[1]).isEqualTo("custom-agent/1.0");
+    }
+
+    @Test
+    public void shouldUseDefaultUserAgentWhenNotConfigured() throws ConfigurationException {
+        // GIVEN
+        HttpLookupConfig lookupConfig = HttpLookupConfig.builder().url(BASE_URL).build();
+
+        // WHEN
+        JavaNetHttpPollingClient client =
+                new JavaNetHttpPollingClient(
+                        httpClient,
+                        decoder,
+                        lookupConfig,
+                        new GetRequestFactory(
+                                new GenericGetQueryCreator(lookupRow),
+                                headerPreprocessor,
+                                lookupConfig));
+
+        // THEN
+        String[] headers = ((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues();
+        assertThat(headers).hasSize(2);
+        assertThat(headers[0]).isEqualTo("User-Agent");
+        assertThat(headers[1]).isEqualTo("flink-http-connector");
     }
 }
