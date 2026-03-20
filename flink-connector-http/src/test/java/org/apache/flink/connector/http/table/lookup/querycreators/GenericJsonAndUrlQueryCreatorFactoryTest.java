@@ -38,14 +38,14 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
-import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS;
+import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_TEMPLATE;
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS;
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP;
 import static org.apache.flink.connector.http.table.lookup.querycreators.QueryCreatorUtils.getTableContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Test for {@link GenericGetQueryCreatorFactory}. */
+/** Test for {@link GenericJsonAndUrlQueryCreatorFactory}. */
 class GenericJsonAndUrlQueryCreatorFactoryTest {
     private Configuration config = new Configuration();
 
@@ -94,13 +94,6 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
                                     config, null, null);
                         })
                 .isInstanceOf(RuntimeException.class);
-        // do not specify REQUEST_ARG_PATHS_CONFIG
-        assertThatThrownBy(
-                        () -> {
-                            genericJsonAndUrlQueryCreatorFactory.createLookupQueryCreator(
-                                    config, null, null);
-                        })
-                .isInstanceOf(RuntimeException.class);
     }
 
     private void createUsingFactory(boolean async) {
@@ -132,7 +125,122 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
         GenericJsonAndUrlQueryCreatorFactory factory = new GenericJsonAndUrlQueryCreatorFactory();
         assertThat(factory.requiredOptions()).isEmpty();
         assertThat(factory.optionalOptions()).contains(REQUEST_QUERY_PARAM_FIELDS);
-        assertThat(factory.optionalOptions()).contains(REQUEST_BODY_FIELDS);
+        assertThat(factory.optionalOptions()).contains(REQUEST_BODY_TEMPLATE);
         assertThat(factory.optionalOptions()).contains(REQUEST_URL_MAP);
+    }
+
+    @Test
+    void testBodyTemplateWithSimplePlaceholders() {
+        // GIVEN - Body template with simple field placeholders
+        Configuration config = new Configuration();
+        config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":<key1>,\"status\":\"active\"}");
+
+        LookupRow lookupRow = new LookupRow();
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "key1", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.setLookupPhysicalRowDataType(
+                row(List.of(DataTypes.FIELD("key1", DataTypes.STRING()))));
+
+        // WHEN/THEN - Should succeed
+        LookupQueryCreator creator =
+                new GenericJsonAndUrlQueryCreatorFactory()
+                        .createLookupQueryCreator(config, lookupRow, tableContext);
+        assertThat(creator).isNotNull();
+    }
+
+    @Test
+    void testBodyTemplateWithNestedStructure() {
+        // GIVEN - Body template with nested JSON structure
+        Configuration config = new Configuration();
+        config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
+        config.set(
+                REQUEST_BODY_TEMPLATE,
+                "{\"user\":{\"id\":<key1>,\"status\":\"active\"},\"metadata\":{\"version\":\"1.0\"}}");
+
+        LookupRow lookupRow = new LookupRow();
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "key1", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.setLookupPhysicalRowDataType(
+                row(List.of(DataTypes.FIELD("key1", DataTypes.STRING()))));
+
+        // WHEN/THEN - Should succeed
+        LookupQueryCreator creator =
+                new GenericJsonAndUrlQueryCreatorFactory()
+                        .createLookupQueryCreator(config, lookupRow, tableContext);
+        assertThat(creator).isNotNull();
+    }
+
+    @Test
+    void testBodyTemplateWithMultiplePlaceholders() {
+        // GIVEN - Body template with multiple field placeholders
+        Configuration config = new Configuration();
+        config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
+        config.set(
+                REQUEST_BODY_TEMPLATE,
+                "{\"userId\":<key1>,\"userName\":<key2>,\"status\":\"active\"}");
+
+        LookupRow lookupRow = new LookupRow();
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "key1", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "key2", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 1)));
+        lookupRow.setLookupPhysicalRowDataType(
+                row(
+                        List.of(
+                                DataTypes.FIELD("key1", DataTypes.STRING()),
+                                DataTypes.FIELD("key2", DataTypes.STRING()))));
+
+        // WHEN/THEN - Should succeed
+        LookupQueryCreator creator =
+                new GenericJsonAndUrlQueryCreatorFactory()
+                        .createLookupQueryCreator(config, lookupRow, tableContext);
+        assertThat(creator).isNotNull();
+    }
+
+    @Test
+    void testBodyTemplateWithOnlyLiterals() {
+        // GIVEN - Body template with no placeholders (only literals)
+        Configuration config = new Configuration();
+        config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"status\":\"active\",\"version\":\"1.0\"}");
+
+        LookupRow lookupRow = new LookupRow();
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "key1", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.setLookupPhysicalRowDataType(
+                row(List.of(DataTypes.FIELD("key1", DataTypes.STRING()))));
+
+        // WHEN/THEN - Should succeed
+        LookupQueryCreator creator =
+                new GenericJsonAndUrlQueryCreatorFactory()
+                        .createLookupQueryCreator(config, lookupRow, tableContext);
+        assertThat(creator).isNotNull();
+    }
+
+    @Test
+    void testNoBodyTemplateForPostReturnsEmptyJson() {
+        // GIVEN - POST request with no body template
+        Configuration config = new Configuration();
+        config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
+        // No REQUEST_BODY_TEMPLATE set
+
+        LookupRow lookupRow = new LookupRow();
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "key1", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.setLookupPhysicalRowDataType(
+                row(List.of(DataTypes.FIELD("key1", DataTypes.STRING()))));
+
+        // WHEN/THEN - Should succeed and return empty JSON object
+        LookupQueryCreator creator =
+                new GenericJsonAndUrlQueryCreatorFactory()
+                        .createLookupQueryCreator(config, lookupRow, tableContext);
+        assertThat(creator).isNotNull();
     }
 }

@@ -31,12 +31,8 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.types.DataType;
 
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
-
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,8 +47,8 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
  *
  * <ol>
  *   <li>List of column names to be included in the query params
- *   <li>List of column names to be included in the body (for PUT and POST)
  *   <li>Map of templated uri segment names to column names
+ *   <li>Body template with placeholders for dynamic values
  * </ol>
  */
 @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:LineLength"})
@@ -70,15 +66,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                             "The names of the fields that will be mapped to query parameters."
                                     + " The parameters are separated by semicolons,"
                                     + " such as 'param1;param2'.");
-    public static final ConfigOption<List<String>> REQUEST_BODY_FIELDS =
-            key("http.request.body-fields")
-                    .stringType()
-                    .asList()
-                    .defaultValues() // default to empty list so we do not need to check for null
-                    .withDescription(
-                            "The names of the fields that will be mapped to the body."
-                                    + " The parameters are separated by semicolons,"
-                                    + " such as 'param1;param2'.");
+
     public static final ConfigOption<Map<String, String>> REQUEST_URL_MAP =
             ConfigOptions.key("http.request.url-map")
                     .mapType()
@@ -97,19 +85,16 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                                     + "The expected format of the map is:"
                                     + "<br>"
                                     + " key1:value1,key2:value2");
-    public static final ConfigOption<String> REQUEST_ADDITIONAL_BODY_JSON =
-            key("http.request.additional-body-json")
+
+    public static final ConfigOption<String> REQUEST_BODY_TEMPLATE =
+            key("http.request.body-template")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Additional JSON content to be merged into the request body"
-                                    + " for PUT and POST operations. The value should be a valid"
-                                    + " JSON object string (e.g., '{\"c\":789}') that will be parsed"
-                                    + " and its fields merged at the top level with the generated"
-                                    + " request body. For example, if the body (join keys and runtime values)"
-                                    + " is {\"a\":123,\"b\":456}"
-                                    + " and additional-body-json is '{\"c\":789}', the result will be"
-                                    + " {\"a\":123,\"b\":456,\"c\":789}.");
+                            "A JSON template string for the request body. Use placeholders like <fieldName> "
+                                    + "to reference top-level fields from the lookup row. The template can contain "
+                                    + "nested structures with hardcoded literals and dynamic field values. "
+                                    + "Example: '{\"Id\":<customerId>,\"Orders\":{\"orderId\":<topOrderId>,\"version\":\"1.0\"}}'.");
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(
@@ -122,45 +107,20 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         final List<String> requestQueryParamsFields =
                 readableConfig.get(REQUEST_QUERY_PARAM_FIELDS);
         Map<String, String> requestUrlMap = readableConfig.get(REQUEST_URL_MAP);
-        final List<String> requestBodyFields = readableConfig.get(REQUEST_BODY_FIELDS);
-        String additionalRequestJson =
-                readableConfig.getOptional(REQUEST_ADDITIONAL_BODY_JSON).orElse(null);
+        String bodyTemplate = readableConfig.getOptional(REQUEST_BODY_TEMPLATE).orElse(null);
 
-        ObjectNode additionalRequestObject =
-                getValidatedAdditionalObjectNode(requestBodyFields, additionalRequestJson);
+        final SerializationSchema<RowData> jsonSerializationSchema =
+                createSerializationSchema(
+                        formatIdentifier, readableConfig, dynamicTableFactoryContext, lookupRow);
 
-        final SerializationFormatFactory jsonFormatFactory =
-                FactoryUtil.discoverFactory(
-                        Thread.currentThread().getContextClassLoader(),
-                        SerializationFormatFactory.class,
-                        formatIdentifier);
-        QueryFormatAwareConfiguration queryFormatAwareConfiguration =
-                new QueryFormatAwareConfiguration(
-                        LOOKUP_REQUEST_FORMAT.key() + "." + formatIdentifier,
-                        (Configuration) readableConfig);
-        EncodingFormat<SerializationSchema<RowData>> encoder =
-                jsonFormatFactory.createEncodingFormat(
-                        dynamicTableFactoryContext, queryFormatAwareConfiguration);
-
-        final SerializationSchema<RowData> jsonSerializationSchema;
-        if (readableConfig.get(ASYNC_POLLING)) {
-            jsonSerializationSchema =
-                    new SynchronizedSerializationSchema<>(
-                            encoder.createRuntimeEncoder(
-                                    null, lookupRow.getLookupPhysicalRowDataType()));
-        } else {
-            jsonSerializationSchema =
-                    encoder.createRuntimeEncoder(null, lookupRow.getLookupPhysicalRowDataType());
-        }
         // create using config parameter values and specify serialization
         // schema from json format.
         return new GenericJsonAndUrlQueryCreator(
                 httpMethod,
                 jsonSerializationSchema,
                 requestQueryParamsFields,
-                requestBodyFields,
                 requestUrlMap,
-                additionalRequestObject,
+                bodyTemplate,
                 lookupRow);
     }
 
@@ -176,63 +136,59 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
-        return Set.of(
-                REQUEST_QUERY_PARAM_FIELDS,
-                REQUEST_BODY_FIELDS,
-                REQUEST_URL_MAP,
-                REQUEST_ADDITIONAL_BODY_JSON);
+        return Set.of(REQUEST_QUERY_PARAM_FIELDS, REQUEST_URL_MAP, REQUEST_BODY_TEMPLATE);
     }
 
     /**
-     * Creates and validates the additional JSON node from configuration. This method parses the
-     * JSON once during factory creation to avoid re-parsing on every lookup request, improving
-     * runtime performance.
+     * Creates a serialization schema for converting RowData to JSON.
      *
-     * @param requestBodyFields the list of request body field names (join keys)
-     * @param additionalRequestJson the additional JSON string to validate and parse
-     * @return the parsed ObjectNode, or null if no additional JSON is provided
-     * @throws IllegalArgumentException if the JSON is invalid or contains conflicting fields
+     * <p>Note: While this is a lookup operation (typically associated with deserialization), we use
+     * a SerializationSchema here because we need to convert Flink's internal RowData representation
+     * to JSON for the HTTP request body. The lookup keys from the main stream are in RowData format
+     * and need to be serialized to JSON to construct the HTTP request. This is necessary to
+     * properly handle complex Flink data types like arrays (ArrayData), nested structures
+     * (RowData), and timestamps (TimestampData) which require schema-aware serialization.
+     *
+     * @param formatIdentifier the format identifier (e.g., "json")
+     * @param readableConfig the configuration
+     * @param dynamicTableFactoryContext the table factory context
+     * @param lookupRow the lookup row containing schema information
+     * @return the serialization schema
      */
-    private ObjectNode getValidatedAdditionalObjectNode(
-            List<String> requestBodyFields, String additionalRequestJson) {
-        if (additionalRequestJson == null || additionalRequestJson.trim().isEmpty()) {
-            return null;
+    private SerializationSchema<RowData> createSerializationSchema(
+            String formatIdentifier,
+            ReadableConfig readableConfig,
+            DynamicTableFactory.Context dynamicTableFactoryContext,
+            LookupRow lookupRow) {
+        final SerializationFormatFactory jsonFormatFactory =
+                FactoryUtil.discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        SerializationFormatFactory.class,
+                        formatIdentifier);
+        QueryFormatAwareConfiguration queryFormatAwareConfiguration =
+                new QueryFormatAwareConfiguration(
+                        LOOKUP_REQUEST_FORMAT.key() + "." + formatIdentifier,
+                        (Configuration) readableConfig);
+        EncodingFormat<SerializationSchema<RowData>> encoder =
+                jsonFormatFactory.createEncodingFormat(
+                        dynamicTableFactoryContext, queryFormatAwareConfiguration);
+
+        // Get the DataType - prefer from lookupRow, fallback to context's physical row data type
+        DataType dataType = lookupRow.getLookupPhysicalRowDataType();
+        if (dataType == null) {
+            // Fallback for tests or when not set - use the full table's physical row data type
+            dataType =
+                    dynamicTableFactoryContext
+                            .getCatalogTable()
+                            .getResolvedSchema()
+                            .toPhysicalRowDataType();
         }
 
-        try {
-            // Parse the additional JSON once to avoid re-parsing on every lookup
-            JsonNode jsonNode = ObjectMapperAdapter.instance().readTree(additionalRequestJson);
-
-            if (!jsonNode.isObject()) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "The %s must be a valid JSON object.",
-                                REQUEST_ADDITIONAL_BODY_JSON.key()));
-            }
-
-            // Collect all conflicting fields
-            Set<String> conflictingFields = new HashSet<>();
-            jsonNode.fieldNames().forEachRemaining(conflictingFields::add);
-            conflictingFields.retainAll(requestBodyFields);
-
-            // If there are conflicts, throw exception with all conflicting fields
-            if (!conflictingFields.isEmpty()) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "The %s option should not override join keys, "
-                                        + "as join keys are expected to target different enrichments on a request basis. "
-                                        + "Found conflicting field(s): %s",
-                                REQUEST_ADDITIONAL_BODY_JSON.key(),
-                                String.join(", ", conflictingFields)));
-            }
-
-            return (ObjectNode) jsonNode;
-        } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid JSON in %s:",
-                            REQUEST_ADDITIONAL_BODY_JSON.key(), e.getMessage()),
-                    e);
+        if (readableConfig.get(ASYNC_POLLING)) {
+            return new SynchronizedSerializationSchema<>(
+                    encoder.createRuntimeEncoder(null, dataType));
+        } else {
+            return encoder.createRuntimeEncoder(null, dataType);
         }
     }
 }
