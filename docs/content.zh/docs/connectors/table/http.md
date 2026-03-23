@@ -87,10 +87,10 @@ The Flink connector does have some changes that you need to be aware of if you a
 
 * Existing java applications will need to be recompiled to pick up the new flink package names.
 * Existing application and SQL need to be amended to use the new connector option names. The new option names do not have
-* the _com.getindata.http_ prefix, the prefix is now _http_.
+  the _com.getindata.http_ prefix, the prefix is now _http_.
 * The name of the connector and the identifiers of components that are discovered have been changed, so that the GetInData jar file can co-exist
-* with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against
-* this connector.
+  with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
+* Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.                                             | optional | Used for the
 
 ## Working with HTTP lookup source tables
 
