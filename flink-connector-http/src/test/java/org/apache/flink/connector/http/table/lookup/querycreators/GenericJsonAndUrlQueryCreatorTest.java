@@ -184,7 +184,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Body template with simple field placeholder
         Configuration config = new Configuration();
         config.set(LOOKUP_METHOD, "POST");
-        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":<key1>,\"status\":\"active\"}");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{key1}},\"status\":\"active\"}");
 
         LookupRow lookupRow = getLookupRow(KEY_1);
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
@@ -213,7 +213,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         config.set(LOOKUP_METHOD, "POST");
         config.set(
                 REQUEST_BODY_TEMPLATE,
-                "{\"user\":{\"id\":<key1>,\"status\":\"active\"},\"metadata\":{\"version\":\"1.0\"}}");
+                "{\"user\":{\"id\":{{key1}},\"status\":\"active\"},\"metadata\":{\"version\":\"1.0\"}}");
 
         LookupRow lookupRow = getLookupRow(KEY_1);
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
@@ -243,7 +243,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         config.set(LOOKUP_METHOD, "POST");
         config.set(
                 REQUEST_BODY_TEMPLATE,
-                "{\"userId\":<key1>,\"userName\":<key2>,\"status\":\"active\"}");
+                "{\"userId\":{{key1}},\"userName\":{{key2}},\"status\":\"active\"}");
 
         LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1_2);
@@ -301,7 +301,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         Configuration config = new Configuration();
         config.set(LOOKUP_METHOD, "GET");
         config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
-        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":<key1>}");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{key1}}}");
 
         LookupRow lookupRow = getLookupRow(KEY_1);
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
@@ -351,7 +351,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - Body template with placeholder for non-existent field
         Configuration config = new Configuration();
         config.set(LOOKUP_METHOD, "POST");
-        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":<nonExistentField>}");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{nonExistentField}}}");
 
         LookupRow lookupRow = getLookupRow(KEY_1);
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
@@ -382,12 +382,12 @@ class GenericJsonAndUrlQueryCreatorTest {
         String template =
                 "{"
                         + "\"obj1\":{"
-                        + "\"nestedString\":<topString>,"
-                        + "\"nestedInt\":<topInt>,"
-                        + "\"nestedBool\":<topBool>,"
-                        + "\"nestedTimestamp\":<topTimestamp>,"
-                        + "\"nestedStringArray\":<topStringArray>,"
-                        + "\"nestedArrayOfObjects\":<topArrayOfObjects>,"
+                        + "\"nestedString\":{{topString}},"
+                        + "\"nestedInt\":{{topInt}},"
+                        + "\"nestedBool\":{{topBool}},"
+                        + "\"nestedTimestamp\":{{topTimestamp}},"
+                        + "\"nestedStringArray\":{{topStringArray}},"
+                        + "\"nestedArrayOfObjects\":{{topArrayOfObjects}},"
                         + "\"literalString\":\"constantValue\","
                         + "\"literalInt\":42,"
                         + "\"literalBool\":true,"

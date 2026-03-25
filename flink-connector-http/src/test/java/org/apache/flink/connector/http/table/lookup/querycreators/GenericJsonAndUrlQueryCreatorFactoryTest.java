@@ -134,7 +134,7 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
         // GIVEN - Body template with simple field placeholders
         Configuration config = new Configuration();
         config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
-        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":<key1>,\"status\":\"active\"}");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{key1}},\"status\":\"active\"}");
 
         LookupRow lookupRow = new LookupRow();
         lookupRow.addLookupEntry(
@@ -157,7 +157,7 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
         config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
         config.set(
                 REQUEST_BODY_TEMPLATE,
-                "{\"user\":{\"id\":<key1>,\"status\":\"active\"},\"metadata\":{\"version\":\"1.0\"}}");
+                "{\"user\":{\"id\":{{key1}},\"status\":\"active\"},\"metadata\":{\"version\":\"1.0\"}}");
 
         LookupRow lookupRow = new LookupRow();
         lookupRow.addLookupEntry(
@@ -180,7 +180,7 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
         config.set(HttpLookupConnectorOptions.LOOKUP_METHOD, "POST");
         config.set(
                 REQUEST_BODY_TEMPLATE,
-                "{\"userId\":<key1>,\"userName\":<key2>,\"status\":\"active\"}");
+                "{\"userId\":{{key1}},\"userName\":{{key2}},\"status\":\"active\"}");
 
         LookupRow lookupRow = new LookupRow();
         lookupRow.addLookupEntry(

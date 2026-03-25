@@ -204,7 +204,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.source.lookup.proxy.username                                      | optional | Specify the username used for proxy authentication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | http.source.lookup.proxy.password                                      | optional | Specify the password used for proxy authentication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | http.request.query-param-fields                                        | optional | Used for the `http-generic-json-url` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| http.request.body-template                                             | optional | Used for the `http-generic-json-url` query creator. A JSON template string for constructing the request body for PUT and POST operations. Use `<fieldName>` placeholders to reference top-level columns from the lookup table. Supports creating complex nested JSON structures with both placeholders and literal values. Example: `'{"user": {"id": <userId>, "name": <userName>}, "source": "flink"}'`. See the [Body Template](#body-template) section for details and examples.                                                                                                                          |
+| http.request.body-template                                             | optional | Used for the `http-generic-json-url` query creator. A JSON template string for constructing the request body for PUT and POST operations. Use `{{fieldName}}` placeholders to reference top-level columns from the lookup table. Supports creating complex nested JSON structures with both placeholders and literal values. See the [Body Template](#body-template) section for details and examples.                                                                                                                          |
 | http.request.url-map                                                   | optional | Used for the `http-generic-json-url` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
 
 ### Query Creators
@@ -251,14 +251,14 @@ parameters `http.request.query-param-fields`, `http.request.body-fields` and `ht
 The `http.request.body-template` option provides a flexible way to construct HTTP request bodies for PUT and POST operations using a JSON template with placeholders.
 
 **Template Syntax:**
-- Use `<fieldName>` placeholders to reference top-level columns from the lookup table
+- Use `{{fieldName}}` placeholders to reference top-level columns from the lookup table
 - Placeholders are replaced with actual values from the lookup row at runtime
 - Supports creating complex nested JSON structures with both placeholders and literal values
 - All placeholders must reference existing top-level columns in the table schema
 
 **Simple Example:**
 ```sql
-'http.request.body-template' = '{"id": <id>, "name": <name>}'
+'http.request.body-template' = '{"id": {{id}}, "name": {{name}}}'
 ```
 If the lookup row has `id=123` and `name="John"`, the request body will be `{"id": "123", "name": "John"}`.
 
@@ -266,23 +266,23 @@ If the lookup row has `id=123` and `name="John"`, the request body will be `{"id
 ```sql
 'http.request.body-template' = '{
   "user": {
-    "id": <userId>,
+    "id": {{userId}},
     "profile": {
-      "name": <userName>,
-      "email": <userEmail>
+      "name": {{userName}},
+      "email": {{userEmail}}
     }
   },
   "source": "flink",
   "version": "1.0"
 }'
 ```
-This creates a nested JSON structure where `<userId>`, `<userName>`, and `<userEmail>` are replaced with values from the lookup table, while `"source"` and `"version"` are literal values.
+This creates a nested JSON structure where `{{userId}}`, `{{userName}}`, and `{{userEmail}}` are replaced with values from the lookup table, while `"source"` and `"version"` are literal values.
 
 **Array Example:**
 ```sql
 'http.request.body-template' = '{
   "request": {
-    "ids": [<id1>, <id2>],
+    "ids": [{{id1}}, {{id2}}],
     "metadata": {
       "tags": ["lookup", "flink"]
     }
@@ -291,11 +291,12 @@ This creates a nested JSON structure where `<userId>`, `<userName>`, and `<userE
 ```
 
 **Important Notes:**
-- Placeholders must reference top-level columns only (e.g., `<userId>` not `<user.id>`)
+- Placeholders must reference top-level columns only (e.g., `{{userId}}` not `{{user.id}}`)
 - The template must be valid JSON with placeholders
 - All referenced fields must exist in the table schema
 - Field values are properly JSON-encoded (strings are quoted, numbers/booleans are not)
 - Cannot be used together with `http.request.query-param-fields` for body construction
+- Note that all API response fields should match the name structure and type of Table defined columns.
 
 **Using http-generic-json-url Query Creator in your flow**
 

@@ -1006,7 +1006,7 @@ class HttpLookupTableSourceITCaseTest {
     @Test
     void testLookupJoinWithBodyTemplate() throws Exception {
         // GIVEN - Setup WireMock to work with template-generated flat structure
-        // The template will create: {"id": <id>, "id2": <id2>}
+        // The template will create: {"id": {{id}}, "id2": {{id2}}}
         // This matches the default format, proving the template works
         setUpServerBodyStub(
                 "POST",
@@ -1039,9 +1039,9 @@ class HttpLookupTableSourceITCaseTest {
                         + "'lookup-request.format' = 'json',"
                         + "'table.exec.async-lookup.buffer-capacity' = '50',"
                         + "'table.exec.async-lookup.timeout' = '120s',"
-                        // Template creates flat structure: {"id": <id>, "id2": <id2>}
+                        // Template creates flat structure: {"id": {{id}}, "id2": {{id2}}}
                         // This proves the template feature works (unit tests cover nested cases)
-                        + "'http.request.body-template' = '{\"id\": <id>, \"id2\": <id2>}'"
+                        + "'http.request.body-template' = '{\"id\": {{id}}, \"id2\": {{id2}}}'"
                         + ")";
 
         // WHEN

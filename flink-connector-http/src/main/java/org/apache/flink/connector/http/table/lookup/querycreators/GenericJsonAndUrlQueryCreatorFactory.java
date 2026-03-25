@@ -91,10 +91,10 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "A JSON template string for the request body. Use placeholders like <fieldName> "
+                            "A JSON template string for the request body. Use placeholders like {{fieldName}} "
                                     + "to reference top-level fields from the lookup row. The template can contain "
                                     + "nested structures with hardcoded literals and dynamic field values. "
-                                    + "Example: '{\"Id\":<customerId>,\"Orders\":{\"orderId\":<topOrderId>,\"version\":\"1.0\"}}'.");
+                                    + "Example: '{\"Id\":{{customerId}},\"Orders\":{\"orderId\":{{topOrderId}},\"version\":\"1.0\"}}'.");
 
     @Override
     public LookupQueryCreator createLookupQueryCreator(

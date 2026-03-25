@@ -87,7 +87,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @param requestQueryParamsFields query param fields
      * @param requestUrlMap url map
      * @param bodyTemplate template string for request body with placeholders like {@code
-     *     <fieldName>}
+     *     {{fieldName}}}
      * @param lookupRow lookup row itself.
      */
     public GenericJsonAndUrlQueryCreator(
@@ -164,26 +164,29 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
 
     /**
      * Substitutes placeholders in the template with values from the JSON object. Placeholders are
-     * in the format {@code <fieldName>} where fieldName is a top-level field in the JSON object.
+     * in the format {@code {{fieldName}}} where fieldName is a top-level field in the JSON object.
      *
      * @param template the template string with placeholders
      * @param jsonObject the JSON object containing field values
      * @return the template with placeholders replaced by actual values
      */
     private String substituteTemplate(String template, ObjectNode jsonObject) {
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<([^>]+)>");
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\{\\{([^}]+)\\}\\}");
         java.util.regex.Matcher matcher = pattern.matcher(template);
 
-        StringBuffer result = new StringBuffer();
+        StringBuilder result = new StringBuilder();
         while (matcher.find()) {
             String fieldName = matcher.group(1);
             JsonNode fieldValue = jsonObject.get(fieldName);
 
             if (fieldValue == null) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Template placeholder <%s> references a field that does not exist in the lookup row",
-                                fieldName));
+                IllegalArgumentException illegalArgumentException =
+                        new IllegalArgumentException(
+                                String.format(
+                                        "Template placeholder {{%s}} references a field that does not exist in the lookup row",
+                                        fieldName));
+                log.error(illegalArgumentException.getMessage(), illegalArgumentException);
+                throw illegalArgumentException;
             }
 
             String valueStr =
@@ -194,7 +197,6 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(valueStr));
         }
         matcher.appendTail(result);
-
         return result.toString();
     }
 
