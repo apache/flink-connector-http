@@ -49,6 +49,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Generic JSON and URL query creator; in addition to be able to map columns to json requests, it
@@ -171,8 +173,8 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @return the template with placeholders replaced by actual values
      */
     private String substituteTemplate(String template, ObjectNode jsonObject) {
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\{\\{([^}]+)\\}\\}");
-        java.util.regex.Matcher matcher = pattern.matcher(template);
+        Pattern pattern = java.util.regex.Pattern.compile("\\{\\{([^}]+)\\}\\}");
+        Matcher matcher = pattern.matcher(template);
 
         StringBuilder result = new StringBuilder();
         while (matcher.find()) {
