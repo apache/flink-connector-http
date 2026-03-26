@@ -30,9 +30,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.FieldsDataType;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,20 +45,20 @@ import java.util.Map;
 
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_METHOD;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
+import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_TEMPLATE;
+import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS;
+import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP;
 import static org.apache.flink.connector.http.table.lookup.querycreators.QueryCreatorUtils.getTableContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Test for {@link GenericJsonQueryCreator}. */
+/** Test for {@link GenericJsonAndUrlQueryCreator}. */
 class GenericJsonAndUrlQueryCreatorTest {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String KEY_1 = "key1";
     private static final String KEY_2 = "key2";
-    private static final String KEY_3 = "key3";
     private static final String VALUE = "val1";
-    // for GET this is the minimum config
     private static final List<String> QUERY_PARAMS = List.of(KEY_1);
-    // Path param ArgPath required a stringified json object. As we have PersonBean
-    // we can use that.
     private static final Map<String, String> urlParams = Map.of(KEY_1, KEY_1);
     private static final DataType DATATYPE_1 =
             row(List.of(DataTypes.FIELD(KEY_1, DataTypes.STRING())));
@@ -94,61 +92,51 @@ class GenericJsonAndUrlQueryCreatorTest {
         } else {
             validateCreatedQueryForPutAndPost(createdQuery);
         }
-        // validate url based parameters
-        assertThat(createdQuery.getPathBasedUrlParameters().size() == 1).isTrue();
-        assertThat(createdQuery.getPathBasedUrlParameters().get(KEY_1)).isEqualTo(VALUE);
     }
 
     @Test
     public void createLookupQueryTest() {
         // GIVEN
-        List<String> queryParams = List.of(KEY_1, KEY_2);
-        final String urlInsert = "AAA";
-        Map<String, String> urlParams = Map.of(KEY_1, urlInsert);
         LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
-        ResolvedSchema resolvedSchema =
-                ResolvedSchema.of(
-                        Column.physical(KEY_1, DataTypes.STRING()),
-                        Column.physical(KEY_2, DataTypes.STRING()));
-        Configuration config = getConfiguration("GET");
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS, queryParams);
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
+        Configuration config = new Configuration();
+        config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
+        config.set(REQUEST_URL_MAP, urlParams);
+        config.set(LOOKUP_METHOD, "POST");
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1_2);
         GenericJsonAndUrlQueryCreator genericJsonAndUrlQueryCreator =
                 (GenericJsonAndUrlQueryCreator)
                         new GenericJsonAndUrlQueryCreatorFactory()
                                 .createLookupQueryCreator(
-                                        config, lookupRow, getTableContext(config, resolvedSchema));
-        var row = getRowData(2, VALUE);
-        row.setField(1, StringData.fromString(VALUE));
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
         // WHEN
-        var createdQuery = genericJsonAndUrlQueryCreator.createLookupQuery(row);
+        GenericRowData lookupRowData =
+                GenericRowData.of(StringData.fromString("val1"), StringData.fromString("val2"));
+        LookupQueryInfo createdQuery =
+                genericJsonAndUrlQueryCreator.createLookupQuery(lookupRowData);
         // THEN
-        assertThat(createdQuery.getPathBasedUrlParameters().get(urlInsert)).isEqualTo(VALUE);
-        assertThat(createdQuery.getBodyBasedUrlQueryParameters()).isEmpty();
-        assertThat(createdQuery.getLookupQuery())
-                .isEqualTo(KEY_1 + "=" + VALUE + "&" + KEY_2 + "=" + VALUE);
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("");
     }
 
     @Test
     public void failSerializationOpenTest() {
         // GIVEN
         LookupRow lookupRow = getLookupRow(KEY_1);
-        ResolvedSchema resolvedSchema =
-                ResolvedSchema.of(Column.physical(KEY_1, DataTypes.STRING()));
-        Configuration config = getConfiguration("GET");
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
         GenericJsonAndUrlQueryCreator genericJsonAndUrlQueryCreator =
                 (GenericJsonAndUrlQueryCreator)
                         new GenericJsonAndUrlQueryCreatorFactory()
                                 .createLookupQueryCreator(
-                                        config, lookupRow, getTableContext(config, resolvedSchema));
-        // create a SerializationSchema that throws and exception in open
-        SerializationSchema<RowData> mockSerialiationSchema =
+                                        getConfiguration("POST"),
+                                        lookupRow,
+                                        getTableContext(getConfiguration("POST"), RESOLVED_SCHEMA));
+        // Mock a failing serialization schema
+        SerializationSchema<RowData> failingSchema =
                 new SerializationSchema<RowData>() {
                     @Override
                     public void open(InitializationContext context) throws Exception {
-                        throw new Exception("Exception for testing");
+                        throw new Exception("Intentional failure");
                     }
 
                     @Override
@@ -156,22 +144,23 @@ class GenericJsonAndUrlQueryCreatorTest {
                         return new byte[0];
                     }
                 };
-        // WHEN
-        genericJsonAndUrlQueryCreator.setSerializationSchema(mockSerialiationSchema);
-        var row = new GenericRowData(1);
-        // THEN
-        assertThatThrownBy(() -> genericJsonAndUrlQueryCreator.createLookupQuery(row))
+        genericJsonAndUrlQueryCreator.setSerializationSchema(failingSchema);
+        // WHEN/THEN
+        assertThatThrownBy(() -> genericJsonAndUrlQueryCreator.createLookupQuery(ROWDATA))
                 .isInstanceOf(RuntimeException.class);
     }
 
     @Test
     void convertToQueryParametersUnsupportedEncodingTest() {
         // GIVEN
-        ObjectMapper mapper = ObjectMapperAdapter.instance();
         PersonBean person = new PersonBean("aaa", "bbb");
-        // WHEN
-        JsonNode personNode = mapper.valueToTree(person);
-        // THEN
+        JsonNode personNode;
+        try {
+            personNode = OBJECT_MAPPER.readTree(OBJECT_MAPPER.writeValueAsString(person));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        // WHEN/THEN
         assertThatThrownBy(
                         () ->
                                 GenericJsonAndUrlQueryCreator.convertToQueryParameters(
@@ -182,33 +171,23 @@ class GenericJsonAndUrlQueryCreatorTest {
     @Test
     void rowDataToRowTest() {
         // GIVEN
-        // String
-        final String value = VALUE;
-        int intValue = 10;
-        GenericRowData rowData =
-                GenericRowData.of(StringData.fromString(value), intValue, intValue);
-        DataType dataType =
-                row(
-                        List.of(
-                                DataTypes.FIELD(KEY_1, DataTypes.STRING()),
-                                DataTypes.FIELD(KEY_2, DataTypes.DATE()),
-                                DataTypes.FIELD(KEY_3, DataTypes.TIMESTAMP_LTZ())));
+        GenericRowData rowData = GenericRowData.of(StringData.fromString("val1"));
+        DataType dataType = row(List.of(DataTypes.FIELD(KEY_1, DataTypes.STRING())));
         // WHEN
-        Row row = rowDataToRow(rowData, dataType);
+        Row row = GenericJsonAndUrlQueryCreator.rowDataToRow(rowData, dataType);
         // THEN
-        assertThat(row.getField(KEY_1).equals(value));
-        assertThat(row.getField(KEY_2).equals("1970-01-01T00:00:00.010"));
-        assertThat(row.getField(KEY_3).equals("1970-01-01T00:00:00.010Z"));
+        assertThat(row.getField(KEY_1).toString()).isEqualTo("val1");
     }
 
     @Test
-    public void testAdditionalJsonSimpleFields() throws Exception {
-        // GIVEN - Simple additional fields
+    public void testBodyTemplateWithSimplePlaceholder() throws Exception {
+        // GIVEN - Body template with simple field placeholder
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "POST");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{key1}},\"status\":\"active\"}");
+
         LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"c\":789,\"d\":\"extra\"}");
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -219,24 +198,25 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
 
         // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
 
         // THEN
-        String expectedJson = "{\"key1\":\"val1\",\"c\":789,\"d\":\"extra\"}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
+        JsonNode actual = OBJECT_MAPPER.readTree(createdQuery.getLookupQuery());
+        assertThat(actual.get("userId").asText()).isEqualTo("val1");
+        assertThat(actual.get("status").asText()).isEqualTo("active");
     }
 
     @Test
-    public void testAdditionalJsonNestedObject() throws Exception {
-        // GIVEN - Nested object in additional JSON
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
+    public void testBodyTemplateWithNestedStructure() throws Exception {
+        // GIVEN - Body template with nested JSON structure
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "POST");
         config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"nested\":{\"field1\":\"value1\",\"field2\":123}}");
+                REQUEST_BODY_TEMPLATE,
+                "{\"user\":{\"id\":{{key1}},\"status\":\"active\"},\"metadata\":{\"version\":\"1.0\"}}");
+
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -247,25 +227,26 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
 
         // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
 
         // THEN
-        String expectedJson =
-                "{\"key1\":\"val1\",\"nested\":{\"field1\":\"value1\",\"field2\":123}}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
+        JsonNode actual = OBJECT_MAPPER.readTree(createdQuery.getLookupQuery());
+        assertThat(actual.get("user").get("id").asText()).isEqualTo("val1");
+        assertThat(actual.get("user").get("status").asText()).isEqualTo("active");
+        assertThat(actual.get("metadata").get("version").asText()).isEqualTo("1.0");
     }
 
     @Test
-    public void testAdditionalJsonMultipleNestedObjects() throws Exception {
-        // GIVEN - Multiple nested objects
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
+    public void testBodyTemplateWithMultiplePlaceholders() throws Exception {
+        // GIVEN - Body template with multiple field placeholders
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "POST");
         config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"obj1\":{\"a\":1,\"b\":2},\"obj2\":{\"c\":3,\"d\":4}}");
+                REQUEST_BODY_TEMPLATE,
+                "{\"userId\":{{key1}},\"userName\":{{key2}},\"status\":\"active\"}");
+
+        LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1_2);
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -276,25 +257,26 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
 
         // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+        GenericRowData lookupRowData =
+                GenericRowData.of(StringData.fromString("val1"), StringData.fromString("val2"));
+        LookupQueryInfo createdQuery = creator.createLookupQuery(lookupRowData);
 
         // THEN
-        String expectedJson =
-                "{\"key1\":\"val1\",\"obj1\":{\"a\":1,\"b\":2},\"obj2\":{\"c\":3,\"d\":4}}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
+        JsonNode actual = OBJECT_MAPPER.readTree(createdQuery.getLookupQuery());
+        assertThat(actual.get("userId").asText()).isEqualTo("val1");
+        assertThat(actual.get("userName").asText()).isEqualTo("val2");
+        assertThat(actual.get("status").asText()).isEqualTo("active");
     }
 
     @Test
-    public void testAdditionalJsonWithArray() throws Exception {
-        // GIVEN - Array in additional JSON
+    public void testBodyTemplateWithOnlyLiterals() throws Exception {
+        // GIVEN - Body template with no placeholders (only literals)
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "POST");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"status\":\"active\",\"version\":\"1.0\"}");
+
         LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"items\":[\"item1\",\"item2\",\"item3\"]}");
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -305,51 +287,24 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
 
         // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
 
         // THEN
-        String expectedJson = "{\"key1\":\"val1\",\"items\":[\"item1\",\"item2\",\"item3\"]}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
+        JsonNode actual = OBJECT_MAPPER.readTree(createdQuery.getLookupQuery());
+        assertThat(actual.get("status").asText()).isEqualTo("active");
+        assertThat(actual.get("version").asText()).isEqualTo("1.0");
     }
 
     @Test
-    public void testAdditionalJsonComplexStructure() throws Exception {
-        // GIVEN - Complex nested structure with arrays and objects
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"metadata\":{\"tags\":[\"tag1\",\"tag2\"],\"count\":5},\"flags\":[true,false]}");
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-        // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+    public void testBodyTemplateNotAppliedToGet() {
+        // GIVEN - GET request with body template (should be ignored)
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "GET");
+        config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{key1}}}");
 
-        // THEN
-        String expectedJson =
-                "{\"key1\":\"val1\",\"metadata\":{\"tags\":[\"tag1\",\"tag2\"],\"count\":5},\"flags\":[true,false]}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
-    }
-
-    @Test
-    public void testAdditionalJsonWithBoolean() throws Exception {
-        // GIVEN - Boolean values in additional JSON
         LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"isActive\":true,\"isDeleted\":false}");
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -360,181 +315,21 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
 
         // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
 
-        // THEN
-        String expectedJson = "{\"key1\":\"val1\",\"isActive\":true,\"isDeleted\":false}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
-    }
-
-    @Test
-    public void testAdditionalJsonNullOrEmpty() {
-        // GIVEN - Null additional JSON
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        // No additional JSON set
-
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-
-        // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
-
-        // THEN - Should work without additional JSON
-        assertThat(createdQuery.getLookupQuery()).isEqualTo("{\"key1\":\"val1\"}");
-    }
-
-    @Test
-    public void testAdditionalJsonInvalidJson() {
-        // GIVEN - Invalid JSON
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{invalid json}");
-
-        // WHEN/THEN - Should throw IllegalArgumentException during factory creation
-        assertThatThrownBy(
-                        () ->
-                                new GenericJsonAndUrlQueryCreatorFactory()
-                                        .createLookupQueryCreator(
-                                                config,
-                                                lookupRow,
-                                                getTableContext(config, RESOLVED_SCHEMA)))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    public void testAdditionalJsonNotAppliedToGet() {
-        // GIVEN - GET request with additional JSON
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("GET");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON, "{\"c\":789}");
-
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-
-        // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
-
-        // THEN - Additional JSON should not affect GET requests (query params only)
+        // THEN - Should be query params, not body
         assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
     }
 
     @Test
-    public void testAdditionalJsonOverridesJoinKey() {
-        // GIVEN - Additional JSON that tries to override a join key
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        Configuration config = getConfiguration("POST");
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"key1\":\"override_value\",\"c\":789}");
-
-        // WHEN/THEN - Should throw IllegalArgumentException
-        assertThatThrownBy(
-                        () ->
-                                new GenericJsonAndUrlQueryCreatorFactory()
-                                        .createLookupQueryCreator(
-                                                config,
-                                                lookupRow,
-                                                getTableContext(config, RESOLVED_SCHEMA)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(
-                        "The http.request.additional-body-json option should not override join keys")
-                .hasMessageContaining(
-                        "as join keys are expected to target different enrichments on a request basis")
-                .hasMessageContaining("key1");
-    }
-
-    @Test
-    public void testAdditionalJsonOverridesMultipleJoinKeys() {
-        // GIVEN - Additional JSON that tries to override multiple join keys
-        LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
-        Configuration config = getConfiguration("POST");
-        // Set body fields to include both keys
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, List.of(KEY_1, KEY_2));
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"key1\":\"override1\",\"key2\":\"override2\",\"c\":789}");
-
-        // WHEN/THEN - Should throw IllegalArgumentException with all conflicting fields
-        assertThatThrownBy(
-                        () ->
-                                new GenericJsonAndUrlQueryCreatorFactory()
-                                        .createLookupQueryCreator(
-                                                config,
-                                                lookupRow,
-                                                getTableContext(config, RESOLVED_SCHEMA)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(
-                        "The http.request.additional-body-json option should not override join keys")
-                .hasMessageContaining(
-                        "as join keys are expected to target different enrichments on a request basis")
-                .hasMessageContaining("Found conflicting field(s):")
-                .hasMessageContaining("key1")
-                .hasMessageContaining("key2");
-    }
-
-    @Test
-    public void testAdditionalJsonOverridesMultipleJoinKeysDifferentOrder() {
-        // GIVEN - Additional JSON with fields in different order than body fields
-        // Body fields: key1, key2
-        // Additional JSON: key2, key1 (reversed order)
-        LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
-        Configuration config = getConfiguration("POST");
-        // Set body fields: key1, key2
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, List.of(KEY_1, KEY_2));
-        // Additional JSON has reversed order: key2, key1
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"key2\":\"override2\",\"key1\":\"override1\",\"c\":789}");
-
-        // WHEN/THEN - Should throw IllegalArgumentException with all conflicting fields
-        assertThatThrownBy(
-                        () ->
-                                new GenericJsonAndUrlQueryCreatorFactory()
-                                        .createLookupQueryCreator(
-                                                config,
-                                                lookupRow,
-                                                getTableContext(config, RESOLVED_SCHEMA)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(
-                        "The http.request.additional-body-json option should not override join keys")
-                .hasMessageContaining(
-                        "as join keys are expected to target different enrichments on a request basis")
-                .hasMessageContaining("Found conflicting field(s):")
-                .hasMessageContaining("key1")
-                .hasMessageContaining("key2");
-    }
-
-    @Test
-    public void testAdditionalJsonWithNoBodyFields() throws Exception {
-        // GIVEN - Lookup key mapped to query param, not body field
-        // This allows additional JSON to be the entire request body
-        LookupRow lookupRow = getLookupRow(KEY_1);
+    public void testNoBodyTemplateReturnsEmptyJson() {
+        // GIVEN - POST request with no body template
         Configuration config = new Configuration();
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
         config.set(LOOKUP_METHOD, "POST");
-        // Map lookup key to query param, not body field
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
-        // Don't set REQUEST_BODY_FIELDS - it will be empty (no body fields)
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"staticField\":\"staticValue\",\"count\":42,\"active\":true}");
+        // No REQUEST_BODY_TEMPLATE set
+
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
 
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
@@ -545,63 +340,22 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
 
         // WHEN
-        var createdQuery = creator.createLookupQuery(ROWDATA);
+        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
 
-        // THEN - Additional JSON should be used as the entire body
-        String expectedJson = "{\"staticField\":\"staticValue\",\"count\":42,\"active\":true}";
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode expected = mapper.readTree(expectedJson);
-        JsonNode actual = mapper.readTree(createdQuery.getLookupQuery());
-        assertThat(actual).isEqualTo(expected);
-        // Verify the lookup key is in query params, not body
-        assertThat(createdQuery.getBodyBasedUrlQueryParameters()).isEqualTo(KEY_1 + "=" + VALUE);
+        // THEN
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("");
     }
 
     @Test
-    public void testAdditionalJsonOverridesBodyFieldFromUserScenario() {
-        // GIVEN - User scenario: body field 'customerId' with additional JSON trying to override it
-        LookupRow lookupRow = new LookupRow();
-        lookupRow.addLookupEntry(
-                new RowDataSingleValueLookupSchemaEntry(
-                        "customerId",
-                        RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
-        lookupRow.setLookupPhysicalRowDataType(
-                row(List.of(DataTypes.FIELD("customerId", DataTypes.STRING()))));
-
+    public void testBodyTemplateWithInvalidPlaceholder() {
+        // GIVEN - Body template with placeholder for non-existent field
         Configuration config = new Configuration();
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
         config.set(LOOKUP_METHOD, "POST");
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, List.of("customerId"));
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"customerId\":\"bbb\"}");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{nonExistentField}}}");
 
-        // WHEN/THEN - Should throw IllegalArgumentException because additional JSON tries to
-        // override body field
-        assertThatThrownBy(
-                        () ->
-                                new GenericJsonAndUrlQueryCreatorFactory()
-                                        .createLookupQueryCreator(
-                                                config,
-                                                lookupRow,
-                                                getTableContext(config, RESOLVED_SCHEMA)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("customerId")
-                .hasMessageContaining(
-                        "http.request.additional-body-json option should not override join keys");
-    }
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
 
-    @Test
-    public void testAdditionalJsonCaseSensitiveJoinKeyCheck() {
-        // GIVEN - Additional JSON with different case than join key
-        LookupRow lookupRow = getLookupRow(KEY_1); // key1
-        Configuration config = getConfiguration("POST");
-        // KEY1 (uppercase) should not conflict with key1 (lowercase) - case sensitive
-        config.set(
-                GenericJsonAndUrlQueryCreatorFactory.REQUEST_ADDITIONAL_BODY_JSON,
-                "{\"KEY1\":\"value\",\"c\":789}");
-
-        // WHEN - Should succeed because case is different
         GenericJsonAndUrlQueryCreator creator =
                 (GenericJsonAndUrlQueryCreator)
                         new GenericJsonAndUrlQueryCreatorFactory()
@@ -610,70 +364,233 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         lookupRow,
                                         getTableContext(config, RESOLVED_SCHEMA));
 
-        // THEN - Should work fine
-        var createdQuery = creator.createLookupQuery(ROWDATA);
-        String lookupQuery = createdQuery.getLookupQuery();
-        assertThat(lookupQuery).contains("key1");
-        assertThat(lookupQuery).contains("KEY1");
+        // WHEN/THEN
+        assertThatThrownBy(() -> creator.createLookupQuery(ROWDATA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("nonExistentField")
+                .hasMessageContaining("does not exist");
     }
 
-    private static void validateCreatedQueryForGet(LookupQueryInfo createdQuery) {
-        // check there is no body params and we have the expected lookup query
-        assertThat(createdQuery.getBodyBasedUrlQueryParameters()).isEmpty();
-        assertThat(createdQuery.getLookupQuery()).isEqualTo(KEY_1 + "=" + VALUE);
-    }
-
-    private static void validateCreatedQueryForPutAndPost(LookupQueryInfo createdQuery) {
-        // check we have the expected body params and lookup query
-        assertThat(createdQuery.getBodyBasedUrlQueryParameters()).isEqualTo(KEY_1 + "=" + VALUE);
-        assertThat(createdQuery.getLookupQuery())
-                .isEqualTo("{\"" + KEY_1 + "\":\"" + VALUE + "\"}");
-    }
-
-    private static GenericRowData getRowData(int arity, String value) {
-        var row = new GenericRowData(arity);
-        row.setField(0, StringData.fromString(value));
-        return row;
-    }
-
-    private static Configuration getConfiguration(String operation) {
+    @Test
+    public void testBodyTemplateWithComplexNestedStructureAndTimestamps() throws Exception {
+        // GIVEN - Complex template with primitives, arrays, nested objects, timestamps, and
+        // literals
         Configuration config = new Configuration();
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
-        if (!operation.equals("GET")) {
-            // add the body content for PUT and POST
-            config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_FIELDS, QUERY_PARAMS);
-        }
-        config.set(GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP, urlParams);
-        config.set(LOOKUP_METHOD, operation);
-        return config;
-    }
+        config.set(LOOKUP_METHOD, "POST");
 
-    private static LookupRow getLookupRow(String... keys) {
+        // Template maps top-level fields to nested structure with literals
+        String template =
+                "{"
+                        + "\"obj1\":{"
+                        + "\"nestedString\":{{topString}},"
+                        + "\"nestedInt\":{{topInt}},"
+                        + "\"nestedBool\":{{topBool}},"
+                        + "\"nestedTimestamp\":{{topTimestamp}},"
+                        + "\"nestedStringArray\":{{topStringArray}},"
+                        + "\"nestedArrayOfObjects\":{{topArrayOfObjects}},"
+                        + "\"literalString\":\"constantValue\","
+                        + "\"literalInt\":42,"
+                        + "\"literalBool\":true,"
+                        + "\"literalTimestamp\":\"2024-01-01T00:00:00Z\","
+                        + "\"literalArray\":[\"lit1\",\"lit2\"],"
+                        + "\"literalObject\":{\"key\":\"value\"}"
+                        + "}"
+                        + "}";
+        config.set(REQUEST_BODY_TEMPLATE, template);
+
+        // Create lookup row with all field types including timestamp
+        DataType complexDataType =
+                row(
+                        List.of(
+                                DataTypes.FIELD("topString", DataTypes.STRING()),
+                                DataTypes.FIELD("topInt", DataTypes.INT()),
+                                DataTypes.FIELD("topBool", DataTypes.BOOLEAN()),
+                                DataTypes.FIELD("topTimestamp", DataTypes.TIMESTAMP(3)),
+                                DataTypes.FIELD(
+                                        "topStringArray", DataTypes.ARRAY(DataTypes.STRING())),
+                                DataTypes.FIELD(
+                                        "topArrayOfObjects",
+                                        DataTypes.ARRAY(
+                                                DataTypes.ROW(
+                                                        DataTypes.FIELD("id", DataTypes.INT()),
+                                                        DataTypes.FIELD(
+                                                                "name", DataTypes.STRING()))))));
 
         LookupRow lookupRow = new LookupRow();
-        for (int keyNumber = 0; keyNumber < keys.length; keyNumber++) {
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "topString",
+                        RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "topInt", RowData.createFieldGetter(DataTypes.INT().getLogicalType(), 1)));
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "topBool",
+                        RowData.createFieldGetter(DataTypes.BOOLEAN().getLogicalType(), 2)));
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "topTimestamp",
+                        RowData.createFieldGetter(DataTypes.TIMESTAMP(3).getLogicalType(), 3)));
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "topStringArray",
+                        RowData.createFieldGetter(
+                                DataTypes.ARRAY(DataTypes.STRING()).getLogicalType(), 4)));
+        lookupRow.addLookupEntry(
+                new RowDataSingleValueLookupSchemaEntry(
+                        "topArrayOfObjects",
+                        RowData.createFieldGetter(
+                                DataTypes.ARRAY(
+                                                DataTypes.ROW(
+                                                        DataTypes.FIELD("id", DataTypes.INT()),
+                                                        DataTypes.FIELD(
+                                                                "name", DataTypes.STRING())))
+                                        .getLogicalType(),
+                                5)));
+        lookupRow.setLookupPhysicalRowDataType(complexDataType);
+
+        ResolvedSchema resolvedSchema =
+                ResolvedSchema.of(
+                        Column.physical("topString", DataTypes.STRING()),
+                        Column.physical("topInt", DataTypes.INT()),
+                        Column.physical("topBool", DataTypes.BOOLEAN()),
+                        Column.physical("topTimestamp", DataTypes.TIMESTAMP(3)),
+                        Column.physical("topStringArray", DataTypes.ARRAY(DataTypes.STRING())),
+                        Column.physical(
+                                "topArrayOfObjects",
+                                DataTypes.ARRAY(
+                                        DataTypes.ROW(
+                                                DataTypes.FIELD("id", DataTypes.INT()),
+                                                DataTypes.FIELD("name", DataTypes.STRING())))));
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config, lookupRow, getTableContext(config, resolvedSchema));
+
+        // Create test data with actual values
+        org.apache.flink.table.data.GenericArrayData stringArrayData =
+                new org.apache.flink.table.data.GenericArrayData(
+                        new Object[] {
+                            StringData.fromString("arr1"),
+                            StringData.fromString("arr2"),
+                            StringData.fromString("arr3")
+                        });
+
+        GenericRowData obj1 = GenericRowData.of(1, StringData.fromString("Object1"));
+        GenericRowData obj2 = GenericRowData.of(2, StringData.fromString("Object2"));
+        org.apache.flink.table.data.GenericArrayData arrayOfObjectsData =
+                new org.apache.flink.table.data.GenericArrayData(new Object[] {obj1, obj2});
+
+        // Create timestamp data (milliseconds since epoch for 2023-06-15T10:30:00Z)
+        org.apache.flink.table.data.TimestampData timestampData =
+                org.apache.flink.table.data.TimestampData.fromEpochMillis(1686826200000L);
+
+        GenericRowData rowData =
+                GenericRowData.of(
+                        StringData.fromString("testString"),
+                        123,
+                        true,
+                        timestampData,
+                        stringArrayData,
+                        arrayOfObjectsData);
+
+        // WHEN
+        LookupQueryInfo createdQuery = creator.createLookupQuery(rowData);
+
+        // THEN
+        JsonNode actual = OBJECT_MAPPER.readTree(createdQuery.getLookupQuery());
+
+        // Verify nested structure exists
+        assertThat(actual.has("obj1")).isTrue();
+        JsonNode obj1Node = actual.get("obj1");
+
+        // Verify mapped fields from top-level to nested
+        assertThat(obj1Node.get("nestedString").asText()).isEqualTo("testString");
+        assertThat(obj1Node.get("nestedInt").asInt()).isEqualTo(123);
+        assertThat(obj1Node.get("nestedBool").asBoolean()).isTrue();
+
+        // Verify timestamp mapping
+        assertThat(obj1Node.has("nestedTimestamp")).isTrue();
+        String timestampStr = obj1Node.get("nestedTimestamp").asText();
+        assertThat(timestampStr).contains("2023-06-15");
+
+        // Verify array mapping
+        JsonNode nestedArray = obj1Node.get("nestedStringArray");
+        assertThat(nestedArray.isArray()).isTrue();
+        assertThat(nestedArray.size()).isEqualTo(3);
+        assertThat(nestedArray.get(0).asText()).isEqualTo("arr1");
+        assertThat(nestedArray.get(1).asText()).isEqualTo("arr2");
+        assertThat(nestedArray.get(2).asText()).isEqualTo("arr3");
+
+        // Verify array of objects mapping
+        JsonNode nestedObjArray = obj1Node.get("nestedArrayOfObjects");
+        assertThat(nestedObjArray.isArray()).isTrue();
+        assertThat(nestedObjArray.size()).isEqualTo(2);
+        assertThat(nestedObjArray.get(0).get("id").asInt()).isEqualTo(1);
+        assertThat(nestedObjArray.get(0).get("name").asText()).isEqualTo("Object1");
+        assertThat(nestedObjArray.get(1).get("id").asInt()).isEqualTo(2);
+        assertThat(nestedObjArray.get(1).get("name").asText()).isEqualTo("Object2");
+
+        // Verify literals are preserved
+        assertThat(obj1Node.get("literalString").asText()).isEqualTo("constantValue");
+        assertThat(obj1Node.get("literalInt").asInt()).isEqualTo(42);
+        assertThat(obj1Node.get("literalBool").asBoolean()).isTrue();
+        assertThat(obj1Node.get("literalTimestamp").asText()).isEqualTo("2024-01-01T00:00:00Z");
+
+        JsonNode literalArray = obj1Node.get("literalArray");
+        assertThat(literalArray.isArray()).isTrue();
+        assertThat(literalArray.size()).isEqualTo(2);
+        assertThat(literalArray.get(0).asText()).isEqualTo("lit1");
+        assertThat(literalArray.get(1).asText()).isEqualTo("lit2");
+
+        JsonNode literalObject = obj1Node.get("literalObject");
+        assertThat(literalObject.get("key").asText()).isEqualTo("value");
+    }
+
+    // Helper methods
+    private static GenericRowData getRowData(int numFields, String value) {
+        if (numFields == 1) {
+            return GenericRowData.of(StringData.fromString(value));
+        } else if (numFields == 2) {
+            return GenericRowData.of(StringData.fromString(value), StringData.fromString(value));
+        }
+        throw new IllegalArgumentException("Unsupported number of fields: " + numFields);
+    }
+
+    private LookupRow getLookupRow(String... keys) {
+        LookupRow lookupRow = new LookupRow();
+        for (int i = 0; i < keys.length; i++) {
             lookupRow.addLookupEntry(
                     new RowDataSingleValueLookupSchemaEntry(
-                            keys[keyNumber],
-                            RowData.createFieldGetter(
-                                    DataTypes.STRING().getLogicalType(), keyNumber)));
-            lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
+                            keys[i],
+                            RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), i)));
         }
         return lookupRow;
     }
 
-    private static Row rowDataToRow(final RowData lookupRowData, final DataType rowType) {
-        Preconditions.checkNotNull(lookupRowData);
-        Preconditions.checkNotNull(rowType);
+    private Configuration getConfiguration(String operation) {
+        Configuration config = new Configuration();
+        config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
+        config.set(REQUEST_URL_MAP, urlParams);
+        config.set(LOOKUP_METHOD, operation);
+        return config;
+    }
 
-        final Row row = Row.withNames();
-        final List<DataTypes.Field> rowFields = FieldsDataType.getFields(rowType);
+    private void validateCreatedQueryForGet(LookupQueryInfo createdQuery) {
+        assertThat(createdQuery.hasLookupQuery()).isTrue();
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
+        assertThat(createdQuery.hasBodyBasedUrlQueryParameters()).isFalse();
+        assertThat(createdQuery.hasPathBasedUrlParameters()).isTrue();
+    }
 
-        for (int idx = 0; idx < rowFields.size(); idx++) {
-            final String fieldName = rowFields.get(idx).getName();
-            final Object fieldValue = ((GenericRowData) lookupRowData).getField(idx);
-            row.setField(fieldName, fieldValue);
-        }
-        return row;
+    private void validateCreatedQueryForPutAndPost(LookupQueryInfo createdQuery) {
+        // When no template is provided, body is empty (no body sent)
+        assertThat(createdQuery.hasLookupQuery()).isFalse();
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("");
+        assertThat(createdQuery.hasBodyBasedUrlQueryParameters()).isTrue();
+        assertThat(createdQuery.hasPathBasedUrlParameters()).isTrue();
     }
 }

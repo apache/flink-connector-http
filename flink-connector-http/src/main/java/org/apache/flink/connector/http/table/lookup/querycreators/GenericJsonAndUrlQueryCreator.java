@@ -33,7 +33,6 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -50,6 +49,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Generic JSON and URL query creator; in addition to be able to map columns to json requests, it
@@ -77,9 +78,8 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     private LookupRow lookupRow;
     private final String httpMethod;
     private final List<String> requestQueryParamsFields;
-    private final List<String> requestBodyFields;
     private final Map<String, String> requestUrlMap;
-    private final ObjectNode additionalRequestObject;
+    private final String bodyTemplate;
 
     /**
      * Construct a Generic JSON and URL query creator.
@@ -87,27 +87,24 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @param httpMethod the requested http method
      * @param serializationSchema serialization schema for RowData
      * @param requestQueryParamsFields query param fields
-     * @param requestBodyFields body fields used for PUT and POSTs
      * @param requestUrlMap url map
-     * @param additionalRequestObject pre-parsed additional JSON object to merge into request body
-     *     (parsed once in factory to avoid re-parsing on every lookup)
+     * @param bodyTemplate template string for request body with placeholders like {@code
+     *     {{fieldName}}}
      * @param lookupRow lookup row itself.
      */
     public GenericJsonAndUrlQueryCreator(
             final String httpMethod,
             final SerializationSchema<RowData> serializationSchema,
             final List<String> requestQueryParamsFields,
-            final List<String> requestBodyFields,
             final Map<String, String> requestUrlMap,
-            final ObjectNode additionalRequestObject,
+            final String bodyTemplate,
             final LookupRow lookupRow) {
         this.httpMethod = httpMethod;
         this.serializationSchema = serializationSchema;
         this.lookupRow = lookupRow;
         this.requestQueryParamsFields = requestQueryParamsFields;
-        this.requestBodyFields = requestBodyFields;
         this.requestUrlMap = requestUrlMap;
-        this.additionalRequestObject = additionalRequestObject;
+        this.bodyTemplate = bodyTemplate;
     }
 
     @VisibleForTesting
@@ -148,24 +145,13 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
                             jsonObjectForQueryParams, StandardCharsets.UTF_8.toString());
         } else {
             // Body-based queries
-            // serialize to a string for the body.
-            try {
-                ObjectNode bodyJsonObject = jsonObject.retain(requestBodyFields);
-
-                // Merge additional JSON if provided (already validated as object in factory)
-                if (additionalRequestObject != null) {
-                    // Merge all fields from additional JSON into the body
-                    // This preserves nested objects and arrays as-is
-                    additionalRequestObject
-                            .fields()
-                            .forEachRemaining(
-                                    entry -> bodyJsonObject.set(entry.getKey(), entry.getValue()));
-                }
-
-                lookupQuery = ObjectMapperAdapter.instance().writeValueAsString(bodyJsonObject);
-            } catch (JsonProcessingException e) {
-                final String message = "Unable to convert Json Object to a string";
-                throw new RuntimeException(message, e);
+            // Check if body template is provided
+            if (bodyTemplate != null && !bodyTemplate.trim().isEmpty()) {
+                // Use template substitution
+                lookupQuery = substituteTemplate(bodyTemplate, jsonObject);
+            } else {
+                // No template provided - no body (consistent with ElasticSearchLiteQueryCreator)
+                lookupQuery = "";
             }
             // body parameters
             // use the request json object to scope the required fields and the lookupArgs as values
@@ -176,6 +162,41 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
                 createPathBasedParams(lookupArgs, requestUrlMap);
 
         return new LookupQueryInfo(lookupQuery, bodyBasedUrlQueryParams, pathBasedUrlParams);
+    }
+
+    /**
+     * Substitutes placeholders in the template with values from the JSON object. Placeholders are
+     * in the format {@code {{fieldName}}} where fieldName is a top-level field in the JSON object.
+     *
+     * @param template the template string with placeholders
+     * @param jsonObject the JSON object containing field values
+     * @return the template with placeholders replaced by actual values
+     */
+    private String substituteTemplate(String template, ObjectNode jsonObject) {
+        Pattern pattern = Pattern.compile("\\{\\{([^}]+)\\}\\}");
+        Matcher matcher = pattern.matcher(template);
+
+        StringBuilder result = new StringBuilder();
+        while (matcher.find()) {
+            String fieldName = matcher.group(1);
+            JsonNode fieldValue = jsonObject.get(fieldName);
+
+            if (fieldValue == null) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Template placeholder {{%s}} references a field that does not exist in the lookup row",
+                                fieldName));
+            }
+
+            String valueStr =
+                    fieldValue.isTextual()
+                            ? "\"" + fieldValue.asText() + "\""
+                            : fieldValue.toString();
+
+            matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(valueStr));
+        }
+        matcher.appendTail(result);
+        return result.toString();
     }
 
     /**
