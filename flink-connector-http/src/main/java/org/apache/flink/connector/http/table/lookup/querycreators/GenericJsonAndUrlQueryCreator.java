@@ -173,7 +173,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @return the template with placeholders replaced by actual values
      */
     private String substituteTemplate(String template, ObjectNode jsonObject) {
-        Pattern pattern = java.util.regex.Pattern.compile("\\{\\{([^}]+)\\}\\}");
+        Pattern pattern = Pattern.compile("\\{\\{([^}]+)\\}\\}");
         Matcher matcher = pattern.matcher(template);
 
         StringBuilder result = new StringBuilder();
@@ -182,13 +182,10 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             JsonNode fieldValue = jsonObject.get(fieldName);
 
             if (fieldValue == null) {
-                IllegalArgumentException illegalArgumentException =
-                        new IllegalArgumentException(
-                                String.format(
-                                        "Template placeholder {{%s}} references a field that does not exist in the lookup row",
-                                        fieldName));
-                log.error(illegalArgumentException.getMessage(), illegalArgumentException);
-                throw illegalArgumentException;
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Template placeholder {{%s}} references a field that does not exist in the lookup row",
+                                fieldName));
             }
 
             String valueStr =
