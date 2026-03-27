@@ -140,7 +140,7 @@ CREATE TABLE Orders (
 Then we can enrich the _Orders_ table with the _Customers_ HTTP table with the following SQL:
 
 ```roomsql
-SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance FROM Orders AS o 
+SELECT o.id, o.id2, c.msg, c.uuid, c.details.isActive, c.details.nestedDetails.balance FROM Orders AS o 
 JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c ON o.id = c.id AND o.id2 = c.id2
 ```
 
