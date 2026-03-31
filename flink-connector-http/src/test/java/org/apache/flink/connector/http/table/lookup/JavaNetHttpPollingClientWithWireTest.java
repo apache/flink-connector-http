@@ -90,7 +90,7 @@ public class JavaNetHttpPollingClientWithWireTest {
                                 .needClientAuth(true)
                                 .trustStorePath(trustStoreFile.getAbsolutePath())
                                 .trustStorePassword("password")
-                                .extensions(JsonTransform.class));
+                                .extensions(JsonTransformLookup.class));
         wireMockServer.start();
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();

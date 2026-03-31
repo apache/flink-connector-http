@@ -23,6 +23,7 @@ import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.http.WireMockServerPortAllocator;
+import org.apache.flink.connector.http.app.JsonTransformCustomerObject;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableResult;
@@ -115,12 +116,12 @@ class HttpLookupTableSourceITCaseTest {
 
     private WireMockServer wireMockServer;
 
+    private File keyStoreFile = new File(SERVER_KEYSTORE_PATH);
+    private File trustStoreFile = new File(SERVER_TRUSTSTORE_PATH);
+
     @SuppressWarnings("unchecked")
     @BeforeEach
     void setup() {
-
-        File keyStoreFile = new File(SERVER_KEYSTORE_PATH);
-        File trustStoreFile = new File(SERVER_TRUSTSTORE_PATH);
         serverPort = WireMockServerPortAllocator.getServerPort();
         secServerPort = WireMockServerPortAllocator.getSecureServerPort();
         wireMockServer =
@@ -134,7 +135,7 @@ class HttpLookupTableSourceITCaseTest {
                                 .needClientAuth(true)
                                 .trustStorePath(trustStoreFile.getAbsolutePath())
                                 .trustStorePassword("password")
-                                .extensions(JsonTransform.class));
+                                .extensions(JsonTransformLookup.class));
         wireMockServer.start();
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -254,7 +255,9 @@ class HttpLookupTableSourceITCaseTest {
                         .withQueryParam("id", matching("[0-9]+"))
                         .withQueryParam("id2", matching("[0-9]+"))
                         .willReturn(
-                                aResponse().withTransformers(JsonTransform.NAME).withStatus(200)));
+                                aResponse()
+                                        .withTransformers(JsonTransformLookup.NAME)
+                                        .withStatus(200)));
 
         var lookupTable =
                 "CREATE TABLE Customers ("
@@ -297,7 +300,7 @@ class HttpLookupTableSourceITCaseTest {
                         .withHeader("Content-Type", equalTo("application/json"))
                         .withQueryParam("id", matching("[0-9]+"))
                         .withQueryParam("id2", matching("[0-9]+"))
-                        .willReturn(aResponse().withBody(JsonTransform.NAME).withStatus(404))
+                        .willReturn(aResponse().withBody(JsonTransformLookup.NAME).withStatus(404))
                         .willSetStateTo("second_request"));
         wireMockServer.stubFor(
                 get(urlPathEqualTo(ENDPOINT))
@@ -307,7 +310,9 @@ class HttpLookupTableSourceITCaseTest {
                         .withQueryParam("id", matching("[0-9]+"))
                         .withQueryParam("id2", matching("[0-9]+"))
                         .willReturn(
-                                aResponse().withTransformers(JsonTransform.NAME).withStatus(200)));
+                                aResponse()
+                                        .withTransformers(JsonTransformLookup.NAME)
+                                        .withStatus(200)));
 
         var lookupTable =
                 "CREATE TABLE Customers ("
@@ -1058,6 +1063,206 @@ class HttpLookupTableSourceITCaseTest {
                         .withRequestBody(matchingJsonPath("$.id2")));
     }
 
+    @Test
+    void testLookupJoinWithQueryParamMappingForNameConflict() throws Exception {
+        // GIVEN - Scenario demonstrating name conflict resolution with query parameters:
+        // - Orders table has "id" column (string)
+        // - API expects query param named "customer" (string)
+        // - API response has field "customer" (ROW type with nested fields)
+        // Solution: Use http.request.query-param-fields-with-key to map:
+        //   - Lookup table column "id" → query parameter "customer"
+        //   - Lookup table column "customer" → response field "customer" (ROW type)
+
+        int serverPort2 = WireMockServerPortAllocator.getServerPort();
+        int secServerPort2 = WireMockServerPortAllocator.getSecureServerPort();
+        WireMockServer wireMockServer2 =
+                new WireMockServer(
+                        WireMockConfiguration.wireMockConfig()
+                                .port(serverPort2)
+                                .httpsPort(secServerPort2)
+                                .keystorePath(keyStoreFile.getAbsolutePath())
+                                .keystorePassword("password")
+                                .keyManagerPassword("password")
+                                .needClientAuth(true)
+                                .trustStorePath(trustStoreFile.getAbsolutePath())
+                                .trustStorePassword("password")
+                                .extensions(JsonTransformCustomerObject.class));
+        wireMockServer2.start();
+
+        wireMockServer2.stubFor(
+                get(urlPathEqualTo(ENDPOINT))
+                        .withHeader("Content-Type", equalTo("application/json"))
+                        .withQueryParam("customer", matching("[0-9]+"))
+                        .withQueryParam("id2", matching("[0-9]+"))
+                        .willReturn(
+                                aResponse().withTransformers(JsonTransformCustomerObject.NAME)));
+
+        // Create source table with "id" column
+        String sourceTable =
+                "CREATE TABLE Orders ("
+                        + " id STRING,"
+                        + " id2 STRING,"
+                        + " proc_time AS PROCTIME()"
+                        + ") WITH ("
+                        + "'connector' = 'datagen',"
+                        + "'rows-per-second' = '1',"
+                        + "'fields.id.kind' = 'sequence',"
+                        + "'fields.id.start' = '1',"
+                        + "'fields.id.end' = '4',"
+                        + "'fields.id2.kind' = 'sequence',"
+                        + "'fields.id2.start' = '2',"
+                        + "'fields.id2.end' = '5'"
+                        + ")";
+
+        // Create lookup table with:
+        // - "id" column for request (mapped to "customer" query param via config)
+        // - "customer" column for response (ROW type from API)
+        String lookupTable =
+                "CREATE TABLE Customers ("
+                        + "id STRING,"
+                        + "id2 STRING,"
+                        + "msg STRING,"
+                        + "uuid STRING,"
+                        + "customer ROW<"
+                        + "isActive BOOLEAN,"
+                        + "nestedDetails ROW<"
+                        + "balance STRING"
+                        + ">"
+                        + ">"
+                        + ") WITH ("
+                        + "'format' = 'json',"
+                        + "'connector' = 'http',"
+                        + "'lookup-method' = 'GET',"
+                        + "'url' = 'http://localhost:"
+                        + serverPort2
+                        + "/client',"
+                        + "'http.source.lookup.header.Content-Type' = 'application/json',"
+                        + "'asyncPolling' = 'true',"
+                        + "'http.source.lookup.query-creator' = 'http-generic-json-url',"
+                        + "'table.exec.async-lookup.buffer-capacity' = '50',"
+                        + "'table.exec.async-lookup.timeout' = '120s',"
+                        // Map "id" column to "customer" query parameter
+                        + "'http.request.query-param-fields-with-key' = 'id:customer',"
+                        + "'http.request.query-param-fields' = 'id2'"
+                        + ")";
+
+        tEnv.executeSql(sourceTable);
+        tEnv.executeSql(lookupTable);
+
+        // WHEN - SQL query that performs JOIN
+        // Join on Orders.id = Customers.id (which sends "customer" query param to API)
+        String joinQuery =
+                "SELECT o.id, o.id2, c.customer, c.msg, c.uuid FROM Orders AS o "
+                        + "JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
+                        + "ON o.id = c.id "
+                        + "AND o.id2 = c.id2";
+
+        TableResult result = tEnv.executeSql(joinQuery);
+        result.await(15, TimeUnit.SECONDS);
+
+        // THEN
+        SortedSet<Row> collectedRows = getCollectedRows(result);
+        assertThat(collectedRows.size()).isEqualTo(4);
+
+        // Verify that WireMock received requests with "customer" query parameter
+        wireMockServer2.verify(
+                4,
+                getRequestedFor(urlPathEqualTo(ENDPOINT))
+                        .withQueryParam("customer", matching("[0-9]+"))
+                        .withQueryParam("id2", matching("[0-9]+")));
+    }
+
+    @Test
+    void testLookupJoinWithBodyTemplateForNameConflict() throws Exception {
+        // GIVEN - Scenario demonstrating name conflict resolution with body template:
+        // - Orders table has "id" column (string)
+        // - API expects POST body field named "customer" (string)
+        // - API response has field "customer" (ROW type with nested fields)
+        // Solution: Use http.request.body-template to map:
+        //   - Lookup table column "body_customer" → request body field "customer"
+        //   - Lookup table column "customer" → response field "customer" (ROW type)
+        wireMockServer.stubFor(
+                post(urlPathEqualTo(ENDPOINT))
+                        .withRequestBody(matchingJsonPath("$.customer"))
+                        .withRequestBody(matchingJsonPath("$.id2"))
+                        .withHeader("Content-Type", equalTo("application/json"))
+                        .willReturn(aResponse().withTransformers(JsonTransformLookup.NAME)));
+        // Create source table with "id" column
+        String sourceTable =
+                "CREATE TABLE Orders ("
+                        + "id STRING,"
+                        + "id2 STRING,"
+                        + " proc_time AS PROCTIME()"
+                        + ") WITH ("
+                        + "'connector' = 'datagen',"
+                        + "'rows-per-second' = '1',"
+                        + "'fields.id.kind' = 'sequence',"
+                        + "'fields.id.start' = '1',"
+                        + "'fields.id.end' = '4',"
+                        + "'fields.id2.kind' = 'sequence',"
+                        + "'fields.id2.start' = '2',"
+                        + "'fields.id2.end' = '5'"
+                        + ")";
+
+        // Create lookup table with both:
+        // - "body_customer" for request body field (avoids conflict)
+        // - "customer" for response field (object type from API)
+        String lookupTable =
+                "CREATE TABLE Customers ("
+                        + "body_customer STRING,"
+                        + "id2 STRING,"
+                        + "customer ROW<name STRING, age STRING>,"
+                        + "msg STRING,"
+                        + "uuid STRING,"
+                        + "details ROW<"
+                        + "isActive BOOLEAN,"
+                        + "customer ROW<"
+                        + "balance STRING"
+                        + ">"
+                        + ">"
+                        + ") WITH ("
+                        + "'format' = 'json',"
+                        + "'connector' = 'http',"
+                        + "'lookup-method' = 'POST',"
+                        + "'url' = 'http://localhost:"
+                        + serverPort
+                        + "/client',"
+                        + "'http.source.lookup.header.Content-Type' = 'application/json',"
+                        + "'asyncPolling' = 'true',"
+                        + "'http.source.lookup.query-creator' = 'http-generic-json-url',"
+                        + "'lookup-request.format' = 'json',"
+                        + "'table.exec.async-lookup.buffer-capacity' = '50',"
+                        + "'table.exec.async-lookup.timeout' = '120s',"
+                        // Template maps body_customer to "customer" in request body
+                        + "'http.request.body-template' = '{\"customer\": {{body_customer}}, \"id2\": {{id2}}}'"
+                        + ")";
+
+        tEnv.executeSql(sourceTable);
+        tEnv.executeSql(lookupTable);
+
+        // WHEN - SQL query that performs JOIN
+        // Join on Orders.id = Customers.body_customer (which sends "customer" in POST body)
+        String joinQuery =
+                "SELECT o.id, o.id2, c.customer, c.msg, c.uuid FROM Orders AS o "
+                        + "JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
+                        + "ON o.id = c.body_customer "
+                        + "AND o.id2 = c.id2";
+
+        TableResult result = tEnv.executeSql(joinQuery);
+        result.await(15, TimeUnit.SECONDS);
+
+        // THEN
+        SortedSet<Row> collectedRows = getCollectedRows(result);
+        assertThat(collectedRows.size()).isEqualTo(4);
+
+        // Verify that WireMock received requests with "customer" field in body
+        wireMockServer.verify(
+                4,
+                postRequestedFor(urlEqualTo(ENDPOINT))
+                        .withRequestBody(matchingJsonPath("$.customer"))
+                        .withRequestBody(matchingJsonPath("$.id2")));
+    }
+
     private SortedSet<Row> testLookupJoinWithMetadata(String lookupTable, int maxRows)
             throws Exception {
 
@@ -1270,7 +1475,7 @@ class HttpLookupTableSourceITCaseTest {
                         .withHeader("Content-Type", equalTo("application/json"))
                         .withQueryParam("id", matching("[0-9]+"))
                         .withQueryParam("id2", matching("[0-9]+"))
-                        .willReturn(aResponse().withTransformers(JsonTransform.NAME)));
+                        .willReturn(aResponse().withTransformers(JsonTransformLookup.NAME)));
     }
 
     private void setupServerStubEmptyResponse(WireMockServer wireMockServer) {
@@ -1343,7 +1548,7 @@ class HttpLookupTableSourceITCaseTest {
             } else {
                 methodStub.willReturn(
                         aResponse()
-                                .withTransformers(JsonTransform.NAME)
+                                .withTransformers(JsonTransformLookup.NAME)
                                 .withHeader("Content-Type", "application/json"));
             }
         } else {
