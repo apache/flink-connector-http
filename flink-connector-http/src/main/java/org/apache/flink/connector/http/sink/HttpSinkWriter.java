@@ -131,6 +131,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
         future.whenCompleteAsync(
                 (response, err) -> {
                     if (err != null) {
+                        // Network-level failure (e.g. IOException)
                         if (attempt < maxRetryTimes) {
                             long backoffMs = RETRY_INITIAL_BACKOFF_MS * (1L << attempt);
                             log.warn(
@@ -141,15 +142,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                                     maxRetryTimes,
                                     backoffMs,
                                     err.getMessage());
-                            sinkWriterThreadPool.submit(
-                                    () -> {
-                                        try {
-                                            TimeUnit.MILLISECONDS.sleep(backoffMs);
-                                        } catch (InterruptedException ie) {
-                                            Thread.currentThread().interrupt();
-                                        }
-                                        submitWithRetry(requestEntries, requestResult, attempt + 1);
-                                    });
+                            scheduleRetry(requestEntries, requestResult, attempt, backoffMs);
                         } else {
                             int failedRequestsNumber = requestEntries.size();
                             log.error(
@@ -160,16 +153,51 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                             numRecordsSendErrorsCounter.inc(failedRequestsNumber);
                             requestResult.accept(Collections.emptyList());
                         }
-                    } else if (response.getFailedRequests().size() > 0) {
+                    } else if (!response.getFailedRequests().isEmpty()) {
+                        // HTTP-level failure (e.g. 5xx response)
                         int failedRequestsNumber = response.getFailedRequests().size();
-                        log.error("Http Sink failed to write {} requests", failedRequestsNumber);
-                        numRecordsSendErrorsCounter.inc(failedRequestsNumber);
-                        requestResult.accept(Collections.emptyList());
+                        if (attempt < maxRetryTimes) {
+                            long backoffMs = RETRY_INITIAL_BACKOFF_MS * (1L << attempt);
+                            log.warn(
+                                    "Http Sink received {} failed HTTP responses, "
+                                            + "retrying (attempt {}/{}) after {}ms",
+                                    failedRequestsNumber,
+                                    attempt + 1,
+                                    maxRetryTimes,
+                                    backoffMs);
+                            // Retry with the original requestEntries since HttpRequest is an
+                            // internal representation and cannot be passed back to putRequests
+                            scheduleRetry(requestEntries, requestResult, attempt, backoffMs);
+                        } else {
+                            log.error(
+                                    "Http Sink failed to write {} requests after {} retries",
+                                    failedRequestsNumber,
+                                    maxRetryTimes);
+                            numRecordsSendErrorsCounter.inc(failedRequestsNumber);
+                            requestResult.accept(Collections.emptyList());
+                        }
                     } else {
+                        // All requests succeeded
                         requestResult.accept(Collections.emptyList());
                     }
                 },
                 sinkWriterThreadPool);
+    }
+
+    private void scheduleRetry(
+            List<HttpSinkRequestEntry> requestEntries,
+            Consumer<List<HttpSinkRequestEntry>> requestResult,
+            int attempt,
+            long backoffMs) {
+        sinkWriterThreadPool.submit(
+                () -> {
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(backoffMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    submitWithRetry(requestEntries, requestResult, attempt + 1);
+                });
     }
 
     @Override
