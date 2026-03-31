@@ -38,6 +38,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
 
 <!-- TOC -->
 * [HTTP Connector](#http-connector)
+  * [Quick Start](#quick-start)
   * [Dependencies](#dependencies)
   * [Migration from GetInData HTTP connector](#migration-from-getindata-http-connector)
   * [Working with HTTP lookup source tables](#working-with-http-lookup-source-tables)
@@ -73,6 +74,51 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
   * [Logging the HTTP content](#logging-the-http-content)
       * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
+## Quick Start
+
+### SQL示例 — HTTP Sink
+
+使用HTTP Sink连接器通过SQL将Flink记录写入外部HTTP端点：
+
+```sql
+CREATE TABLE http_sink (
+  id     BIGINT,
+  name   STRING,
+  status STRING
+) WITH (
+  'connector'     = 'http-sink',
+  'url'           = 'https://api.example.com/events',
+  'format'        = 'json',
+  'insert-method' = 'POST'
+);
+
+INSERT INTO http_sink SELECT id, name, status FROM source_table;
+```
+
+### SQL示例 — HTTP Lookup Source
+
+使用HTTP Lookup连接器通过外部HTTP API丰富流数据：
+
+```sql
+-- 定义HTTP查找表
+CREATE TABLE http_lookup (
+  id      STRING,
+  payload STRING
+) WITH (
+  'connector' = 'http',
+  'url'       = 'https://api.example.com/data',
+  'format'    = 'json'
+);
+
+-- 使用查找连接丰富流数据
+SELECT s.event_id, h.payload
+FROM stream_table AS s
+JOIN http_lookup FOR SYSTEM_TIME AS OF s.proc_time AS h
+  ON s.event_id = h.id;
+```
+
+完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅下方详细章节。
+
 ## Dependencies
 
 {{< sql_connector_download_table "http" >}}

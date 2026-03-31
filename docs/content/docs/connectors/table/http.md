@@ -38,6 +38,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
 
 <!-- TOC -->
 * [HTTP Connector](#http-connector)
+  * [Quick Start](#quick-start)
   * [Dependencies](#dependencies)
   * [Migration from GetInData HTTP connector](#migration-from-getindata-http-connector)
   * [Working with HTTP lookup source tables](#working-with-http-lookup-source-tables)
@@ -73,6 +74,86 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
   * [Logging the HTTP content](#logging-the-http-content)
       * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
+## Quick Start
+
+This guide provides quick examples to get started with the HTTP connector.
+
+### SQL Example — HTTP Sink
+
+Use the HTTP Sink connector to write Flink records to an external HTTP endpoint via SQL:
+
+```sql
+CREATE TABLE http_sink (
+  id     BIGINT,
+  name   STRING,
+  status STRING
+) WITH (
+  'connector'     = 'http-sink',
+  'url'           = 'https://api.example.com/events',
+  'format'        = 'json',
+  'insert-method' = 'POST'
+);
+
+INSERT INTO http_sink SELECT id, name, status FROM source_table;
+```
+
+### SQL Example — HTTP Lookup Source
+
+Use the HTTP Lookup connector to enrich a stream with data from an external HTTP API:
+
+```sql
+-- Define the HTTP lookup table
+CREATE TABLE http_lookup (
+  id      STRING,
+  payload STRING
+) WITH (
+  'connector' = 'http',
+  'url'       = 'https://api.example.com/data',
+  'format'    = 'json'
+);
+
+-- Enrich a stream using a lookup join
+SELECT s.event_id, h.payload
+FROM stream_table AS s
+JOIN http_lookup FOR SYSTEM_TIME AS OF s.proc_time AS h
+  ON s.event_id = h.id;
+```
+
+### DataStream API Example — HTTP Sink
+
+Use the HTTP Sink connector in the Flink DataStream API:
+
+```java
+import org.apache.flink.connector.http.HttpSink;
+import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.datastream.DataStream;
+
+import java.nio.charset.StandardCharsets;
+
+public class HttpSinkExample {
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        DataStream<String> sourceStream = env.fromElements("event1", "event2", "event3");
+
+        HttpSink<String> httpSink = HttpSink.<String>builder()
+            .setEndpointUrl("https://api.example.com/events")
+            .setElementConverter(
+                (element, context) ->
+                    new HttpSinkRequestEntry("POST", element.getBytes(StandardCharsets.UTF_8)))
+            .build();
+
+        sourceStream.sinkTo(httpSink);
+
+        env.execute("HTTP Sink Example");
+    }
+}
+```
+
+For a full list of configuration options and advanced features (TLS, mTLS, OIDC authentication,
+retry strategies, proxy support, etc.), refer to the detailed sections below.
+
 ## Dependencies
 
 {{< sql_connector_download_table "http" >}}
