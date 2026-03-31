@@ -83,7 +83,7 @@ import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnecto
  *   id bigint,
  *   some_field string
  * ) with (
- *   'connector' = 'http-sink'
+ *   'connector' = 'http-async-sink'
  *   'url' = 'http://example.com/myendpoint'
  *   'format' = 'json'
  * )

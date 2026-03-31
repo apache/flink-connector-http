@@ -436,7 +436,7 @@ CREATE TABLE http (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json'
 )
@@ -456,7 +456,7 @@ another format name.
 
 | Option                                    | Required | Description/Value                                                                                                                                                                                                                  |
 |-------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| connector                                 | required | Specify what connector to use. For HTTP Sink it should be set to _'http-sink'_.                                                                                                                                                    |
+| connector                                 | required | Specify what connector to use. For HTTP Sink it should be set to _'http-async-sink'_.                                                                                                                                                    |
 | format                                    | required | Specify what format to use.                                                                                                                                                                                                        |
 | url                                       | required | The base URL that should be used for HTTP requests. For example _http://localhost:8080/client_.                                                                                                                                     |
 | insert-method                             | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                |
@@ -493,7 +493,7 @@ CREATE TABLE http_sink (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json',
   'http.sink.header.Content-Type' = 'application/json',
@@ -570,7 +570,7 @@ CREATE TABLE http (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json',
   'http.sink.request.batch.size' = '50'
@@ -588,7 +588,7 @@ CREATE TABLE http (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json',
   'http.sink.writer.request.mode' = 'single'
