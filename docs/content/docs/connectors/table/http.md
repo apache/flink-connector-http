@@ -88,7 +88,7 @@ CREATE TABLE http_sink (
   name   STRING,
   status STRING
 ) WITH (
-  'connector'     = 'http-sink',
+  'connector'     = 'http-async-sink',
   'url'           = 'https://api.example.com/events',
   'format'        = 'json',
   'insert-method' = 'POST'

@@ -86,7 +86,7 @@ CREATE TABLE http_sink (
   name   STRING,
   status STRING
 ) WITH (
-  'connector'     = 'http-sink',
+  'connector'     = 'http-async-sink',
   'url'           = 'https://api.example.com/events',
   'format'        = 'json',
   'insert-method' = 'POST'
@@ -115,6 +115,40 @@ SELECT s.event_id, h.payload
 FROM stream_table AS s
 JOIN http_lookup FOR SYSTEM_TIME AS OF s.proc_time AS h
   ON s.event_id = h.id;
+```
+
+完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅下方详细章节。
+
+### DataStream API示例 — HTTP Sink
+
+在Flink DataStream API中使用HTTP Sink连接器：
+
+```java
+import org.apache.flink.connector.http.HttpSink;
+import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.datastream.DataStream;
+
+import java.nio.charset.StandardCharsets;
+
+public class HttpSinkExample {
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        DataStream<String> sourceStream = env.fromElements("event1", "event2", "event3");
+
+        HttpSink<String> httpSink = HttpSink.<String>builder()
+            .setEndpointUrl("https://api.example.com/events")
+            .setElementConverter(
+                (element, context) ->
+                    new HttpSinkRequestEntry("POST", element.getBytes(StandardCharsets.UTF_8)))
+            .build();
+
+        sourceStream.sinkTo(httpSink);
+
+        env.execute("HTTP Sink示例");
+    }
+}
 ```
 
 完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅下方详细章节。
