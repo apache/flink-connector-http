@@ -228,7 +228,7 @@ public class JavaNetHttpPollingClientTest {
 
         String[] headersAndValues =
                 ((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues();
-        // 3 custom headers + default User-Agent header = 8 total (6 pairs)
+        // 3 custom headers + default User-Agent header = 8 total (4 pairs)
         assertThat(headersAndValues).hasSize(8);
 
         // THEN
@@ -468,11 +468,12 @@ public class JavaNetHttpPollingClientTest {
     @Test
     public void shouldBuildClientWithUserAgentHeader() throws ConfigurationException {
         // GIVEN
-        Properties properties = new Properties();
-        properties.setProperty("http.source.lookup.user.agent", "custom-agent/1.0");
+        Configuration config = new Configuration();
+        config.setString(
+                HttpLookupConnectorOptions.SOURCE_LOOKUP_USER_AGENT.key(), "custom-agent/1.0");
 
         HttpLookupConfig lookupConfig =
-                HttpLookupConfig.builder().url(BASE_URL).properties(properties).build();
+                HttpLookupConfig.builder().url(BASE_URL).readableConfig(config).build();
 
         // WHEN
         JavaNetHttpPollingClient client =
