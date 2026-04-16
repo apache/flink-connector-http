@@ -140,9 +140,13 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             String columnName = entry.getKey();
             String queryParamKey = entry.getValue();
             JsonNode value = jsonObject.get(columnName);
-            if (value != null) {
-                jsonObjectForQueryParams.set(queryParamKey, value);
+            if (value == null) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Query parameter mapping references column '%s' that does not exist in the lookup row. Available columns: %s",
+                                columnName, getAvailableColumnNames(jsonObject)));
             }
+            jsonObjectForQueryParams.set(queryParamKey, value);
         }
         // TODO can we convertToQueryParameters for all ops
         //  and not use/deprecate bodyBasedUrlQueryParams
@@ -204,6 +208,18 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    /**
+     * Get a comma-separated list of available column names from the JSON object.
+     *
+     * @param jsonObject the JSON object containing field names
+     * @return comma-separated string of available column names
+     */
+    private String getAvailableColumnNames(ObjectNode jsonObject) {
+        StringJoiner joiner = new StringJoiner(", ");
+        jsonObject.fieldNames().forEachRemaining(joiner::add);
+        return joiner.toString();
     }
 
     /**

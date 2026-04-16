@@ -721,6 +721,33 @@ class GenericJsonAndUrlQueryCreatorTest {
         assertThat(queryString).doesNotContain("status=");
     }
 
+    @Test
+    public void testQueryParamFieldsWithKeyMissingColumn() {
+        // GIVEN - Query param map references a column that doesn't exist
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "GET");
+        Map<String, String> queryParamMap = new java.util.HashMap<>();
+        queryParamMap.put("misspelledCol", "customer"); // misspelledCol doesn't exist
+        config.set(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY, queryParamMap);
+
+        LookupRow lookupRow = getLookupRow(KEY_1); // Only has key1
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN/THEN - Should throw IllegalArgumentException with helpful message
+        assertThatThrownBy(() -> creator.createLookupQuery(ROWDATA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("misspelledCol")
+                .hasMessageContaining("does not exist")
+                .hasMessageContaining("Available columns:");
+    }
+
     // Helper methods
     private static GenericRowData getRowData(int numFields, String value) {
         if (numFields == 1) {
