@@ -16,30 +16,36 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.http.table.lookup;
+package org.apache.flink.connector.http.app;
 
-import com.github.tomakehurst.wiremock.common.FileSource;
-import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.extension.ResponseTransformer;
-import com.github.tomakehurst.wiremock.http.Request;
+import com.github.tomakehurst.wiremock.extension.ResponseTransformerV2;
 import com.github.tomakehurst.wiremock.http.Response;
+import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Wiremock Extension that prepares HTTP REST endpoint response body. This extension is stateful,
- * every next response will have id == counter and id2 == counter + 1 value in its response, where
- * counter is incremented for every subsequent request.
+ * Abstract base class for WireMock response transformers that generate JSON responses with
+ * counter-based IDs and configurable UUID behavior.
+ *
+ * <p>Subclasses must provide:
+ *
+ * <ul>
+ *   <li>Transformer name via {@link #getName()}
+ *   <li>JSON template via {@link #getJsonTemplate()}
+ *   <li>UUID generation strategy via {@link #getUuidValue()}
+ * </ul>
  */
-public class JsonTransform extends ResponseTransformer {
+public abstract class AbstractJsonTransform implements ResponseTransformerV2 {
 
-    public static final String NAME = "JsonTransform";
+    private final AtomicInteger counter = new AtomicInteger(0);
 
-    private static final String RESULT_JSON =
+    private static final String BASE_JSON_TEMPLATE =
             "{\n"
                     + "\t\"id\": \"&COUNTER&\",\n"
                     + "\t\"id2\": \"&COUNTER_2&\",\n"
-                    + "\t\"uuid\": \"fbb68a46-80a9-46da-9d40-314b5287079c\",\n"
+                    + "\t\"uuid\": \"&UUID&\",\n"
                     + "\t\"picture\": \"http://placehold.it/32x32\",\n"
                     + "\t\"msg\": \"&PARAM&, cnt: &COUNTER&\",\n"
                     + "\t\"age\": 30,\n"
@@ -82,7 +88,7 @@ public class JsonTransform extends ResponseTransformer {
                     + "\t\t\t\"name\": \"Lula Rogers\"\n"
                     + "\t\t}\n"
                     + "\t],\n"
-                    + "\t\"details\": {\n"
+                    + "\t\"&NESTED_OBJECT&\": {\n"
                     + "\t\t\"isActive\": true,\n"
                     + "\t\t\"nestedDetails\": {\n"
                     + "\t\t\t\"index\": 0,\n"
@@ -93,13 +99,11 @@ public class JsonTransform extends ResponseTransformer {
                     + "\t\"greeting\": \"Hello, Marva Fischer! You have 7 unread messages.\",\n"
                     + "\t\"favoriteFruit\": \"banana\"\n"
                     + "}";
-    private final AtomicInteger counter = new AtomicInteger(0);
 
     @Override
-    public Response transform(
-            Request request, Response response, FileSource files, Parameters parameters) {
+    public final Response transform(Response response, ServeEvent serveEvent) {
         int cnt = counter.getAndIncrement();
-
+        LoggedRequest request = serveEvent.getRequest();
         return Response.response()
                 .body(generateResponse(request.getUrl(), cnt))
                 .status(response.getStatus())
@@ -107,16 +111,67 @@ public class JsonTransform extends ResponseTransformer {
                 .build();
     }
 
-    @Override
-    public String getName() {
-        return NAME;
+    /**
+     * Returns the JSON template with placeholders for dynamic values.
+     *
+     * <p>Subclasses that need a different JSON structure should override this method. By default,
+     * returns the base template with &NESTED_OBJECT& placeholder.
+     *
+     * <p>Supported placeholders:
+     *
+     * <ul>
+     *   <li>&PARAM& - Request URL
+     *   <li>&COUNTER& - Current counter value
+     *   <li>&COUNTER_2& - Counter value + 1
+     *   <li>&UUID& - UUID value (if used)
+     *   <li>&NESTED_OBJECT& - Nested object name (if used)
+     * </ul>
+     *
+     * @return JSON template string
+     */
+    protected String getJsonTemplate() {
+        return BASE_JSON_TEMPLATE;
+    }
+
+    /**
+     * Returns the name for the nested object in the JSON response.
+     *
+     * <p>Default implementation returns null (no nested object placeholder replacement). Override
+     * this method in subclasses that use the &NESTED_OBJECT& placeholder.
+     *
+     * @return nested object name, or null if not used
+     */
+    protected String getNestedObjectName() {
+        return null;
+    }
+
+    /**
+     * Returns the UUID value to use in responses.
+     *
+     * @return fixed UUID string for deterministic behavior
+     */
+    private String getUuidValue() {
+        return "fbb68a46-80a9-46da-9d40-314b5287079c";
     }
 
     private String generateResponse(String param, int counter) {
-        return RESULT_JSON
-                .replaceAll("&PARAM&", param)
-                .replaceAll("&COUNTER&", String.valueOf(counter))
-                .replaceAll("&COUNTER_2&", String.valueOf(counter + 1));
+        String response =
+                getJsonTemplate()
+                        .replace("&PARAM&", param)
+                        .replace("&COUNTER&", String.valueOf(counter))
+                        .replace("&COUNTER_2&", String.valueOf(counter + 1));
+
+        String uuid = getUuidValue();
+        if (uuid != null) {
+            response = response.replace("&UUID&", uuid);
+        }
+
+        String nestedObjectName = getNestedObjectName();
+        if (nestedObjectName != null) {
+            response = response.replace("&NESTED_OBJECT&", nestedObjectName);
+        }
+
+        return response;
     }
 
     @Override

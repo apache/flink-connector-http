@@ -43,7 +43,7 @@ public class HttpStubApp {
                 new WireMockServer(
                         WireMockConfiguration.wireMockConfig()
                                 .port(WireMockServerPortAllocator.getServerPort())
-                                .extensions(JsonTransform.class));
+                                .extensions(JsonTransformApp.class));
         wireMockServer.start();
 
         wireMockServer.addStubMapping(setupServerStub());
@@ -52,6 +52,6 @@ public class HttpStubApp {
     private static StubMapping setupServerStub() {
         return wireMockServer.stubFor(
                 get(urlPathEqualTo(URL))
-                        .willReturn(aResponse().withTransformers(JsonTransform.NAME)));
+                        .willReturn(aResponse().withTransformers(JsonTransformApp.NAME)));
     }
 }

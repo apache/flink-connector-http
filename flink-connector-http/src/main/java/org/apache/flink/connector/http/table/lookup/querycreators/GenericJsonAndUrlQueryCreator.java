@@ -71,13 +71,15 @@ import java.util.regex.Pattern;
 @Slf4j
 public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     private static final long serialVersionUID = 1L;
+    private static final Pattern TEMPLATE_PLACEHOLDER_PATTERN =
+            Pattern.compile("\\{\\{([^}]+)\\}\\}");
 
     // not final so we can mutate for unit test
     private SerializationSchema<RowData> serializationSchema;
     private boolean schemaOpened = false;
     private LookupRow lookupRow;
     private final String httpMethod;
-    private final List<String> requestQueryParamsFields;
+    private final Map<String, String> requestQueryParamsMap;
     private final Map<String, String> requestUrlMap;
     private final String bodyTemplate;
 
@@ -86,7 +88,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      *
      * @param httpMethod the requested http method
      * @param serializationSchema serialization schema for RowData
-     * @param requestQueryParamsFields query param fields
+     * @param requestQueryParamsMap map of column names to query parameter keys
      * @param requestUrlMap url map
      * @param bodyTemplate template string for request body with placeholders like {@code
      *     {{fieldName}}}
@@ -95,14 +97,14 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     public GenericJsonAndUrlQueryCreator(
             final String httpMethod,
             final SerializationSchema<RowData> serializationSchema,
-            final List<String> requestQueryParamsFields,
+            final Map<String, String> requestQueryParamsMap,
             final Map<String, String> requestUrlMap,
             final String bodyTemplate,
             final LookupRow lookupRow) {
         this.httpMethod = httpMethod;
         this.serializationSchema = serializationSchema;
         this.lookupRow = lookupRow;
-        this.requestQueryParamsFields = requestQueryParamsFields;
+        this.requestQueryParamsMap = requestQueryParamsMap;
         this.requestUrlMap = requestUrlMap;
         this.bodyTemplate = bodyTemplate;
     }
@@ -132,9 +134,19 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         }
         // Parameters are encoded as query params for GET and none GET.
         // Later code will turn these query params into the body for PUTs and POSTs
+        // Use the map to rename columns to query param keys
         ObjectNode jsonObjectForQueryParams = ObjectMapperAdapter.instance().createObjectNode();
-        for (String requestColumnName : this.requestQueryParamsFields) {
-            jsonObjectForQueryParams.set(requestColumnName, jsonObject.get(requestColumnName));
+        for (Map.Entry<String, String> entry : this.requestQueryParamsMap.entrySet()) {
+            String columnName = entry.getKey();
+            String queryParamKey = entry.getValue();
+            JsonNode value = jsonObject.get(columnName);
+            if (value == null) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Query parameter mapping references column '%s' that does not exist in the lookup row. Available columns: %s",
+                                columnName, getAvailableColumnNames(jsonObject)));
+            }
+            jsonObjectForQueryParams.set(queryParamKey, value);
         }
         // TODO can we convertToQueryParameters for all ops
         //  and not use/deprecate bodyBasedUrlQueryParams
@@ -173,8 +185,7 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      * @return the template with placeholders replaced by actual values
      */
     private String substituteTemplate(String template, ObjectNode jsonObject) {
-        Pattern pattern = Pattern.compile("\\{\\{([^}]+)\\}\\}");
-        Matcher matcher = pattern.matcher(template);
+        Matcher matcher = TEMPLATE_PLACEHOLDER_PATTERN.matcher(template);
 
         StringBuilder result = new StringBuilder();
         while (matcher.find()) {
@@ -197,6 +208,18 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    /**
+     * Get a comma-separated list of available column names from the JSON object.
+     *
+     * @param jsonObject the JSON object containing field names
+     * @return comma-separated string of available column names
+     */
+    private String getAvailableColumnNames(ObjectNode jsonObject) {
+        StringJoiner joiner = new StringJoiner(", ");
+        jsonObject.fieldNames().forEachRemaining(joiner::add);
+        return joiner.toString();
     }
 
     /**
