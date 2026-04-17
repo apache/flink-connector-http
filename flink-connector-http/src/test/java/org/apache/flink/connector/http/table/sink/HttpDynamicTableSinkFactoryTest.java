@@ -106,4 +106,22 @@ public class HttpDynamicTableSinkFactoryTest {
         assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO http VALUES (1)").await())
                 .isInstanceOf(ValidationException.class);
     }
+
+    @Test
+    public void shouldAcceptCustomHeadersTest() {
+        final String ddlWithHeaders =
+                String.format(
+                        "CREATE TABLE httpWithHeaders (\n"
+                                + "  id bigint\n"
+                                + ") with (\n"
+                                + "  'connector' = '%s',\n"
+                                + "  'url' = '%s',\n"
+                                + "  'format' = 'json',\n"
+                                + "  'http.sink.header.Content-Type' = 'application/json',\n"
+                                + "  'http.sink.header.X-Custom-Header' = 'my-value'\n"
+                                + ")",
+                        HttpDynamicTableSinkFactory.IDENTIFIER, "http://localhost/");
+        // Should not throw a ValidationException for unrecognized options
+        tEnv.executeSql(ddlWithHeaders);
+    }
 }

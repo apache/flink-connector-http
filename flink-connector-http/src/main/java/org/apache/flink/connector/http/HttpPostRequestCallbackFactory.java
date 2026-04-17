@@ -49,7 +49,7 @@ import org.apache.flink.table.factories.Factory;
  *   id bigint,
  *   some_field string
  * ) with (
- *   'connector' = 'http-sink'
+ *   'connector' = 'http-async-sink'
  *   'url' = 'http://example.com/myendpoint'
  *   'format' = 'json',
  *   'http.sink.request-callback' = 'my-callback'
