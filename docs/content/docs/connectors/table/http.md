@@ -547,6 +547,7 @@ another format name.
 | http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
 | http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
+| http.sink.retry.times                     | optional | Maximum number of retry attempts for HTTP Sink requests when a request fails due to a network error (IOException). Retries use exponential backoff with an initial delay of 1 second. Set to `0` to disable retries. Default value is `3`. |
 
 ### Sink table HTTP status codes
 You can configure a list of HTTP status codes that should be treated as errors for HTTP sink table.

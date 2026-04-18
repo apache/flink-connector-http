@@ -44,7 +44,9 @@ import javax.annotation.Nullable;
 
 import java.util.Properties;
 
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_RETRY_TIMES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.INSERT_METHOD;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.RETRY_TIMES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.URL;
 
 /**
@@ -155,6 +157,9 @@ public class HttpDynamicSink extends AsyncDynamicTableSink<HttpSinkRequestEntry>
                         .setElementConverter(
                                 new SerializationSchemaElementConverter(
                                         insertMethod, serializationSchema))
+                        .setProperty(
+                                SINK_HTTP_RETRY_TIMES,
+                                String.valueOf(tableOptions.get(RETRY_TIMES)))
                         .setProperties(properties);
         addAsyncOptionsToSinkBuilder(builder);
 
