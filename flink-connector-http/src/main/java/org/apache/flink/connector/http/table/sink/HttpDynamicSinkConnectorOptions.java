@@ -20,6 +20,9 @@ package org.apache.flink.connector.http.table.sink;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 
+import java.time.Duration;
+
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_TIMEOUT_SECONDS;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_REQUEST_CALLBACK_IDENTIFIER;
 
 /** Table API options for {@link HttpDynamicSink}. */
@@ -36,6 +39,20 @@ public class HttpDynamicSinkConnectorOptions {
                     .stringType()
                     .defaultValue("POST")
                     .withDescription("Method used for requests built from SQL's INSERT.");
+
+    /**
+     * HTTP request timeout for sink. Controls how long the HTTP client waits for a response before
+     * timing out a single request. Defaults to 30 seconds.
+     */
+    public static final ConfigOption<Duration> SINK_REQUEST_TIMEOUT =
+            ConfigOptions.key(SINK_HTTP_TIMEOUT_SECONDS)
+                    .durationType()
+                    .defaultValue(Duration.ofSeconds(30))
+                    .withDescription(
+                            "HTTP request timeout for sink. "
+                                    + "Controls how long the HTTP client waits for a response "
+                                    + "before timing out a single request. "
+                                    + "Specified as a Duration, e.g. '30s' or '1min'.");
 
     public static final ConfigOption<String> REQUEST_CALLBACK_IDENTIFIER =
             ConfigOptions.key(SINK_REQUEST_CALLBACK_IDENTIFIER)

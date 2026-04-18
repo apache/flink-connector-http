@@ -106,4 +106,28 @@ public class HttpDynamicTableSinkFactoryTest {
         assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO http VALUES (1)").await())
                 .isInstanceOf(ValidationException.class);
     }
+
+    @Test
+    public void requestTimeoutOptionTest() {
+        // Verify that http.sink.request.timeout is a valid recognized option (no
+        // ValidationException)
+        final String withRequestTimeout =
+                String.format(
+                        "CREATE TABLE httpTimeout (\n"
+                                + "  id bigint\n"
+                                + ") with (\n"
+                                + "  'connector' = '%s',\n"
+                                + "  'url' = '%s',\n"
+                                + "  'format' = 'json',\n"
+                                + "  '%s' = '60s'\n"
+                                + ")",
+                        HttpDynamicTableSinkFactory.IDENTIFIER,
+                        "http://localhost/",
+                        HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT.key());
+        tEnv.executeSql(withRequestTimeout);
+        // Should not throw ValidationException for the option itself
+        // (a RuntimeException for actual HTTP calls is fine in test)
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO httpTimeout VALUES (1)").await())
+                .isNotInstanceOf(org.apache.flink.table.api.ValidationException.class);
+    }
 }
