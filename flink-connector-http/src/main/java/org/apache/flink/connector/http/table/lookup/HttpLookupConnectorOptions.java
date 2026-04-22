@@ -231,8 +231,8 @@ public class HttpLookupConnectorOptions {
     public static final ConfigOption<String> SOURCE_LOOKUP_USER_AGENT =
             ConfigOptions.key("http.user.agent")
                     .stringType()
-                    .defaultValue("flink-http-connector")
+                    .defaultValue("flink-connector-http")
                     .withDescription(
                             "The User-Agent header value for HTTP lookup requests. "
-                                    + "Default value is 'flink-http-connector'.");
+                                    + "Default value is 'flink-connector-http'.");
 }

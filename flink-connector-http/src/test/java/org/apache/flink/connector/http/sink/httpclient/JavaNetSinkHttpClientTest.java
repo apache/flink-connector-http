@@ -99,7 +99,7 @@ class JavaNetSinkHttpClientTest {
         // By default, User-Agent header is always added with default value
         assertThat(headersAndValues).hasSize(2);
         assertThat(headersAndValues[0]).isEqualTo("User-Agent");
-        assertThat(headersAndValues[1]).isEqualTo("flink-http-connector");
+        assertThat(headersAndValues[1]).isEqualTo("flink-connector-http");
     }
 
     @ParameterizedTest
@@ -140,7 +140,7 @@ class JavaNetSinkHttpClientTest {
                 "no-cache, no-store, max-age=0, must-revalidate");
         assertPropertyArray(headersAndValues, "Access-Control-Allow-Origin", "*");
         // Default User-Agent header should also be present
-        assertPropertyArray(headersAndValues, "User-Agent", "flink-http-connector");
+        assertPropertyArray(headersAndValues, "User-Agent", "flink-connector-http");
     }
 
     @ParameterizedTest
@@ -183,6 +183,28 @@ class JavaNetSinkHttpClientTest {
 
         // THEN
         assertThat(headersAndValues).hasSize(2);
-        assertPropertyArray(headersAndValues, "User-Agent", "flink-http-connector");
+        assertPropertyArray(headersAndValues, "User-Agent", "flink-connector-http");
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideSubmitterFactory")
+    public void shouldThrowErrorWhenUserAgentConflict(RequestSubmitterFactory requestSubmitterFactory) {
+        // GIVEN
+        Properties properties = new Properties();
+        properties.setProperty("http.user.agent", "custom-agent");
+        properties.setProperty(
+                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "User-Agent",
+                "header-agent");
+
+        // WHEN & THEN
+        assertThatThrownBy(
+                        () ->
+                                new JavaNetSinkHttpClient(
+                                        properties,
+                                        postRequestCallback,
+                                        headerPreprocessor,
+                                        requestSubmitterFactory))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User-Agent header is set both explicitly");
     }
 }

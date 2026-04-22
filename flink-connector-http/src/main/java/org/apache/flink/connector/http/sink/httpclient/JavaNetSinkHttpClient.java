@@ -74,8 +74,14 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                         headerPreprocessor);
 
         // Add User-Agent header if configured
-        String userAgent = properties.getProperty("http.user.agent", "flink-http-connector");
+        String userAgent = properties.getProperty("http.user.agent", "flink-connector-http");
         if (userAgent != null && !userAgent.isEmpty()) {
+            // Check for conflict: if User-Agent already exists in headers, throw an error
+            if (this.headerMap.containsKey("User-Agent")) {
+                throw new IllegalArgumentException(
+                        "User-Agent header is set both explicitly via 'http.user.agent' configuration "
+                                + "and in the headers configuration. Please use only one method to set the User-Agent header.");
+            }
             this.headerMap.put("User-Agent", userAgent);
         }
 

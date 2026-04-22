@@ -95,7 +95,7 @@ public class JavaNetHttpPollingClientTest {
         // By default, User-Agent header is always added with default value
         assertThat(headers).hasSize(2);
         assertThat(headers[0]).isEqualTo("User-Agent");
-        assertThat(headers[1]).isEqualTo("flink-http-connector");
+        assertThat(headers[1]).isEqualTo("flink-connector-http");
     }
 
     @Test
@@ -240,7 +240,7 @@ public class JavaNetHttpPollingClientTest {
                 "no-cache, no-store, max-age=0, must-revalidate");
         assertPropertyArray(headersAndValues, "Access-Control-Allow-Origin", "*");
         // Default User-Agent header should also be present
-        assertPropertyArray(headersAndValues, "User-Agent", "flink-http-connector");
+        assertPropertyArray(headersAndValues, "User-Agent", "flink-connector-http");
     }
 
     @Test
@@ -513,6 +513,33 @@ public class JavaNetHttpPollingClientTest {
         String[] headers = ((GetRequestFactory) client.getRequestFactory()).getHeadersAndValues();
         assertThat(headers).hasSize(2);
         assertThat(headers[0]).isEqualTo("User-Agent");
-        assertThat(headers[1]).isEqualTo("flink-http-connector");
+        assertThat(headers[1]).isEqualTo("flink-connector-http");
+    }
+
+    @Test
+    public void shouldThrowErrorWhenUserAgentConflict() {
+        // GIVEN
+        Properties properties = new Properties();
+        properties.setProperty("http.user.agent", "custom-agent");
+        properties.setProperty(
+                HttpConnectorConfigConstants.LOOKUP_SOURCE_HEADER_PREFIX + "User-Agent",
+                "header-agent");
+
+        HttpLookupConfig lookupConfig =
+                HttpLookupConfig.builder().url(BASE_URL).properties(properties).build();
+
+        // WHEN & THEN
+        assertThatThrownBy(
+                        () ->
+                                new JavaNetHttpPollingClient(
+                                        httpClient,
+                                        decoder,
+                                        lookupConfig,
+                                        new GetRequestFactory(
+                                                new GenericGetQueryCreator(lookupRow),
+                                                headerPreprocessor,
+                                                lookupConfig)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User-Agent header is set both explicitly");
     }
 }

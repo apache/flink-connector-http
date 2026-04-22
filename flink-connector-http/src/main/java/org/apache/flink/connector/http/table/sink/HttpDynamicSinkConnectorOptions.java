@@ -45,8 +45,8 @@ public class HttpDynamicSinkConnectorOptions {
     public static final ConfigOption<String> USER_AGENT =
             ConfigOptions.key("http.user.agent")
                     .stringType()
-                    .defaultValue("flink-http-connector")
+                    .defaultValue("flink-connector-http")
                     .withDescription(
                             "The User-Agent header value for HTTP sink requests. "
-                                    + "Default value is 'flink-http-connector'.");
+                                    + "Default value is 'flink-connector-http'.");
 }
