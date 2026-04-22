@@ -188,13 +188,13 @@ class JavaNetSinkHttpClientTest {
 
     @ParameterizedTest
     @MethodSource("provideSubmitterFactory")
-    public void shouldThrowErrorWhenUserAgentConflict(RequestSubmitterFactory requestSubmitterFactory) {
+    public void shouldThrowErrorWhenUserAgentConflict(
+            RequestSubmitterFactory requestSubmitterFactory) {
         // GIVEN
         Properties properties = new Properties();
         properties.setProperty("http.user.agent", "custom-agent");
         properties.setProperty(
-                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "User-Agent",
-                "header-agent");
+                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "User-Agent", "header-agent");
 
         // WHEN & THEN
         assertThatThrownBy(
