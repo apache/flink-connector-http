@@ -19,18 +19,23 @@
 
 package org.apache.flink.connector.http;
 
-/** Defines the log level for HTTP errors. */
-public enum HttpErrorLogLevel {
-    ERROR,
+/** Defines the SLF4J severity level for HTTP error logging. */
+public enum HttpErrorLogSeverity {
+    /** No error-level logging (DEBUG only, current behavior). */
+    OFF,
+    /** Log errors at INFO level. */
+    INFO,
+    /** Log errors at WARN level. */
     WARN,
-    INFO;
+    /** Log errors at ERROR level (default for production). */
+    ERROR;
 
-    public static HttpErrorLogLevel fromString(String level) {
+    public static HttpErrorLogSeverity fromString(String level) {
         if (level == null) {
             return ERROR;
         }
         try {
-            return HttpErrorLogLevel.valueOf(level.toUpperCase());
+            return HttpErrorLogSeverity.valueOf(level.toUpperCase());
         } catch (IllegalArgumentException e) {
             return ERROR;
         }

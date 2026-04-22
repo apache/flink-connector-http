@@ -18,7 +18,6 @@
 package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.connector.http.HttpErrorLogger;
 import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
@@ -61,8 +60,6 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
 
     private final HttpLogger httpLogger;
 
-    private final HttpErrorLogger httpErrorLogger;
-
     public JavaNetSinkHttpClient(
             Properties properties,
             HttpPostRequestCallback<HttpRequest> httpPostRequestCallback,
@@ -93,7 +90,6 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                 requestSubmitterFactory.createSubmitter(properties, headersAndValues);
 
         this.httpLogger = HttpLogger.getHttpLogger(properties);
-        this.httpErrorLogger = HttpErrorLogger.getLogger(properties);
     }
 
     @Override
@@ -130,13 +126,13 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
             // TODO Add response processor here and orchestrate it with statusCodeChecker.
             if (optResponse.isEmpty()
                     || statusCodeChecker.isErrorCode(optResponse.get().statusCode())) {
-                // Log failed response with detailed error context
+                // Log failed response with detailed error context using HttpLogger
                 if (optResponse.isPresent()) {
                     var httpResponse = optResponse.get();
-                    httpErrorLogger.logSinkError(
+                    httpLogger.logSinkError(
                             sinkRequestEntry.httpRequest, null, httpResponse, 0);
                 } else {
-                    httpErrorLogger.logSinkError(
+                    httpLogger.logSinkError(
                             sinkRequestEntry.httpRequest,
                             null,
                             new Exception("HTTP request failed with no response"),

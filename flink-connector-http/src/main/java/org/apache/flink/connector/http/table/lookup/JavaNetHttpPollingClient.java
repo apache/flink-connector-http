@@ -21,7 +21,6 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.connector.http.HttpErrorLogger;
 import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.HttpStatusCodeValidationFailedException;
@@ -85,7 +84,6 @@ public class JavaNetHttpPollingClient implements PollingClient {
     private final Set<Integer> ignoredErrorCodes;
     private final boolean continueOnError;
     private final HttpLogger httpLogger;
-    private final HttpErrorLogger httpErrorLogger;
 
     public JavaNetHttpPollingClient(
             HttpClient httpClient,
@@ -117,7 +115,6 @@ public class JavaNetHttpPollingClient implements PollingClient {
                         .responseChecker(new HttpResponseChecker(successCodes, errorCodes))
                         .build();
         this.httpLogger = HttpLogger.getHttpLogger(options.getProperties());
-        this.httpErrorLogger = HttpErrorLogger.getLogger(options.getProperties());
     }
 
     public void open(FunctionContext context) {
@@ -165,37 +162,25 @@ public class JavaNetHttpPollingClient implements PollingClient {
             // log if we fail for status code reasons.
             httpLogger.logResponse((HttpResponse<String>) e.getResponse());
             // Case 1 http non successful response
+            // Enhanced error logging with continueOnError awareness
+            httpLogger.logLookupError(
+                    request.getHttpRequest(), (HttpResponse<?>) e.getResponse(), e, 0, this.continueOnError);
             if (!this.continueOnError) {
-                // Enhanced error logging - log as error since we will throw
-                httpErrorLogger.logLookupError(
-                        request.getHttpRequest(), (HttpResponse<?>) e.getResponse(), e, 0);
                 throw e;
             }
-            // If continueOnError is true, log at debug level only since we are tolerating the
-            // error
-            log.debug(
-                    "HTTP lookup returned non-successful status code {} for URL {}, "
-                            + "but continue-on-error is enabled, so proceeding with empty result",
-                    e.getResponse().statusCode(),
-                    request.getHttpRequest().uri());
+            // If continueOnError is true, proceed with processing the error response
             // use the response in the Exception
             response = (HttpResponse<String>) e.getResponse();
             httpRowDataWrapper = processHttpResponse(response, request, true);
         } catch (Exception e) {
             httpLogger.logExceptionResponse(request, e);
             // Case 2 Exception occurred
+            // Enhanced error logging with continueOnError awareness
+            httpLogger.logLookupError(request.getHttpRequest(), e, 0, this.continueOnError);
             if (!this.continueOnError) {
-                // Enhanced error logging - log as error since we will throw
-                httpErrorLogger.logLookupError(request.getHttpRequest(), e, 0);
                 throw e;
             }
-            // If continueOnError is true, log at debug level only since we are tolerating the
-            // error
-            log.debug(
-                    "HTTP lookup encountered exception for URL {}, "
-                            + "but continue-on-error is enabled, so proceeding with empty result",
-                    request.getHttpRequest().uri(),
-                    e);
+            // If continueOnError is true, proceed with empty result
             String errMessage = e.getMessage();
             // some exceptions do not have messages including the java.net.ConnectException we can
             // get here if

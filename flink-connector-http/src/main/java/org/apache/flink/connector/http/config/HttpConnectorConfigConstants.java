@@ -167,12 +167,11 @@ public final class HttpConnectorConfigConstants {
 
     // -------------- Error logging configuration --------------
 
-    public static final String ERROR_LOG_LEVEL = FLINK_CONNECTOR_HTTP + "error.log.level";
-
-    public static final String ERROR_LOG_INCLUDE_BODY =
-            FLINK_CONNECTOR_HTTP + "error.log.include.body";
-
-    public static final String ERROR_LOG_BODY_MAX_SIZE =
-            FLINK_CONNECTOR_HTTP + "error.log.body.max.size";
+    /**
+     * SLF4J severity level for HTTP error logging.
+     * Valid values: OFF (DEBUG only), INFO, WARN, ERROR (default).
+     * This controls the log level for actual errors; continues-on-error always uses DEBUG.
+     */
+    public static final String ERROR_LOG_SEVERITY = FLINK_CONNECTOR_HTTP + "error.log.severity";
     // -----------------------------------------------------
 }
