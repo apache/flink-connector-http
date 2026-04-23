@@ -207,6 +207,50 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.request.query-param-fields                                        | optional | Used for the `http-generic-json-url` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | http.request.body-template                                             | optional | Used for the `http-generic-json-url` query creator. A JSON template string for constructing the request body for PUT and POST operations. Use `{{fieldName}}` placeholders to reference top-level columns from the lookup table. Supports creating complex nested JSON structures with both placeholders and literal values. See the [Body Template](#body-template) section for details and examples.                                                                                                                          |
 | http.request.url-map                                                   | optional | Used for the `http-generic-json-url` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
+### User-Agent 配置
+
+`http.user.agent` 选项允许您自定义 HTTP 请求发送的 User-Agent 头。这在以下场景很有用：
+- 目标 HTTP 服务器需要特定的 User-Agent 进行识别或限流
+- 需要将 Flink connector 流量与其他应用程序区分开
+- 服务器端分析需要按客户端类型跟踪请求
+
+**默认行为:**
+如果未指定，connector 使用 `flink-connector-http` 作为默认 User-Agent。
+
+**配置示例（Lookup 表）:**
+```sql
+CREATE TABLE Customers (
+  id INT,
+  name STRING,
+  email STRING
+) WITH (
+  'connector' = 'http',
+  'url' = 'http://api.example.com/customers',
+  'format' = 'json',
+  'http.user.agent' = 'MyApp/1.0 Flink-Connector'
+);
+```
+
+**配置示例（Sink 表）:**
+```sql
+CREATE TABLE Orders (
+  order_id STRING,
+  customer_id STRING,
+  amount DECIMAL(10, 2)
+) WITH (
+  'connector' = 'http',
+  'url' = 'http://api.example.com/orders',
+  'format' = 'json',
+  'http.method' = 'POST',
+  'http.user.agent' = 'OrderProcessor/2.0'
+);
+```
+
+**重要提示:**
+1. 不要同时通过 `http.user.agent` 和 `http.headers` 配置设置 User-Agent。如果在两个地方都指定了 User-Agent，connector 将抛出错误。
+2. User-Agent 值应遵循标准的 HTTP User-Agent 格式（例如 `ProductName/Version`）。
+
+
 
 ### Query Creators
 
