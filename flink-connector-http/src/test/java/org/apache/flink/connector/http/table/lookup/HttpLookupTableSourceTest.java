@@ -197,7 +197,8 @@ class HttpLookupTableSourceTest {
                 (HttpLookupTableSource) createTableSource(SCHEMA, getOptions());
 
         LookupTableSource.LookupRuntimeProvider lookupProvider =
-                tableSource.getLookupRuntimeProvider(new LookupRuntimeProviderContext(lookupKey));
+                tableSource.getLookupRuntimeProvider(
+                        new LookupRuntimeProviderContext(lookupKey, false));
         HttpTableLookupFunction tableFunction =
                 (HttpTableLookupFunction)
                         ((LookupFunctionProvider) lookupProvider).createLookupFunction();
@@ -230,7 +231,7 @@ class HttpLookupTableSourceTest {
         AsyncLookupFunctionProvider lookupProvider =
                 (AsyncLookupFunctionProvider)
                         tableSource.getLookupRuntimeProvider(
-                                new LookupRuntimeProviderContext(lookupKey));
+                                new LookupRuntimeProviderContext(lookupKey, false));
 
         AsyncHttpTableLookupFunction tableFunction =
                 (AsyncHttpTableLookupFunction) lookupProvider.createAsyncLookupFunction();
@@ -331,7 +332,7 @@ class HttpLookupTableSourceTest {
                 new HttpLookupTableSource(null, options, null, null, cache);
         int[][] lookupKeys = {{1, 2}};
         LookupTableSource.LookupContext lookupContext =
-                new LookupRuntimeProviderContext(lookupKeys);
+                new LookupRuntimeProviderContext(lookupKeys, false);
         return tableSource.getLookupRuntimeProvider(null, null, null);
     }
 

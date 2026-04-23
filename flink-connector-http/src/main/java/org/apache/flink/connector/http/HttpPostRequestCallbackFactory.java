@@ -74,6 +74,8 @@ import org.apache.flink.table.factories.Factory;
  * @param <RequestT> type of the HTTP request wrapper
  */
 public interface HttpPostRequestCallbackFactory<RequestT> extends Factory {
-    /** @return {@link HttpPostRequestCallback} custom request callback instance */
+    /**
+     * @return {@link HttpPostRequestCallback} custom request callback instance
+     */
     HttpPostRequestCallback<RequestT> createHttpPostRequestCallback();
 }

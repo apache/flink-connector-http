@@ -73,13 +73,13 @@ class GenericJsonQueryCreatorFactoryTest {
                 new FactoryUtil.DefaultDynamicTableContext(
                         ObjectIdentifier.of("default", "default", "test"),
                         new ResolvedCatalogTable(
-                                CatalogTable.of(
-                                        Schema.newBuilder()
-                                                .fromResolvedSchema(resolvedSchema)
-                                                .build(),
-                                        null,
-                                        Collections.emptyList(),
-                                        Collections.emptyMap()),
+                                CatalogTable.newBuilder()
+                                        .schema(
+                                                Schema.newBuilder()
+                                                        .fromResolvedSchema(resolvedSchema)
+                                                        .build())
+                                        .options(Collections.emptyMap())
+                                        .build(),
                                 resolvedSchema),
                         Collections.emptyMap(),
                         config,

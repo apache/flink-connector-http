@@ -125,7 +125,7 @@ class JavaNetHttpPollingClientConnectionTest {
     @BeforeEach
     void setUp() {
         int[][] lookupKey = {{}};
-        this.dynamicTableSourceContext = new LookupRuntimeProviderContext(lookupKey);
+        this.dynamicTableSourceContext = new LookupRuntimeProviderContext(lookupKey, false);
 
         this.lookupRowData =
                 GenericRowData.of(StringData.fromString("1"), StringData.fromString("2"));
@@ -292,9 +292,9 @@ class JavaNetHttpPollingClientConnectionTest {
 
         // GIVEN
         this.stubMapping = setUpServerStub(201);
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, successCodesExpression);
+        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES.key(), successCodesExpression);
         configuration.setString(
-                SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, ignoredResponseCodesExpression);
+                SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES.key(), ignoredResponseCodesExpression);
         JavaNetHttpPollingClient pollingClient = setUpPollingClient();
 
         // WHEN
@@ -545,8 +545,8 @@ class JavaNetHttpPollingClientConnectionTest {
     void shouldSetIgnoreStatusCodeCompletionStateForIgnoredStatusCodes()
             throws ConfigurationException {
         // GIVEN - Configure client with ignored status codes (404, 503)
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES.key(), "404,503");
+        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES.key(), "200");
         configuration.setString(
                 HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
 
@@ -572,8 +572,8 @@ class JavaNetHttpPollingClientConnectionTest {
     @Test
     void shouldSetIgnoreStatusCodeForMultipleIgnoredCodes() throws ConfigurationException {
         // GIVEN - Configure client with multiple ignored status codes
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503,429");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES.key(), "404,503,429");
+        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES.key(), "200");
         configuration.setString(
                 HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
 
@@ -602,8 +602,8 @@ class JavaNetHttpPollingClientConnectionTest {
     @Test
     void shouldNotSetIgnoreStatusCodeForNonIgnoredCodes() throws ConfigurationException {
         // GIVEN - Configure client with ignored status codes (404, 503)
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES.key(), "404,503");
+        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES.key(), "200");
         configuration.setString(
                 HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
 
@@ -624,8 +624,8 @@ class JavaNetHttpPollingClientConnectionTest {
     @Test
     void shouldReturnMetadataForIgnoredStatusCode() throws ConfigurationException {
         // GIVEN - Configure client with ignored status codes (404)
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES.key(), "404");
+        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES.key(), "200");
         configuration.setString(
                 HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
 

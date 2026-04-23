@@ -67,30 +67,34 @@ public class JavaNetHttpClientFactory {
 
         ReadableConfig readableConfig = options.getReadableConfig();
 
-        readableConfig
-                .getOptional(HttpLookupConnectorOptions.SOURCE_LOOKUP_CONNECTION_TIMEOUT)
-                .ifPresent(clientBuilder::connectTimeout);
+        if (readableConfig != null) {
+            readableConfig
+                    .getOptional(HttpLookupConnectorOptions.SOURCE_LOOKUP_CONNECTION_TIMEOUT)
+                    .ifPresent(clientBuilder::connectTimeout);
 
-        Optional<String> proxyHost =
-                readableConfig.getOptional(HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_HOST);
-        Optional<Integer> proxyPort =
-                readableConfig.getOptional(HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PORT);
+            Optional<String> proxyHost =
+                    readableConfig.getOptional(HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_HOST);
+            Optional<Integer> proxyPort =
+                    readableConfig.getOptional(HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PORT);
 
-        if (proxyHost.isPresent() && proxyPort.isPresent()) {
+            if (proxyHost.isPresent() && proxyPort.isPresent()) {
 
-            Optional<String> proxyUsername =
-                    readableConfig.getOptional(
-                            HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_USERNAME);
-            Optional<String> proxyPassword =
-                    readableConfig.getOptional(
-                            HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PASSWORD);
+                Optional<String> proxyUsername =
+                        readableConfig.getOptional(
+                                HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_USERNAME);
+                Optional<String> proxyPassword =
+                        readableConfig.getOptional(
+                                HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PASSWORD);
 
-            ProxyConfig proxyConfig =
-                    new ProxyConfig(proxyHost.get(), proxyPort.get(), proxyUsername, proxyPassword);
-            clientBuilder.proxy(
-                    ProxySelector.of(
-                            new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort())));
-            proxyConfig.getAuthenticator().ifPresent(clientBuilder::authenticator);
+                ProxyConfig proxyConfig =
+                        new ProxyConfig(
+                                proxyHost.get(), proxyPort.get(), proxyUsername, proxyPassword);
+                clientBuilder.proxy(
+                        ProxySelector.of(
+                                new InetSocketAddress(
+                                        proxyConfig.getHost(), proxyConfig.getPort())));
+                proxyConfig.getAuthenticator().ifPresent(clientBuilder::authenticator);
+            }
         }
 
         return clientBuilder.build();

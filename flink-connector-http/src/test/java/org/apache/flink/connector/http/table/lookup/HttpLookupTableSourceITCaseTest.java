@@ -19,12 +19,10 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.http.WireMockServerPortAllocator;
 import org.apache.flink.connector.http.app.JsonTransformCustomerObject;
-import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
@@ -79,8 +77,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.put;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 /** Test for {@link HttpLookupTableSource} connection. */
 @Slf4j
@@ -102,6 +102,8 @@ class HttpLookupTableSourceITCaseTest {
     private static final String ENDPOINT = "/client";
 
     public static final String A_TEST_STRING_THAT_IS_NOT_JSON = "A test string that is not json";
+
+    private static final int SECONDS_TO_WAIT_FOR_RESPONSE = 5;
 
     /** Comparator for Flink SQL result. */
     private static final Comparator<Row> ROW_COMPARATOR =
@@ -137,13 +139,12 @@ class HttpLookupTableSourceITCaseTest {
                                 .trustStorePassword("password")
                                 .extensions(JsonTransformLookup.class));
         wireMockServer.start();
+        wireMockServer.resetAll();
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setRestartStrategy(RestartStrategies.noRestart());
         Configuration config = new Configuration();
         config.set(ExecutionOptions.RUNTIME_MODE, RuntimeExecutionMode.STREAMING);
         env.configure(config, getClass().getClassLoader());
-        env.enableCheckpointing(1000, CheckpointingMode.EXACTLY_ONCE);
         env.setParallelism(
                 1); // wire mock server has problem with scenario state during parallel execution
 
@@ -158,7 +159,6 @@ class HttpLookupTableSourceITCaseTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "GET", "POST", "PUT"})
     void testHttpLookupJoin(String methodName) throws Exception {
-
         // GIVEN
         if (StringUtils.isNullOrWhitespaceOnly(methodName) || methodName.equalsIgnoreCase("GET")) {
             setupServerStub(wireMockServer);
@@ -193,7 +193,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'http.source.lookup.header.Content-Type' = 'application/json',"
                         + "'asyncPolling' = 'true',"
                         + "'table.exec.async-lookup.buffer-capacity' = '50',"
-                        + "'table.exec.async-lookup.timeout' = '120s'"
+                        + "'table.exec.async-lookup.timeout' = '20s'"
                         + ")";
 
         // WHEN
@@ -205,7 +205,6 @@ class HttpLookupTableSourceITCaseTest {
 
     @Test
     void testHttpLookupJoinNoDataFromEndpoint() {
-
         // GIVEN
         setupServerStubEmptyResponse(wireMockServer);
 
@@ -455,7 +454,7 @@ class HttpLookupTableSourceITCaseTest {
         String lastQuery = "SELECT r.id, r.enrichedInt FROM lookupResult r;";
 
         TableResult result = tEnv.executeSql(lastQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -531,7 +530,7 @@ class HttpLookupTableSourceITCaseTest {
         String lastQuery = "SELECT r.id, r.enrichedInt, r.`row`.aStringColumn FROM lookupResult r;";
 
         TableResult result = tEnv.executeSql(lastQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -601,7 +600,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ")";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -672,7 +671,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ")";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -788,7 +787,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ")";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -908,7 +907,7 @@ class HttpLookupTableSourceITCaseTest {
                         + ")";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -1002,7 +1001,14 @@ class HttpLookupTableSourceITCaseTest {
                         + "AND o.id2 = c.id2";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
+
+        // Wait for all async HTTP requests to complete and be processed
+        await().atMost(2, SECONDS)
+                .untilAsserted(
+                        () ->
+                                assertThat(wireMockServer.getAllServeEvents())
+                                        .hasSizeGreaterThanOrEqualTo(maxRows));
 
         // THEN
         return getCollectedRows(result);
@@ -1043,7 +1049,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'asyncPolling' = 'true',"
                         + "'lookup-request.format' = 'json',"
                         + "'table.exec.async-lookup.buffer-capacity' = '50',"
-                        + "'table.exec.async-lookup.timeout' = '120s',"
+                        + "'table.exec.async-lookup.timeout' = '20s',"
                         // Template creates flat structure: {"id": {{id}}, "id2": {{id2}}}
                         // This proves the template feature works (unit tests cover nested cases)
                         + "'http.request.body-template' = '{\"id\": {{id}}, \"id2\": {{id2}}}'"
@@ -1140,7 +1146,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'asyncPolling' = 'true',"
                         + "'http.source.lookup.query-creator' = 'http-generic-json-url',"
                         + "'table.exec.async-lookup.buffer-capacity' = '50',"
-                        + "'table.exec.async-lookup.timeout' = '120s',"
+                        + "'table.exec.async-lookup.timeout' = '20s',"
                         // Map "id" column to "customer" query parameter
                         + "'http.request.query-param-fields-with-key' = 'id:customer',"
                         + "'http.request.query-param-fields' = 'id2'"
@@ -1158,7 +1164,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "AND o.id2 = c.id2";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -1232,7 +1238,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'http.source.lookup.query-creator' = 'http-generic-json-url',"
                         + "'lookup-request.format' = 'json',"
                         + "'table.exec.async-lookup.buffer-capacity' = '50',"
-                        + "'table.exec.async-lookup.timeout' = '120s',"
+                        + "'table.exec.async-lookup.timeout' = '20s',"
                         // Template maps body_customer to "customer" in request body
                         + "'http.request.body-template' = '{\"customer\": {{body_customer}}, \"id2\": {{id2}}}'"
                         + ")";
@@ -1249,7 +1255,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "AND o.id2 = c.id2";
 
         TableResult result = tEnv.executeSql(joinQuery);
-        result.await(15, TimeUnit.SECONDS);
+        result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // THEN
         SortedSet<Row> collectedRows = getCollectedRows(result);
@@ -1290,7 +1296,7 @@ class HttpLookupTableSourceITCaseTest {
                         + " proc_time AS PROCTIME()"
                         + ") WITH ("
                         + "'connector' = 'datagen',"
-                        + "'rows-per-second' = '1',"
+                        + "'rows-per-second' = '100',"
                         + "'fields.id.kind' = 'sequence',"
                         + "'fields.id.start' = '1',"
                         + "'fields.id.end' = '"
@@ -1818,7 +1824,7 @@ class HttpLookupTableSourceITCaseTest {
                 .append(spec.useAsync ? "true" : "false")
                 .append("',")
                 .append("'table.exec.async-lookup.buffer-capacity' = '50',")
-                .append("'table.exec.async-lookup.timeout' = '120s'")
+                .append("'table.exec.async-lookup.timeout' = '20s'")
                 .append(")");
         return sql.toString();
     }

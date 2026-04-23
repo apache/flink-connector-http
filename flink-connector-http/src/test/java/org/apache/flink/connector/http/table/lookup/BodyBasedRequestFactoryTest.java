@@ -49,9 +49,9 @@ public class BodyBasedRequestFactoryTest {
         Configuration configurationHttp2 = new Configuration();
 
         configurationHttp2.setString(
-                LOOKUP_HTTP_VERSION, String.valueOf(HttpClient.Version.HTTP_2));
+                LOOKUP_HTTP_VERSION.key(), String.valueOf(HttpClient.Version.HTTP_2));
         configurationHttp11.setString(
-                LOOKUP_HTTP_VERSION, String.valueOf(HttpClient.Version.HTTP_1_1));
+                LOOKUP_HTTP_VERSION.key(), String.valueOf(HttpClient.Version.HTTP_1_1));
 
         configs.add(configuration);
         configs.add(configurationHttp11);

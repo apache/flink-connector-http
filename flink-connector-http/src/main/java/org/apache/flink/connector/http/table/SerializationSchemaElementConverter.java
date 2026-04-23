@@ -18,8 +18,8 @@
 package org.apache.flink.connector.http.table;
 
 import org.apache.flink.api.common.serialization.SerializationSchema;
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
 import org.apache.flink.api.connector.sink2.SinkWriter.Context;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.http.SchemaLifecycleAwareElementConverter;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 import org.apache.flink.table.data.RowData;
@@ -43,7 +43,7 @@ public class SerializationSchemaElementConverter
     }
 
     @Override
-    public void open(InitContext context) {
+    public void open(WriterInitContext context) {
         if (!schemaOpened) {
             try {
                 serializationSchema.open(context.asSerializationSchemaInitializationContext());

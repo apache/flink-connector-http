@@ -90,7 +90,7 @@ public class JavaNetHttpPollingClientHttpsConnectionTest extends HttpsConnection
         super.setUp();
         httpServerPort = WireMockServerPortAllocator.getSecureServerPort();
         int[][] lookupKey = {{0, 1}};
-        this.dynamicTableSourceContext = new LookupRuntimeProviderContext(lookupKey);
+        this.dynamicTableSourceContext = new LookupRuntimeProviderContext(lookupKey, false);
 
         this.lookupRowData =
                 GenericRowData.of(StringData.fromString("1"), StringData.fromString("2"));
