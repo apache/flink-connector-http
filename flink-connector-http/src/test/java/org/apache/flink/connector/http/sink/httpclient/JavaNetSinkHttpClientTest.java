@@ -95,7 +95,11 @@ class JavaNetSinkHttpClientTest {
                         postRequestCallback,
                         this.headerPreprocessor,
                         requestSubmitterFactory);
-        assertThat(client.getHeadersAndValues()).isEmpty();
+        String[] headersAndValues = client.getHeadersAndValues();
+        // By default, User-Agent header is always added with default value
+        assertThat(headersAndValues).hasSize(2);
+        assertThat(headersAndValues[0]).isEqualTo("User-Agent");
+        assertThat(headersAndValues[1]).isEqualTo("flink-connector-http");
     }
 
     @ParameterizedTest
@@ -124,7 +128,8 @@ class JavaNetSinkHttpClientTest {
                         headerPreprocessor,
                         requestSubmitterFactory);
         String[] headersAndValues = client.getHeadersAndValues();
-        assertThat(headersAndValues).hasSize(6);
+        // 3 custom headers + default User-Agent header = 8 total (4 pairs)
+        assertThat(headersAndValues).hasSize(8);
 
         // THEN
         // assert that we have property followed by its value.
@@ -134,5 +139,72 @@ class JavaNetSinkHttpClientTest {
                 "Cache-Control",
                 "no-cache, no-store, max-age=0, must-revalidate");
         assertPropertyArray(headersAndValues, "Access-Control-Allow-Origin", "*");
+        // Default User-Agent header should also be present
+        assertPropertyArray(headersAndValues, "User-Agent", "flink-connector-http");
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideSubmitterFactory")
+    public void shouldBuildClientWithUserAgentHeader(
+            RequestSubmitterFactory requestSubmitterFactory) {
+        // GIVEN
+        Properties properties = new Properties();
+        properties.setProperty("http.user.agent", "custom-sink-agent/2.0");
+
+        // WHEN
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        properties,
+                        postRequestCallback,
+                        headerPreprocessor,
+                        requestSubmitterFactory);
+        String[] headersAndValues = client.getHeadersAndValues();
+
+        // THEN
+        assertThat(headersAndValues).hasSize(2);
+        assertPropertyArray(headersAndValues, "User-Agent", "custom-sink-agent/2.0");
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideSubmitterFactory")
+    public void shouldUseDefaultUserAgentWhenNotConfigured(
+            RequestSubmitterFactory requestSubmitterFactory) {
+        // GIVEN
+        Properties properties = new Properties();
+
+        // WHEN
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        properties,
+                        postRequestCallback,
+                        headerPreprocessor,
+                        requestSubmitterFactory);
+        String[] headersAndValues = client.getHeadersAndValues();
+
+        // THEN
+        assertThat(headersAndValues).hasSize(2);
+        assertPropertyArray(headersAndValues, "User-Agent", "flink-connector-http");
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideSubmitterFactory")
+    public void shouldThrowErrorWhenUserAgentConflict(
+            RequestSubmitterFactory requestSubmitterFactory) {
+        // GIVEN
+        Properties properties = new Properties();
+        properties.setProperty("http.user.agent", "custom-agent");
+        properties.setProperty(
+                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "User-Agent", "header-agent");
+
+        // WHEN & THEN
+        assertThatThrownBy(
+                        () ->
+                                new JavaNetSinkHttpClient(
+                                        properties,
+                                        postRequestCallback,
+                                        headerPreprocessor,
+                                        requestSubmitterFactory))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User-Agent header is set both explicitly");
     }
 }

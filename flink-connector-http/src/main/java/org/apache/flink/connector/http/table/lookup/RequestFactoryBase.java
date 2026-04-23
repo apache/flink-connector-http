@@ -73,6 +73,20 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                         options.getProperties(),
                         headerPreprocessor);
 
+        // Add User-Agent header to header map
+        String userAgent =
+                options.getReadableConfig()
+                        .get(HttpLookupConnectorOptions.SOURCE_LOOKUP_USER_AGENT);
+        if (userAgent != null && !userAgent.isEmpty()) {
+            // Check for conflict: if User-Agent already exists in headers, throw an error
+            if (headerMap.containsKey("User-Agent")) {
+                throw new IllegalArgumentException(
+                        "User-Agent header is set both explicitly via 'http.user.agent' configuration "
+                                + "and in the headers configuration. Please use only one method to set the User-Agent header.");
+            }
+            headerMap.put("User-Agent", userAgent);
+        }
+
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(headerMap);
 
         this.httpRequestTimeOutSeconds =

@@ -240,6 +240,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
             builder.headers(headerAndValueArray);
             httpRequest = builder.build();
         }
+
         return httpRequest;
     }
 
