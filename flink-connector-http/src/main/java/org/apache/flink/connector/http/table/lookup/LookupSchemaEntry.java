@@ -30,7 +30,9 @@ import java.util.List;
  */
 public interface LookupSchemaEntry<T> extends Serializable {
 
-    /** @return lookup Field name. */
+    /**
+     * @return lookup Field name.
+     */
     String getFieldName();
 
     /**

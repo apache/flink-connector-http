@@ -17,10 +17,12 @@
 
 package org.apache.flink.connector.http.sink;
 
-import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.base.sink.writer.AsyncSinkWriter;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
+import org.apache.flink.connector.base.sink.writer.ResultHandler;
+import org.apache.flink.connector.base.sink.writer.config.AsyncSinkWriterConfiguration;
 import org.apache.flink.connector.http.HttpSink;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
@@ -31,12 +33,10 @@ import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 
 /**
  * Sink writer created by {@link HttpSink} to write to an HTTP endpoint.
@@ -44,9 +44,15 @@ import java.util.function.Consumer;
  * <p>More details on the internals of this sink writer may be found in {@link AsyncSinkWriter}
  * documentation.
  *
+ * <p>Note: This class extends {@link AsyncSinkWriter} which has deprecated constructors in Flink
+ * 2.x. The deprecation originates from Flink's base connector framework and would require
+ * significant refactoring to address. This HTTP Connector issue is tracked by Jira
+ * https://issues.apache.org/jira/browse/FLINK-39536.
+ *
  * @param <InputT> type of the elements that should be sent through HTTP request.
  */
 @Slf4j
+@SuppressWarnings("deprecation") // AsyncSinkWriter constructor is deprecated in Flink 2.x
 public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequestEntry> {
 
     private static final String HTTP_SINK_WRITER_THREAD_POOL_SIZE = "4";
@@ -62,7 +68,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
 
     public HttpSinkWriter(
             ElementConverter<InputT, HttpSinkRequestEntry> elementConverter,
-            Sink.InitContext context,
+            WriterInitContext context,
             int maxBatchSize,
             int maxInFlightRequests,
             int maxBufferedRequests,
@@ -77,12 +83,14 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
         super(
                 elementConverter,
                 context,
-                maxBatchSize,
-                maxInFlightRequests,
-                maxBufferedRequests,
-                maxBatchSizeInBytes,
-                maxTimeInBufferMS,
-                maxRecordSizeInBytes,
+                AsyncSinkWriterConfiguration.builder()
+                        .setMaxBatchSize(maxBatchSize)
+                        .setMaxBatchSizeInBytes(maxBatchSizeInBytes)
+                        .setMaxInFlightRequests(maxInFlightRequests)
+                        .setMaxBufferedRequests(maxBufferedRequests)
+                        .setMaxTimeInBufferMS(maxTimeInBufferMS)
+                        .setMaxRecordSizeInBytes(maxRecordSizeInBytes)
+                        .build(),
                 bufferedRequestStates);
         this.endpointUrl = endpointUrl;
         this.sinkHttpClient = sinkHttpClient;
@@ -107,7 +115,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
     @Override
     protected void submitRequestEntries(
             List<HttpSinkRequestEntry> requestEntries,
-            Consumer<List<HttpSinkRequestEntry>> requestResult) {
+            ResultHandler<HttpSinkRequestEntry> resultHandler) {
         var future = sinkHttpClient.putRequests(requestEntries, endpointUrl);
         future.whenCompleteAsync(
                 (response, err) -> {
@@ -124,7 +132,8 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                         // have
                         //  a clear image how we want to do it, so it would be both efficient and
                         // correct.
-                        // requestResult.accept(requestEntries);
+                        // resultHandler.retryForEntries(requestEntries);
+                        resultHandler.complete();
                     } else if (response.getFailedRequests().size() > 0) {
                         int failedRequestsNumber = response.getFailedRequests().size();
                         log.error("Http Sink failed to write {} requests", failedRequestsNumber);
@@ -136,12 +145,11 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                         //  a clear image how we want to do it, so it would be both efficient and
                         // correct.
 
-                        // requestResult.accept(response.getFailedRequests());
-                        // } else {
-                        // requestResult.accept(Collections.emptyList());
-                        // }
+                        // resultHandler.retryForEntries(response.getFailedRequests());
+                        resultHandler.complete();
+                    } else {
+                        resultHandler.complete();
                     }
-                    requestResult.accept(Collections.emptyList());
                 },
                 sinkWriterThreadPool);
     }

@@ -92,6 +92,7 @@ the _com.getindata.http_ prefix, the prefix is now _http_.
 with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
 * Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.                
 * Note that if you were incorrectly using `gid.connector.http.request.query-param-fields` with POST or PUT did not give an error. This connector corrects the behaviour so specifying `http.request.query-param-fields` with POST or PUT does give an error. 
+* The GetInData HTTP connector was built against Flink version 1, so works with that level of Flink and also Flink version 2. This connector is built against and supports Flink 2.2. 
 
 ## Working with HTTP lookup source tables
 

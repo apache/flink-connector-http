@@ -19,7 +19,6 @@
 package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.http.WireMockServerPortAllocator;
@@ -94,7 +93,6 @@ public class JavaNetHttpPollingClientWithWireTest {
         wireMockServer.start();
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setRestartStrategy(RestartStrategies.noRestart());
         Configuration config = new Configuration();
         config.set(ExecutionOptions.RUNTIME_MODE, RuntimeExecutionMode.STREAMING);
         env.configure(config, getClass().getClassLoader());
@@ -156,7 +154,7 @@ public class JavaNetHttpPollingClientWithWireTest {
         configuration.setString(
                 SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(),
                 "http://localhost:" + SERVER_PORT + "/auth");
-        configuration.setString(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST, BEARER_REQUEST);
+        configuration.setString(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST.key(), BEARER_REQUEST);
         configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION, Duration.ofSeconds(1L));
         client =
                 new JavaNetHttpPollingClient(

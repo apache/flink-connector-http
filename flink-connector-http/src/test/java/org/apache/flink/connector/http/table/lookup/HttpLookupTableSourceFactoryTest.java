@@ -69,7 +69,7 @@ public class HttpLookupTableSourceFactoryTest {
 
         HttpLookupTableSourceFactory httpLookupTableSourceFactory =
                 new HttpLookupTableSourceFactory();
-        TableConfig tableConfig = new TableConfig();
+        TableConfig tableConfig = TableConfig.getDefault();
         httpLookupTableSourceFactory.validateHttpLookupSourceOptions(tableConfig);
         tableConfig.set(
                 HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(), "aaa");
