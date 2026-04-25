@@ -157,10 +157,7 @@ public class HttpLogger implements Serializable {
      * @param retryAttempt The retry attempt number
      */
     public void logSinkError(
-            HttpRequest request,
-            String requestBody,
-            Exception e,
-            int retryAttempt) {
+            HttpRequest request, String requestBody, Exception e, int retryAttempt) {
         String message = formatSinkErrorMessage(request, requestBody, null, e, retryAttempt);
         logWithSeverity(message);
     }
@@ -202,35 +199,40 @@ public class HttpLogger implements Serializable {
     }
 
     private String formatLookupErrorMessage(
-            HttpRequest request,
-            HttpResponse<?> response,
-            Exception e,
-            int retryAttempt) {
-        StringBuilder message = new StringBuilder(
-            String.format(
-                "HTTP Lookup Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
-                retryAttempt,
-                request.method(),
-                request.uri(),
-                e.getClass().getSimpleName(),
-                e.getMessage()));
+            HttpRequest request, HttpResponse<?> response, Exception e, int retryAttempt) {
+        StringBuilder message =
+                new StringBuilder(
+                        String.format(
+                                "HTTP Lookup Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
+                                retryAttempt,
+                                request.method(),
+                                request.uri(),
+                                e.getClass().getSimpleName(),
+                                e.getMessage()));
 
         // Add response details if available (based on logging level)
         if (response != null) {
             message.append(String.format(", Response Status: %d", response.statusCode()));
 
             if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
-                message.append(String.format(", Response Headers: %s", getHeadersForLog(response.headers())));
+                message.append(
+                        String.format(
+                                ", Response Headers: %s", getHeadersForLog(response.headers())));
 
                 if (httpLoggingLevelType == HttpLoggingLevelType.MAX && response.body() != null) {
-                    message.append(String.format(", Response Body: %s", truncateBody(response.body().toString())));
+                    message.append(
+                            String.format(
+                                    ", Response Body: %s",
+                                    truncateBody(response.body().toString())));
                 }
             }
         }
 
         // Add request headers based on logging level
         if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
-            message.append(String.format(", Request Headers: %s", getHeadersForLog(request.headers())));
+            message.append(
+                    String.format(
+                            ", Request Headers: %s", getHeadersForLog(request.headers())));
         }
 
         return message.toString();
@@ -245,19 +247,19 @@ public class HttpLogger implements Serializable {
         StringBuilder message = new StringBuilder();
 
         if (e != null) {
-            message.append(String.format(
-                "HTTP Sink Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
-                retryAttempt,
-                request.method(),
-                request.uri(),
-                e.getClass().getSimpleName(),
-                e.getMessage()));
+            message.append(
+                    String.format(
+                            "HTTP Sink Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
+                            retryAttempt,
+                            request.method(),
+                            request.uri(),
+                            e.getClass().getSimpleName(),
+                            e.getMessage()));
         } else {
-            message.append(String.format(
-                "HTTP Sink Error - Attempt %d: Method: %s, URL: %s",
-                retryAttempt,
-                request.method(),
-                request.uri()));
+            message.append(
+                    String.format(
+                            "HTTP Sink Error - Attempt %d: Method: %s, URL: %s",
+                            retryAttempt, request.method(), request.uri()));
         }
 
         // Add response details if available (based on logging level)
@@ -265,10 +267,13 @@ public class HttpLogger implements Serializable {
             message.append(String.format(", Response Status: %d", response.statusCode()));
 
             if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
-                message.append(String.format(", Response Headers: %s", getHeadersForLog(response.headers())));
+                message.append(
+                        String.format(
+                                ", Response Headers: %s", getHeadersForLog(response.headers())));
 
                 if (httpLoggingLevelType == HttpLoggingLevelType.MAX && response.body() != null) {
-                    message.append(String.format(", Response Body: %s", truncateBody(response.body())));
+                    message.append(
+                            String.format(", Response Body: %s", truncateBody(response.body())));
                 }
             }
         }
@@ -280,7 +285,9 @@ public class HttpLogger implements Serializable {
 
         // Add request headers based on logging level
         if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
-            message.append(String.format(", Request Headers: %s", getHeadersForLog(request.headers())));
+            message.append(
+                    String.format(
+                            ", Request Headers: %s", getHeadersForLog(request.headers())));
         }
 
         return message.toString();
