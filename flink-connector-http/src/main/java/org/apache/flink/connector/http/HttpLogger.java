@@ -231,8 +231,7 @@ public class HttpLogger implements Serializable {
         // Add request headers based on logging level
         if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
             message.append(
-                    String.format(
-                            ", Request Headers: %s", getHeadersForLog(request.headers())));
+                    String.format(", Request Headers: %s", getHeadersForLog(request.headers())));
         }
 
         return message.toString();
@@ -286,8 +285,7 @@ public class HttpLogger implements Serializable {
         // Add request headers based on logging level
         if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
             message.append(
-                    String.format(
-                            ", Request Headers: %s", getHeadersForLog(request.headers())));
+                    String.format(", Request Headers: %s", getHeadersForLog(request.headers())));
         }
 
         return message.toString();
