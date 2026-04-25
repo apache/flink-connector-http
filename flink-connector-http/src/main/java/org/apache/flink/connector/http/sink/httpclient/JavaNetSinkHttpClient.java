@@ -126,6 +126,17 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
             // TODO Add response processor here and orchestrate it with statusCodeChecker.
             if (optResponse.isEmpty()
                     || statusCodeChecker.isErrorCode(optResponse.get().statusCode())) {
+                // Log failed response with detailed error context using HttpLogger
+                if (optResponse.isPresent()) {
+                    var httpResponse = optResponse.get();
+                    httpLogger.logSinkError(sinkRequestEntry.httpRequest, null, httpResponse, 0);
+                } else {
+                    httpLogger.logSinkError(
+                            sinkRequestEntry.httpRequest,
+                            null,
+                            new Exception("HTTP request failed with no response"),
+                            0);
+                }
                 failedResponses.add(sinkRequestEntry);
             } else {
                 successfulResponses.add(sinkRequestEntry);

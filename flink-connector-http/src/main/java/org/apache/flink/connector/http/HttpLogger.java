@@ -31,22 +31,28 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.StringJoiner;
 
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.ERROR_LOG_SEVERITY;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.HTTP_LOGGING_LEVEL;
 
 /**
  * HttpLogger, this is a class to perform HTTP content logging based on a level defined in
- * configuration.
+ * configuration. It also handles error logging with configurable severity levels.
  */
 @Slf4j
 public class HttpLogger implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    private static final int DEFAULT_MAX_BODY_SIZE = 1024;
 
     private final HttpLoggingLevelType httpLoggingLevelType;
+    private final HttpErrorLogSeverity errorLogSeverity;
 
     private HttpLogger(Properties properties) {
         String code = (String) properties.get(HTTP_LOGGING_LEVEL);
         this.httpLoggingLevelType = HttpLoggingLevelType.valueOfStr(code);
+
+        String severityStr = (String) properties.get(ERROR_LOG_SEVERITY);
+        this.errorLogSeverity = HttpErrorLogSeverity.fromString(severityStr);
     }
 
     public static HttpLogger getHttpLogger(Properties properties) {
@@ -60,7 +66,6 @@ public class HttpLogger implements Serializable {
     }
 
     public void logResponse(HttpResponse<String> response) {
-
         if (log.isDebugEnabled()) {
             log.debug(createStringForResponse(response));
         }
@@ -75,6 +80,234 @@ public class HttpLogger implements Serializable {
     public void logExceptionResponse(HttpLookupSourceRequestEntry request, Exception e) {
         if (log.isDebugEnabled()) {
             log.debug(createStringForExceptionResponse(request, e));
+        }
+    }
+
+    /**
+     * Log HTTP lookup error with detailed context.
+     *
+     * @param request The HTTP request
+     * @param e The exception that occurred
+     * @param retryAttempt The retry attempt number (0 for first attempt)
+     * @param continueOnError Whether the error is tolerated (continue-on-error mode)
+     */
+    public void logLookupError(
+            HttpRequest request, Exception e, int retryAttempt, boolean continueOnError) {
+        // If continue-on-error is true, always use DEBUG (error is tolerated)
+        if (continueOnError) {
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}",
+                        retryAttempt,
+                        request.method(),
+                        request.uri(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage());
+            }
+            return;
+        }
+
+        // For actual errors, respect http.error.log.severity
+        String message = formatLookupErrorMessage(request, null, e, retryAttempt);
+        logWithSeverity(message);
+    }
+
+    /**
+     * Log HTTP lookup error with response details.
+     *
+     * @param request The HTTP request
+     * @param response The HTTP response (may be null if error occurred before response)
+     * @param e The exception that occurred
+     * @param retryAttempt The retry attempt number
+     * @param continueOnError Whether the error is tolerated (continue-on-error mode)
+     */
+    public void logLookupError(
+            HttpRequest request,
+            HttpResponse<?> response,
+            Exception e,
+            int retryAttempt,
+            boolean continueOnError) {
+
+        // If continue-on-error is true, always use DEBUG (error is tolerated)
+        if (continueOnError) {
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}, Response Status: {}",
+                        retryAttempt,
+                        request.method(),
+                        request.uri(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage(),
+                        response != null ? response.statusCode() : "N/A");
+            }
+            return;
+        }
+
+        // For actual errors, respect http.error.log.severity
+        String message = formatLookupErrorMessage(request, response, e, retryAttempt);
+        logWithSeverity(message);
+    }
+
+    /**
+     * Log HTTP sink error with detailed context.
+     *
+     * @param request The HTTP request
+     * @param requestBody The request body (may be null)
+     * @param e The exception that occurred
+     * @param retryAttempt The retry attempt number
+     */
+    public void logSinkError(
+            HttpRequest request, String requestBody, Exception e, int retryAttempt) {
+        String message = formatSinkErrorMessage(request, requestBody, null, e, retryAttempt);
+        logWithSeverity(message);
+    }
+
+    /**
+     * Log HTTP sink error for non-successful status code responses.
+     *
+     * @param request The HTTP request
+     * @param requestBody The request body (may be null)
+     * @param response The HTTP response with error status code
+     * @param retryAttempt The retry attempt number
+     */
+    public void logSinkError(
+            HttpRequest request,
+            String requestBody,
+            HttpResponse<String> response,
+            int retryAttempt) {
+        String message = formatSinkErrorMessage(request, requestBody, response, null, retryAttempt);
+        logWithSeverity(message);
+    }
+
+    /**
+     * Log HTTP sink error with response details.
+     *
+     * @param request The HTTP request
+     * @param requestBody The request body (may be null)
+     * @param response The HTTP response
+     * @param e The exception that occurred
+     * @param retryAttempt The retry attempt number
+     */
+    public void logSinkError(
+            HttpRequest request,
+            String requestBody,
+            HttpResponse<String> response,
+            Exception e,
+            int retryAttempt) {
+        String message = formatSinkErrorMessage(request, requestBody, response, e, retryAttempt);
+        logWithSeverity(message);
+    }
+
+    private String formatLookupErrorMessage(
+            HttpRequest request, HttpResponse<?> response, Exception e, int retryAttempt) {
+        StringBuilder message =
+                new StringBuilder(
+                        String.format(
+                                "HTTP Lookup Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
+                                retryAttempt,
+                                request.method(),
+                                request.uri(),
+                                e.getClass().getSimpleName(),
+                                e.getMessage()));
+
+        // Add response details if available (based on logging level)
+        if (response != null) {
+            message.append(String.format(", Response Status: %d", response.statusCode()));
+
+            if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
+                message.append(
+                        String.format(
+                                ", Response Headers: %s", getHeadersForLog(response.headers())));
+
+                if (httpLoggingLevelType == HttpLoggingLevelType.MAX && response.body() != null) {
+                    message.append(
+                            String.format(
+                                    ", Response Body: %s",
+                                    truncateBody(response.body().toString())));
+                }
+            }
+        }
+
+        // Add request headers based on logging level
+        if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
+            message.append(
+                    String.format(", Request Headers: %s", getHeadersForLog(request.headers())));
+        }
+
+        return message.toString();
+    }
+
+    private String formatSinkErrorMessage(
+            HttpRequest request,
+            String requestBody,
+            HttpResponse<String> response,
+            Exception e,
+            int retryAttempt) {
+        StringBuilder message = new StringBuilder();
+
+        if (e != null) {
+            message.append(
+                    String.format(
+                            "HTTP Sink Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
+                            retryAttempt,
+                            request.method(),
+                            request.uri(),
+                            e.getClass().getSimpleName(),
+                            e.getMessage()));
+        } else {
+            message.append(
+                    String.format(
+                            "HTTP Sink Error - Attempt %d: Method: %s, URL: %s",
+                            retryAttempt, request.method(), request.uri()));
+        }
+
+        // Add response details if available (based on logging level)
+        if (response != null) {
+            message.append(String.format(", Response Status: %d", response.statusCode()));
+
+            if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
+                message.append(
+                        String.format(
+                                ", Response Headers: %s", getHeadersForLog(response.headers())));
+
+                if (httpLoggingLevelType == HttpLoggingLevelType.MAX && response.body() != null) {
+                    message.append(
+                            String.format(", Response Body: %s", truncateBody(response.body())));
+                }
+            }
+        }
+
+        // Add request body based on logging level
+        if (httpLoggingLevelType == HttpLoggingLevelType.MAX && requestBody != null) {
+            message.append(String.format(", Request Body: %s", truncateBody(requestBody)));
+        }
+
+        // Add request headers based on logging level
+        if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
+            message.append(
+                    String.format(", Request Headers: %s", getHeadersForLog(request.headers())));
+        }
+
+        return message.toString();
+    }
+
+    private void logWithSeverity(String message) {
+        switch (errorLogSeverity) {
+            case ERROR:
+                log.error(message);
+                break;
+            case WARN:
+                log.warn(message);
+                break;
+            case INFO:
+                log.info(message);
+                break;
+            case OFF:
+                // No error-level logging, fall back to DEBUG
+                if (log.isDebugEnabled()) {
+                    log.debug(message);
+                }
+                break;
         }
     }
 
@@ -96,12 +329,22 @@ public class HttpLogger implements Serializable {
         if (this.httpLoggingLevelType == HttpLoggingLevelType.MAX) {
             StringJoiner headers = new StringJoiner(";");
             for (Map.Entry<String, List<String>> reqHeaders : headersMap.entrySet()) {
-                StringJoiner values = new StringJoiner(";");
-                for (String value : reqHeaders.getValue()) {
-                    values.add(value);
+                String headerName = reqHeaders.getKey().toLowerCase();
+
+                // Mask sensitive headers
+                if (headerName.contains("authorization")
+                        || headerName.contains("cookie")
+                        || headerName.contains("api-key")
+                        || headerName.contains("x-api-key")) {
+                    headers.add(reqHeaders.getKey() + ":[***]");
+                } else {
+                    StringJoiner values = new StringJoiner(";");
+                    for (String value : reqHeaders.getValue()) {
+                        values.add(value);
+                    }
+                    String header = reqHeaders.getKey() + ":[" + values + "]";
+                    headers.add(header);
                 }
-                String header = reqHeaders.getKey() + ":[" + values + "]";
-                headers.add(header);
             }
             return headers.toString();
         }
@@ -147,5 +390,15 @@ public class HttpLogger implements Serializable {
             }
         }
         return bodyForLog;
+    }
+
+    private String truncateBody(String body) {
+        if (body == null || body.isEmpty()) {
+            return "None";
+        }
+        if (body.length() <= DEFAULT_MAX_BODY_SIZE) {
+            return body;
+        }
+        return body.substring(0, DEFAULT_MAX_BODY_SIZE) + "... (truncated)";
     }
 }
