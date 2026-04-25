@@ -50,7 +50,7 @@ public class HttpLogger implements Serializable {
     private HttpLogger(Properties properties) {
         String code = (String) properties.get(HTTP_LOGGING_LEVEL);
         this.httpLoggingLevelType = HttpLoggingLevelType.valueOfStr(code);
-        
+
         String severityStr = (String) properties.get(ERROR_LOG_SEVERITY);
         this.errorLogSeverity = HttpErrorLogSeverity.fromString(severityStr);
     }
@@ -122,13 +122,13 @@ public class HttpLogger implements Serializable {
             Exception e,
             int retryAttempt,
             boolean continueOnError) {
-        
+
         // If continue-on-error is true, always use DEBUG (error is tolerated)
         if (continueOnError) {
             if (log.isDebugEnabled()) {
                 log.debug(
                     "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}, Response Status: {}",
-                    retryAttempt, request.method(), request.uri(), e.getClass().getSimpleName(), 
+                    retryAttempt, request.method(), request.uri(), e.getClass().getSimpleName(),
                     e.getMessage(), response != null ? response.statusCode() : "N/A");
             }
             return;
@@ -209,10 +209,10 @@ public class HttpLogger implements Serializable {
         // Add response details if available (based on logging level)
         if (response != null) {
             message.append(String.format(", Response Status: %d", response.statusCode()));
-            
+
             if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
                 message.append(String.format(", Response Headers: %s", getHeadersForLog(response.headers())));
-                
+
                 if (httpLoggingLevelType == HttpLoggingLevelType.MAX && response.body() != null) {
                     message.append(String.format(", Response Body: %s", truncateBody(response.body().toString())));
                 }
@@ -234,7 +234,7 @@ public class HttpLogger implements Serializable {
             Exception e,
             int retryAttempt) {
         StringBuilder message = new StringBuilder();
-        
+
         if (e != null) {
             message.append(String.format(
                 "HTTP Sink Error - Attempt %d: Method: %s, URL: %s, Exception: %s, Message: %s",
@@ -254,10 +254,10 @@ public class HttpLogger implements Serializable {
         // Add response details if available (based on logging level)
         if (response != null) {
             message.append(String.format(", Response Status: %d", response.statusCode()));
-            
+
             if (httpLoggingLevelType != HttpLoggingLevelType.MIN) {
                 message.append(String.format(", Response Headers: %s", getHeadersForLog(response.headers())));
-                
+
                 if (httpLoggingLevelType == HttpLoggingLevelType.MAX && response.body() != null) {
                     message.append(String.format(", Response Body: %s", truncateBody(response.body())));
                 }
@@ -316,7 +316,7 @@ public class HttpLogger implements Serializable {
             StringJoiner headers = new StringJoiner(";");
             for (Map.Entry<String, List<String>> reqHeaders : headersMap.entrySet()) {
                 String headerName = reqHeaders.getKey().toLowerCase();
-                
+
                 // Mask sensitive headers
                 if (headerName.contains("authorization")
                         || headerName.contains("cookie")
