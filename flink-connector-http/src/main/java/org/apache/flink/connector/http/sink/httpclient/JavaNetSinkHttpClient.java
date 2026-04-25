@@ -129,8 +129,7 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                 // Log failed response with detailed error context using HttpLogger
                 if (optResponse.isPresent()) {
                     var httpResponse = optResponse.get();
-                    httpLogger.logSinkError(
-                            sinkRequestEntry.httpRequest, null, httpResponse, 0);
+                    httpLogger.logSinkError(sinkRequestEntry.httpRequest, null, httpResponse, 0);
                 } else {
                     httpLogger.logSinkError(
                             sinkRequestEntry.httpRequest,

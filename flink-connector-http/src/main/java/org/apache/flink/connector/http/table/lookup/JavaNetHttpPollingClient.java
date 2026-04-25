@@ -164,7 +164,11 @@ public class JavaNetHttpPollingClient implements PollingClient {
             // Case 1 http non successful response
             // Enhanced error logging with continueOnError awareness
             httpLogger.logLookupError(
-                    request.getHttpRequest(), (HttpResponse<?>) e.getResponse(), e, 0, this.continueOnError);
+                    request.getHttpRequest(),
+                    (HttpResponse<?>) e.getResponse(),
+                    e,
+                    0,
+                    this.continueOnError);
             if (!this.continueOnError) {
                 throw e;
             }

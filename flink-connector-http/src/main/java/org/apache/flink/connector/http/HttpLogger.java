@@ -91,13 +91,18 @@ public class HttpLogger implements Serializable {
      * @param retryAttempt The retry attempt number (0 for first attempt)
      * @param continueOnError Whether the error is tolerated (continue-on-error mode)
      */
-    public void logLookupError(HttpRequest request, Exception e, int retryAttempt, boolean continueOnError) {
+    public void logLookupError(
+            HttpRequest request, Exception e, int retryAttempt, boolean continueOnError) {
         // If continue-on-error is true, always use DEBUG (error is tolerated)
         if (continueOnError) {
             if (log.isDebugEnabled()) {
                 log.debug(
-                    "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}",
-                    retryAttempt, request.method(), request.uri(), e.getClass().getSimpleName(), e.getMessage());
+                        "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}",
+                        retryAttempt,
+                        request.method(),
+                        request.uri(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage());
             }
             return;
         }
@@ -127,9 +132,13 @@ public class HttpLogger implements Serializable {
         if (continueOnError) {
             if (log.isDebugEnabled()) {
                 log.debug(
-                    "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}, Response Status: {}",
-                    retryAttempt, request.method(), request.uri(), e.getClass().getSimpleName(),
-                    e.getMessage(), response != null ? response.statusCode() : "N/A");
+                        "HTTP Lookup Error (tolerated) - Attempt {}: Method: {}, URL: {}, Exception: {}, Message: {}, Response Status: {}",
+                        retryAttempt,
+                        request.method(),
+                        request.uri(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage(),
+                        response != null ? response.statusCode() : "N/A");
             }
             return;
         }
