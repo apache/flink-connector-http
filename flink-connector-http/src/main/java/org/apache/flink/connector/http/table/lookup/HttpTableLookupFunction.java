@@ -19,6 +19,7 @@ package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.connector.http.LookupArg;
 import org.apache.flink.connector.http.clients.PollingClient;
 import org.apache.flink.connector.http.clients.PollingClientFactory;
 import org.apache.flink.connector.http.utils.SerializationSchemaUtils;
@@ -37,7 +38,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** lookup function. */
@@ -58,6 +61,7 @@ public class HttpTableLookupFunction extends LookupFunction {
 
     private transient AtomicInteger localHttpCallCounter;
     private final DataType producedDataType;
+    private final DataType physicalRowDataType;
     private transient PollingClient client;
     private final MetadataConverter[] metadataConverters;
 
@@ -67,7 +71,8 @@ public class HttpTableLookupFunction extends LookupFunction {
             LookupRow lookupRow,
             HttpLookupConfig options,
             MetadataConverter[] metadataConverters,
-            DataType producedDataType) {
+            DataType producedDataType,
+            DataType physicalRowDataType) {
 
         this.pollingClientFactory = pollingClientFactory;
         this.responseSchemaDecoder = responseSchemaDecoder;
@@ -75,6 +80,7 @@ public class HttpTableLookupFunction extends LookupFunction {
         this.options = options;
         this.metadataConverters = metadataConverters;
         this.producedDataType = producedDataType;
+        this.physicalRowDataType = physicalRowDataType;
     }
 
     @Override
@@ -111,11 +117,52 @@ public class HttpTableLookupFunction extends LookupFunction {
             physicalArity = physicalRow.getArity();
             producedRow =
                     new GenericRowData(physicalRow.getRowKind(), physicalArity + metadataArity);
-            // We need to copy in the physical row into the producedRow
+            // Build a map of lookup table field names to their typed values from keyRow
+            // Only process top-level single-value join keys
+            Map<String, Object> joinKeyValues = new HashMap<>();
+            for (LookupSchemaEntry<RowData> entry : lookupRow.getLookupEntries()) {
+                // Only handle top-level single value entries (not nested RowTypeLookupSchemaEntry)
+                if (entry instanceof RowDataSingleValueLookupSchemaEntry) {
+                    RowDataSingleValueLookupSchemaEntry singleEntry =
+                            (RowDataSingleValueLookupSchemaEntry) entry;
+                    try {
+                        // Get the typed value directly from keyRow using fieldGetter
+                        Object typedValue = singleEntry.fieldGetter.getFieldOrNull(keyRow);
+                        if (typedValue != null) {
+                            // Get the lookup table field name from LookupArg
+                            List<LookupArg> lookupArgs = entry.convertToLookupArg(keyRow);
+                            for (LookupArg lookupArg : lookupArgs) {
+                                // Map lookup table field name to typed value
+                                joinKeyValues.put(lookupArg.getArgName(), typedValue);
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn(
+                                "Failed to extract join key value for field: {}",
+                                entry.getFieldName(),
+                                e);
+                    }
+                }
+            }
+
+            // Get physical row field names to match positions
+            List<String> physicalFieldNames =
+                    TableSourceHelper.getFieldNames(physicalRowDataType.getLogicalType());
+
+            // Copy fields from physicalRow to producedRow, populating null join keys
             for (int pos = 0; pos < physicalArity; pos++) {
-                producedRow.setField(pos, physicalRow.getField(pos));
+                Object value = physicalRow.getField(pos);
+                // If field is null and it's a join key, populate from keyRow
+                if (value == null && !joinKeyValues.isEmpty() && pos < physicalFieldNames.size()) {
+                    String fieldName = physicalFieldNames.get(pos);
+                    if (joinKeyValues.containsKey(fieldName)) {
+                        value = joinKeyValues.get(fieldName);
+                    }
+                }
+                producedRow.setField(pos, value);
             }
         }
+
         // if we did not get the physical arity from the http response physical row then get it from
         // the producedDataType. which is set when we have metadata or when there's no data
         if (physicalArity == -1) {

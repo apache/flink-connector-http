@@ -157,7 +157,8 @@ public class HttpLookupTableSource
                         lookupRow,
                         lookupConfig,
                         metadataConverters,
-                        this.producedDataType);
+                        this.producedDataType,
+                        this.physicalRowDataType);
         if (lookupConfig.isUseAsync()) {
             AsyncLookupFunction asyncLookupFunction =
                     new AsyncHttpTableLookupFunction(dataLookupFunction);
