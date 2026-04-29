@@ -18,13 +18,19 @@
 
 package org.apache.flink.connector.http.retry;
 
-import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.table.connector.source.lookup.LookupOptions;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.stream.IntStream;
 
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_RETRY_EXPONENTIAL_DELAY_MULTIPLIER;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_RETRY_FIXED_DELAY_DELAY;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_RETRY_STRATEGY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -36,10 +42,9 @@ class RetryConfigProviderTest {
     @Test
     void verifyFixedDelayRetryConfig() {
         var config = new Configuration();
-        config.setString("http.source.lookup.retry-strategy.type", "fixed-delay");
-        config.setString("http.source.lookup.retry-strategy.fixed-delay.delay", "10s");
-        config.set(ConfigOptions.key("lookup.max-retries").intType().noDefaultValue(), 12);
-
+        config.set(SOURCE_LOOKUP_RETRY_STRATEGY, "fixed-delay");
+        config.set(SOURCE_LOOKUP_RETRY_FIXED_DELAY_DELAY, Duration.ofSeconds(10));
+        config.set(LookupOptions.MAX_RETRIES, 12);
         var retryConfig = RetryConfigProvider.create(config);
 
         assertThat(retryConfig.getMaxAttempts()).isEqualTo(13);
@@ -53,19 +58,12 @@ class RetryConfigProviderTest {
     @Test
     void verifyExponentialDelayConfig() {
         var config = new Configuration();
-        config.setString("http.source.lookup.retry-strategy.type", "exponential-delay");
+        config.set(SOURCE_LOOKUP_RETRY_STRATEGY, "exponential-delay");
 
-        config.setString(
-                "http.source.lookup.retry-strategy.exponential-delay.initial-backoff", "15ms");
-        config.setString(
-                "http.source.lookup.retry-strategy.exponential-delay.max-backoff", "120ms");
-        config.set(
-                ConfigOptions.key(
-                                "http.source.lookup.retry-strategy.exponential-delay.backoff-multiplier")
-                        .intType()
-                        .noDefaultValue(),
-                2);
-        config.set(ConfigOptions.key("lookup.max-retries").intType().noDefaultValue(), 6);
+        config.set(SOURCE_LOOKUP_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF, Duration.ofMillis(15));
+        config.set(SOURCE_LOOKUP_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF, Duration.ofMillis(120));
+        config.set(SOURCE_LOOKUP_RETRY_EXPONENTIAL_DELAY_MULTIPLIER, 2.0);
+        config.set(LookupOptions.MAX_RETRIES, 6);
 
         var retryConfig = RetryConfigProvider.create(config);
         var intervalFunction = retryConfig.getIntervalFunction();
@@ -82,7 +80,7 @@ class RetryConfigProviderTest {
     @Test
     void failWhenStrategyIsUnsupported() {
         var config = new Configuration();
-        config.setString("http.source.lookup.retry-strategy.type", "dummy");
+        config.set(SOURCE_LOOKUP_RETRY_STRATEGY, "dummy");
 
         try (var mockedStatic = mockStatic(RetryStrategyType.class)) {
             var dummyStrategy = mock(RetryStrategyType.class);

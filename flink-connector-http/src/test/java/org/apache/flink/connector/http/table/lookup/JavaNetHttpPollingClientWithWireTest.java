@@ -151,10 +151,10 @@ public class JavaNetHttpPollingClientWithWireTest {
         HttpRequest newHttpRequest =
                 client.updateHttpRequestIfRequired(request, oidcHeaderPreProcessor);
         assertThat(httpRequest).isEqualTo(newHttpRequest);
-        configuration.setString(
-                SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(),
+        configuration.set(
+                SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL,
                 "http://localhost:" + SERVER_PORT + "/auth");
-        configuration.setString(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST.key(), BEARER_REQUEST);
+        configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST, BEARER_REQUEST);
         configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION, Duration.ofSeconds(1L));
         client =
                 new JavaNetHttpPollingClient(

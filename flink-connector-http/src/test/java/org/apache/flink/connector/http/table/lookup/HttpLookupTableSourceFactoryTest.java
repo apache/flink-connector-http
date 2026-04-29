@@ -72,7 +72,7 @@ public class HttpLookupTableSourceFactoryTest {
         TableConfig tableConfig = TableConfig.getDefault();
         httpLookupTableSourceFactory.validateHttpLookupSourceOptions(tableConfig);
         tableConfig.set(
-                HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(), "aaa");
+                HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL, "aaa");
 
         try {
             httpLookupTableSourceFactory.validateHttpLookupSourceOptions(tableConfig);
@@ -81,8 +81,7 @@ public class HttpLookupTableSourceFactoryTest {
             // expected
         }
         // should now work.
-        tableConfig.set(
-                HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST.key(), "bbb");
+        tableConfig.set(HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST, "bbb");
 
         httpLookupTableSourceFactory.validateHttpLookupSourceOptions(tableConfig);
     }

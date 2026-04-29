@@ -51,7 +51,7 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
     /** HTTP headers that should be used for {@link HttpRequest} created by factory. */
     private final String[] headersAndValues;
 
-    private final transient HttpLookupConfig options;
+    private final HttpLookupConfig options;
 
     private final HttpClient.Version httpVersion;
 

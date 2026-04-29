@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_REQUEST_FORMAT;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_TEMPLATE;
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS;
@@ -70,7 +71,7 @@ class GenericJsonAndUrlQueryCreatorFactoryTest {
                                 + "was called before this test execution.")
                 .isFalse();
 
-        this.config.setString("lookup-request.format", CustomJsonFormatFactory.IDENTIFIER);
+        this.config.set(LOOKUP_REQUEST_FORMAT, CustomJsonFormatFactory.IDENTIFIER);
         this.config.setString(
                 String.format(
                         "lookup-request.format.%s.%s",

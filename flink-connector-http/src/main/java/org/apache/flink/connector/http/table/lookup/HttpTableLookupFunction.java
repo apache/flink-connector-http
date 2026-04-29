@@ -152,19 +152,24 @@ public class HttpTableLookupFunction extends LookupFunction {
             // Copy fields from physicalRow to producedRow, populating null join keys
             for (int pos = 0; pos < physicalArity; pos++) {
                 Object value = physicalRow.getField(pos);
+                String fieldName = physicalFieldNames.get(pos);
                 // If field is null and it's a join key, populate from keyRow
                 if (value == null && !joinKeyValues.isEmpty() && pos < physicalFieldNames.size()) {
-                    String fieldName = physicalFieldNames.get(pos);
                     if (joinKeyValues.containsKey(fieldName)) {
                         value = joinKeyValues.get(fieldName);
+                        if (log.isDebugEnabled()) {
+                            log.debug(
+                                    "Lookup processing found a value null for join key {}, replacing value with the {}",
+                                    fieldName,
+                                    value.toString());
+                        }
                     }
                 }
                 producedRow.setField(pos, value);
             }
         }
-
         // if we did not get the physical arity from the http response physical row then get it from
-        // the producedDataType. which is set when we have metadata or when there's no data
+        // the producedDataType, which is set when we have metadata or when there's no data
         if (physicalArity == -1) {
             if (producedDataType == null) {
                 // If producedDataType is null and we have no data, return the same way as ignore.

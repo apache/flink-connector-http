@@ -38,8 +38,8 @@ public class HttpHeaderUtilsTest {
         HeaderPreprocessor headerPreprocessor =
                 HttpHeaderUtils.createOIDCHeaderPreprocessor(configuration);
         assertThat(headerPreprocessor).isNull();
-        configuration.setString(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(), "http://aaa");
-        configuration.setString(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST.key(), "ccc");
+        configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL, "http://aaa");
+        configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST, "ccc");
         configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION, Duration.ofSeconds(1));
         headerPreprocessor = HttpHeaderUtils.createOIDCHeaderPreprocessor(configuration);
         assertThat(headerPreprocessor).isNotNull();
