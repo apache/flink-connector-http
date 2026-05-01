@@ -38,6 +38,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
 
 <!-- TOC -->
 * [HTTP Connector](#http-connector)
+  * [Quick Start](#quick-start)
   * [Dependencies](#dependencies)
   * [Migration from GetInData HTTP connector](#migration-from-getindata-http-connector)
   * [Working with HTTP lookup source tables](#working-with-http-lookup-source-tables)
@@ -73,6 +74,85 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
   * [Logging the HTTP content](#logging-the-http-content)
       * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
+## Quick Start
+
+### SQL示例 — HTTP Sink
+
+使用HTTP Sink连接器通过SQL将Flink记录写入外部HTTP端点：
+
+```sql
+CREATE TABLE http_sink (
+  id     BIGINT,
+  name   STRING,
+  status STRING
+) WITH (
+  'connector'     = 'http-async-sink',
+  'url'           = 'https://api.example.com/events',
+  'format'        = 'json',
+  'insert-method' = 'POST'
+);
+
+INSERT INTO http_sink SELECT id, name, status FROM source_table;
+```
+
+### SQL示例 — HTTP Lookup Source
+
+使用HTTP Lookup连接器通过外部HTTP API丰富流数据：
+
+```sql
+-- 定义HTTP查找表
+CREATE TABLE http_lookup (
+  id      STRING,
+  payload STRING
+) WITH (
+  'connector' = 'http',
+  'url'       = 'https://api.example.com/data',
+  'format'    = 'json'
+);
+
+-- 使用查找连接丰富流数据
+SELECT s.event_id, h.payload
+FROM stream_table AS s
+JOIN http_lookup FOR SYSTEM_TIME AS OF s.proc_time AS h
+  ON s.event_id = h.id;
+```
+
+完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅下方详细章节。
+
+### DataStream API示例 — HTTP Sink
+
+在Flink DataStream API中使用HTTP Sink连接器：
+
+```java
+import org.apache.flink.connector.http.HttpSink;
+import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.datastream.DataStream;
+
+import java.nio.charset.StandardCharsets;
+
+public class HttpSinkExample {
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        DataStream<String> sourceStream = env.fromElements("event1", "event2", "event3");
+
+        HttpSink<String> httpSink = HttpSink.<String>builder()
+            .setEndpointUrl("https://api.example.com/events")
+            .setElementConverter(
+                (element, context) ->
+                    new HttpSinkRequestEntry("POST", element.getBytes(StandardCharsets.UTF_8)))
+            .build();
+
+        sourceStream.sinkTo(httpSink);
+
+        env.execute("HTTP Sink示例");
+    }
+}
+```
+
+完整配置选项列表和高级功能（TLS、mTLS、OIDC认证、重试策略、代理支持等），请参阅下方详细章节。
+
 ## Dependencies
 
 {{< sql_connector_download_table "http" >}}
@@ -506,7 +586,7 @@ CREATE TABLE http (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json'
 )
@@ -526,7 +606,7 @@ another format name.
 
 | Option                                    | Required | Description/Value                                                                                                                                                                                                                  |
 |-------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| connector                                 | required | Specify what connector to use. For HTTP Sink it should be set to _'http-sink'_.                                                                                                                                                    |
+| connector                                 | required | Specify what connector to use. For HTTP Sink it should be set to _'http-async-sink'_.                                                                                                                                              |
 | format                                    | required | Specify what format to use.                                                                                                                                                                                                        |
 | url                                       | required | The base URL that should be used for HTTP requests. For example _http://localhost:8080/client_.                                                                                                                                     |
 | insert-method                             | optional | Specify which HTTP method to use in the request. The value should be set either to `POST` or `PUT`.                                                                                                                                |
@@ -616,7 +696,7 @@ CREATE TABLE http (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json',
   'http.sink.request.batch.size' = '50'
@@ -634,7 +714,7 @@ CREATE TABLE http (
   id bigint,
   some_field string
 ) WITH (
-  'connector' = 'http-sink',
+  'connector' = 'http-async-sink',
   'url' = 'http://example.com/myendpoint',
   'format' = 'json',
   'http.sink.writer.request.mode' = 'single'
