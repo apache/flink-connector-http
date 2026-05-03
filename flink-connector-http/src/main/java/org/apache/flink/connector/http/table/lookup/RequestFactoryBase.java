@@ -73,6 +73,22 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                         options.getProperties(),
                         headerPreprocessor);
 
+        // Apply the User-Agent header. If the user also set it via
+        // 'http.source.lookup.header.User-Agent', fail fast so that we do not silently
+        // drop one of the two values.
+        String userAgent =
+                options.getReadableConfig()
+                        .get(HttpLookupConnectorOptions.SOURCE_LOOKUP_USER_AGENT);
+        if (userAgent != null && !userAgent.isEmpty()) {
+            if (headerMap.containsKey("User-Agent")) {
+                throw new IllegalArgumentException(
+                        "User-Agent header is set both explicitly via 'http.user.agent' "
+                                + "and via 'http.source.lookup.header.User-Agent'. "
+                                + "Please use only one of them to configure the User-Agent header.");
+            }
+            headerMap.put("User-Agent", userAgent);
+        }
+
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(headerMap);
 
         this.httpRequestTimeOutSeconds =

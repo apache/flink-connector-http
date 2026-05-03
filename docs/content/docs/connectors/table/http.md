@@ -51,6 +51,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
       * [For HTTP responses](#for-http-responses)
     * [Default Query Creator Implementation](#default-query-creator-implementation)
     * [Http headers](#http-headers)
+    * [User-Agent](#user-agent)
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries and handling errors (Lookup source)](#retries-and-handling-errors-lookup-source)
@@ -208,6 +209,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.request.query-param-fields-with-key                               | optional | A map of column names to query parameter keys. See the [Query Parameter Mapping](#query-parameter-mapping) section for details and examples.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | http.request.body-template                                             | optional | Used for the `http-generic-json-url` query creator. A JSON template string for constructing the request body for PUT and POST operations. Use `{{fieldName}}` placeholders to reference top-level columns from the lookup table. Supports creating complex nested JSON structures with both placeholders and literal values. See the [Body Template](#body-template) section for details and examples.                                                                                                                                                                                                     |
 | http.request.url-map                                                   | optional | Used for the `http-generic-json-url` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
+| http.user.agent                                                        | optional | The value of the `User-Agent` HTTP header sent with every lookup request. Defaults to `flink-connector-http`. Setting this option together with `http.source.lookup.header.User-Agent` is not allowed and will fail with a configuration error.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### Query Creators
 
@@ -448,6 +450,32 @@ CREATE TABLE http-lookup (
 Note that when using OIDC, it adds an `Authentication` header with the bearer token; this will override
 an existing `Authorization` header specified in configuration.
 
+### User-Agent
+
+The `User-Agent` header value can be configured via the dedicated `http.user.agent` option. When not
+specified, the connector sends every request with `User-Agent: flink-connector-http`. This makes the
+connector identifiable to the target server out of the box and is useful for server-side logging,
+rate limiting and access auditing.
+
+```roomsql
+CREATE TABLE Customers (
+  id INT,
+  name STRING,
+  email STRING
+) WITH (
+  'connector' = 'http',
+  'url' = 'http://api.example.com/customers',
+  'format' = 'json',
+  'http.user.agent' = 'MyApp/1.0'
+)
+```
+
+The same option is also available for the HTTP sink, see the [Sink Connector Options](#sink-connector-options) table.
+
+Setting `User-Agent` through both `http.user.agent` and `http.source.lookup.header.User-Agent`
+(or `http.sink.header.User-Agent` for the sink) is ambiguous and is rejected at table creation time
+with an `IllegalArgumentException`. Configure it through exactly one of the two options.
+
 ### Timeouts
 Lookup Source is guarded by two timeout timers. First one is specified by Flink's AsyncIO operator that executes `AsyncTableFunction`.
 The default value of this timer is set to 3 minutes and can be changed via `table.exec.async-lookup.timeout` [option](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/config/#table-exec-async-lookup-timeout).
@@ -547,6 +575,7 @@ another format name.
 | http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
 | http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
+| http.user.agent                           | optional | The value of the `User-Agent` HTTP header sent with every sink request. Defaults to `flink-connector-http`. Setting this option together with `http.sink.header.User-Agent` is not allowed and will fail with a configuration error.                                                                                                |
 
 ### Sink table HTTP status codes
 You can configure a list of HTTP status codes that should be treated as errors for HTTP sink table.
