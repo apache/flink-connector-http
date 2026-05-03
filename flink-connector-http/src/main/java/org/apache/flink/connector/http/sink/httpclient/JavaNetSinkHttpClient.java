@@ -28,6 +28,7 @@ import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 import org.apache.flink.connector.http.status.ComposeHttpStatusCodeChecker;
 import org.apache.flink.connector.http.status.ComposeHttpStatusCodeChecker.ComposeHttpStatusCodeCheckerConfig;
 import org.apache.flink.connector.http.status.HttpStatusCodeChecker;
+import org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions;
 import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +73,23 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                         HttpConnectorConfigConstants.SINK_HEADER_PREFIX,
                         properties,
                         headerPreprocessor);
+
+        // Apply the User-Agent header. If the user also set it via
+        // 'http.sink.header.User-Agent', fail fast so that we do not silently drop
+        // one of the two values.
+        String userAgent =
+                properties.getProperty(
+                        HttpDynamicSinkConnectorOptions.USER_AGENT.key(),
+                        HttpDynamicSinkConnectorOptions.USER_AGENT.defaultValue());
+        if (userAgent != null && !userAgent.isEmpty()) {
+            if (this.headerMap.containsKey("User-Agent")) {
+                throw new IllegalArgumentException(
+                        "User-Agent header is set both explicitly via 'http.user.agent' "
+                                + "and via 'http.sink.header.User-Agent'. "
+                                + "Please use only one of them to configure the User-Agent header.");
+            }
+            this.headerMap.put("User-Agent", userAgent);
+        }
 
         // TODO Inject this via constructor when implementing a response processor.
         //  Processor will be injected and it will wrap statusChecker implementation.
