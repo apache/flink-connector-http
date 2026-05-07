@@ -221,16 +221,17 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
                                 HttpPostRequestCallbackFactory.class,
                                 readableConfig.get(REQUEST_CALLBACK_IDENTIFIER));
 
-        // Convert ReadableConfig to Configuration for serialization
-        Configuration configuration = new Configuration();
-        readableConfig.toMap().forEach(configuration::setString);
+        Configuration config =
+                readableConfig instanceof Configuration
+                        ? (Configuration) readableConfig
+                        : Configuration.fromMap(readableConfig.toMap());
 
         return HttpLookupConfig.builder()
                 .lookupMethod(readableConfig.get(LOOKUP_METHOD))
                 .url(readableConfig.get(URL))
                 .useAsync(readableConfig.get(ASYNC_POLLING))
                 .properties(httpConnectorProperties)
-                .readableConfig(configuration)
+                .readableConfig(config)
                 .httpPostRequestCallback(postRequestCallbackFactory.createHttpPostRequestCallback())
                 .build();
     }
