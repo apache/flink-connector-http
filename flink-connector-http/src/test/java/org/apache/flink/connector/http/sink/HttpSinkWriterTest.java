@@ -257,4 +257,58 @@ class HttpSinkWriterTest {
         // requestResult.accept() called exactly once
         assertThat(acceptCallCount.get()).isEqualTo(1);
     }
+
+    @Test
+    public void testFatalFailuresAreNotRetried() throws InterruptedException {
+        // Fatal failures (non-retryable status code, e.g. 404) must be counted immediately
+        // without triggering any retry.
+        HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
+        List<HttpSinkRequestEntry> requestEntries = Collections.singletonList(request);
+
+        HttpRequest mockHttpRequest =
+                new HttpRequest(null, Collections.singletonList("hello".getBytes()), "PUT");
+
+        SinkHttpClientResponse fatalResponse =
+                new SinkHttpClientResponse(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.singletonList(mockHttpRequest));
+
+        when(httpClient.putRequests(anyList(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(fatalResponse));
+
+        Properties properties = new Properties();
+        properties.setProperty(
+                org.apache.flink.connector.http.config.HttpConnectorConfigConstants
+                        .SINK_HTTP_RETRY_TIMES,
+                "3");
+
+        Collection<BufferedRequestState<HttpSinkRequestEntry>> stateBuffer = new ArrayList<>();
+        HttpSinkWriter<String> writer =
+                new HttpSinkWriter<>(
+                        elementConverter,
+                        context,
+                        10,
+                        10,
+                        100,
+                        10,
+                        10,
+                        10,
+                        "http://localhost/client",
+                        httpClient,
+                        stateBuffer,
+                        properties);
+
+        AtomicInteger acceptCallCount = new AtomicInteger(0);
+        Consumer<List<HttpSinkRequestEntry>> requestResult =
+                httpSinkRequestEntries -> acceptCallCount.incrementAndGet();
+
+        writer.submitRequestEntries(requestEntries, requestResult);
+        Thread.sleep(1500);
+
+        // Only 1 attempt — fatal failures are not retried even though retry.times=3.
+        verify(httpClient, times(1)).putRequests(anyList(), anyString());
+        verify(errorCounter).inc(requestEntries.size());
+        assertThat(acceptCallCount.get()).isEqualTo(1);
+    }
 }

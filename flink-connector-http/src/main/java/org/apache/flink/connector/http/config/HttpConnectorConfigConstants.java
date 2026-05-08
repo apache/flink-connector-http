@@ -166,4 +166,31 @@ public final class HttpConnectorConfigConstants {
             SOURCE_RETRY_EXP_DELAY_PREFIX + "max-backoff";
     public static final String SOURCE_RETRY_EXP_DELAY_MULTIPLIER =
             SOURCE_RETRY_EXP_DELAY_PREFIX + "backoff-multiplier";
+
+    // ---------------- Sink retry configuration ----------------
+    // Mirrors the lookup source retry options (prefixed with http.source.lookup.*) so the
+    // sink side offers the same level of control. All sink retry keys are prefixed with
+    // http.sink.* and can be consumed through the Table API DDL or via the DataStream
+    // HttpSinkBuilder's properties.
+    private static final String SINK_PREFIX = FLINK_CONNECTOR_HTTP + "sink.";
+
+    public static final String SINK_RETRY_SUCCESS_CODES = SINK_PREFIX + "success-codes";
+    public static final String SINK_RETRY_RETRY_CODES = SINK_PREFIX + "retry-codes";
+
+    public static final String SINK_RETRY_STRATEGY_PREFIX = SINK_PREFIX + "retry-strategy.";
+    public static final String SINK_RETRY_STRATEGY_TYPE = SINK_RETRY_STRATEGY_PREFIX + "type";
+
+    private static final String SINK_RETRY_FIXED_DELAY_PREFIX =
+            SINK_RETRY_STRATEGY_PREFIX + "fixed-delay.";
+    public static final String SINK_RETRY_FIXED_DELAY_DELAY =
+            SINK_RETRY_FIXED_DELAY_PREFIX + "delay";
+
+    private static final String SINK_RETRY_EXP_DELAY_PREFIX =
+            SINK_RETRY_STRATEGY_PREFIX + "exponential-delay.";
+    public static final String SINK_RETRY_EXP_DELAY_INITIAL_BACKOFF =
+            SINK_RETRY_EXP_DELAY_PREFIX + "initial-backoff";
+    public static final String SINK_RETRY_EXP_DELAY_MAX_BACKOFF =
+            SINK_RETRY_EXP_DELAY_PREFIX + "max-backoff";
+    public static final String SINK_RETRY_EXP_DELAY_MULTIPLIER =
+            SINK_RETRY_EXP_DELAY_PREFIX + "backoff-multiplier";
 }

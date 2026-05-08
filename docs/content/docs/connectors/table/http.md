@@ -547,7 +547,27 @@ another format name.
 | http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
 | http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
-| http.sink.retry.times                     | optional | Maximum number of retry attempts for HTTP Sink requests when a request fails due to a network error (IOException). Retries use exponential backoff with an initial delay of 1 second. Set to `0` to disable retries. Default value is `3`. |
+| http.sink.retry.times                     | optional | Maximum number of retry attempts for HTTP Sink requests when a request fails due to a network error (IOException) or when the response matches a retry code (see `http.sink.retry-codes`). Set to `0` to disable retries. Default value is `3`. |
+| http.sink.retry-strategy.type             | optional | Auto retry strategy type for the HTTP sink: `fixed-delay` or `exponential-delay`. Defaults to `exponential-delay`. |
+| http.sink.retry-codes                     | optional | Comma separated http codes considered as transient errors that should be retried. Use `[1-5]XX` for groups and `!` for excluding. Default `500,503,504`. |
+| http.sink.success-codes                   | optional | Comma separated http codes considered as a successful sink response. Use `[1-5]XX` for groups and `!` for excluding. Default `2XX`. Any status code that is neither a success nor a retry code is considered a fatal failure and is not retried. |
+| http.sink.retry-strategy.fixed-delay.delay                    | optional | Fixed-delay interval between sink retries when `http.sink.retry-strategy.type=fixed-delay`. Default 1 second. |
+| http.sink.retry-strategy.exponential-delay.initial-backoff    | optional | Exponential-delay initial delay when `http.sink.retry-strategy.type=exponential-delay`. Default 1 second. |
+| http.sink.retry-strategy.exponential-delay.max-backoff        | optional | Exponential-delay maximum delay when `http.sink.retry-strategy.type=exponential-delay`. Default 1 minute. |
+| http.sink.retry-strategy.exponential-delay.backoff-multiplier | optional | Exponential-delay multiplier when `http.sink.retry-strategy.type=exponential-delay`. Default 2.0. |
+
+### Retries and handling errors (Sink)
+The HTTP sink uses the same retry model as the lookup source (see the `http.source.lookup.*` counterparts above):
+
+- Network-level failures (e.g. `IOException`) are always retryable.
+- HTTP responses are classified by status code:
+  - success codes (`http.sink.success-codes`, default `2XX`) are treated as success and acknowledged;
+  - retry codes (`http.sink.retry-codes`, default `500,503,504`) trigger a retry respecting `http.sink.retry.times`;
+  - any other status code is a **fatal** failure — it is counted against `numRecordsSendErrorsCounter` immediately and the affected records are skipped (not retried and not blocking the pipeline).
+
+Users can choose a retry strategy type for the sink:
+- `fixed-delay` — request will be re-sent after `http.sink.retry-strategy.fixed-delay.delay`.
+- `exponential-delay` (default) — request will be re-sent with exponential backoff, limited by `http.sink.retry.times` attempts. The delay for each retry is the previous delay multiplied by `http.sink.retry-strategy.exponential-delay.backoff-multiplier`, capped at `http.sink.retry-strategy.exponential-delay.max-backoff`. The initial delay is `http.sink.retry-strategy.exponential-delay.initial-backoff`.
 
 ### Sink table HTTP status codes
 You can configure a list of HTTP status codes that should be treated as errors for HTTP sink table.
