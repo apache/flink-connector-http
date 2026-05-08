@@ -44,7 +44,23 @@ import javax.annotation.Nullable;
 
 import java.util.Properties;
 
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_RETRY_TIMES;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_EXP_DELAY_INITIAL_BACKOFF;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_EXP_DELAY_MAX_BACKOFF;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_EXP_DELAY_MULTIPLIER;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_FIXED_DELAY_DELAY;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_RETRY_CODES;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_STRATEGY_TYPE;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_SUCCESS_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.INSERT_METHOD;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.RETRY_TIMES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_RETRY_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_SUCCESS_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_MULTIPLIER;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_FIXED_DELAY;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_STRATEGY;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.URL;
 
 /**
@@ -155,6 +171,32 @@ public class HttpDynamicSink extends AsyncDynamicTableSink<HttpSinkRequestEntry>
                         .setElementConverter(
                                 new SerializationSchemaElementConverter(
                                         insertMethod, serializationSchema))
+                        .setProperty(
+                                SINK_HTTP_RETRY_TIMES,
+                                String.valueOf(tableOptions.get(RETRY_TIMES)))
+                        .setProperty(
+                                SINK_RETRY_STRATEGY_TYPE, tableOptions.get(SINK_RETRY_STRATEGY))
+                        .setProperty(
+                                SINK_RETRY_SUCCESS_CODES, tableOptions.get(SINK_HTTP_SUCCESS_CODES))
+                        .setProperty(
+                                SINK_RETRY_RETRY_CODES, tableOptions.get(SINK_HTTP_RETRY_CODES))
+                        .setProperty(
+                                SINK_RETRY_FIXED_DELAY_DELAY,
+                                tableOptions.get(SINK_RETRY_FIXED_DELAY).toString())
+                        .setProperty(
+                                SINK_RETRY_EXP_DELAY_INITIAL_BACKOFF,
+                                tableOptions
+                                        .get(SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF)
+                                        .toString())
+                        .setProperty(
+                                SINK_RETRY_EXP_DELAY_MAX_BACKOFF,
+                                tableOptions
+                                        .get(SINK_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF)
+                                        .toString())
+                        .setProperty(
+                                SINK_RETRY_EXP_DELAY_MULTIPLIER,
+                                String.valueOf(
+                                        tableOptions.get(SINK_RETRY_EXPONENTIAL_DELAY_MULTIPLIER)))
                         .setProperties(properties);
         addAsyncOptionsToSinkBuilder(builder);
 

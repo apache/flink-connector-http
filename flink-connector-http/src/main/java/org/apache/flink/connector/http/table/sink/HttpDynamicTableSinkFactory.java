@@ -33,7 +33,15 @@ import java.util.Set;
 
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.INSERT_METHOD;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.REQUEST_CALLBACK_IDENTIFIER;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.RETRY_TIMES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_RETRY_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_SUCCESS_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_MULTIPLIER;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_FIXED_DELAY;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_STRATEGY;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.URL;
 
 /** Factory for creating {@link HttpDynamicSink}. */
@@ -98,6 +106,14 @@ public class HttpDynamicTableSinkFactory extends AsyncDynamicTableSinkFactory {
         options.add(INSERT_METHOD);
         options.add(SINK_REQUEST_TIMEOUT);
         options.add(REQUEST_CALLBACK_IDENTIFIER);
+        options.add(RETRY_TIMES);
+        options.add(SINK_RETRY_STRATEGY);
+        options.add(SINK_HTTP_SUCCESS_CODES);
+        options.add(SINK_HTTP_RETRY_CODES);
+        options.add(SINK_RETRY_FIXED_DELAY);
+        options.add(SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF);
+        options.add(SINK_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF);
+        options.add(SINK_RETRY_EXPONENTIAL_DELAY_MULTIPLIER);
         return options;
     }
 
