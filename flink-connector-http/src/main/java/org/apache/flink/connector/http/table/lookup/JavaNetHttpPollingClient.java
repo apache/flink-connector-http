@@ -99,6 +99,9 @@ public class JavaNetHttpPollingClient implements PollingClient {
         this.options = options;
 
         var config = options.getReadableConfig();
+        if (config == null) {
+            throw new ConfigurationException("ReadableConfig cannot be null in HttpLookupConfig");
+        }
 
         this.ignoredErrorCodes =
                 HttpCodesParser.parse(config.get(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES));
@@ -148,7 +151,9 @@ public class JavaNetHttpPollingClient implements PollingClient {
         var request = requestFactory.buildLookupRequest(lookupData);
 
         var oidcProcessor =
-                HttpHeaderUtils.createOIDCHeaderPreprocessor(options.getReadableConfig());
+                (options.getReadableConfig() != null)
+                        ? HttpHeaderUtils.createOIDCHeaderPreprocessor(options.getReadableConfig())
+                        : null;
         HttpResponse<String> response = null;
         HttpRowDataWrapper httpRowDataWrapper = null;
         try {
@@ -209,7 +214,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
         // authentication header to the short lived bearer token
         HttpRequest httpRequest = request.getHttpRequest();
         ReadableConfig readableConfig = options.getReadableConfig();
-        if (oidcHeaderPreProcessor != null) {
+        if (oidcHeaderPreProcessor != null && readableConfig != null) {
             HttpRequest.Builder builder = HttpRequest.newBuilder().uri(httpRequest.uri());
             if (httpRequest.timeout().isPresent()) {
                 builder.timeout(httpRequest.timeout().get());

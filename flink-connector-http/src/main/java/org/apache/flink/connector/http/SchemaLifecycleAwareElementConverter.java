@@ -18,12 +18,12 @@
 package org.apache.flink.connector.http;
 
 import org.apache.flink.api.common.serialization.SerializationSchema.InitializationContext;
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 
 /**
- * An enhancement for Flink's {@link ElementConverter} that expose {@link #open(InitContext)} method
- * that will be called by HTTP connect code to ensure that element converter is initialized
+ * An enhancement for Flink's {@link ElementConverter} that expose {@link #open(WriterInitContext)}
+ * method that will be called by HTTP connect code to ensure that element converter is initialized
  * properly. This is required for cases when Flink's SerializationSchema and DeserializationSchema
  * objects like JsonRowDataSerializationSchema are used.
  *
@@ -46,5 +46,5 @@ public interface SchemaLifecycleAwareElementConverter<InputT, RequestEntryT>
      *
      * @param context Contextual information that can be used during initialization.
      */
-    void open(InitContext context);
+    void open(WriterInitContext context);
 }

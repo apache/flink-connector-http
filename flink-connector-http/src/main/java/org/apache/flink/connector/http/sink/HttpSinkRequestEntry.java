@@ -41,7 +41,9 @@ public final class HttpSinkRequestEntry implements Serializable {
     /** Body of the request, encoded as byte array. */
     public final byte[] element;
 
-    /** @return the size of the {@link HttpSinkRequestEntry#element} */
+    /**
+     * @return the size of the {@link HttpSinkRequestEntry#element}
+     */
     public long getSizeInBytes() {
         return element.length;
     }

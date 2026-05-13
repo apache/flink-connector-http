@@ -82,8 +82,11 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                                         HttpConnectorConfigConstants.LOOKUP_HTTP_TIMEOUT_SECONDS,
                                         DEFAULT_REQUEST_TIMEOUT_SECONDS));
 
-        String httpVersionFromConfig =
-                options.getReadableConfig().get(HttpLookupConnectorOptions.LOOKUP_HTTP_VERSION);
+        String httpVersionFromConfig = null;
+        if (options.getReadableConfig() != null) {
+            httpVersionFromConfig =
+                    options.getReadableConfig().get(HttpLookupConnectorOptions.LOOKUP_HTTP_VERSION);
+        }
         if (httpVersionFromConfig == null) {
             httpVersion = null;
         } else {

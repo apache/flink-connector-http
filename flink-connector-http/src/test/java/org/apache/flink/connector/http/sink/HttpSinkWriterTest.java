@@ -18,9 +18,10 @@
 
 package org.apache.flink.connector.http.sink;
 
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
+import org.apache.flink.connector.base.sink.writer.ResultHandler;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
 import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
 import org.apache.flink.metrics.Counter;
@@ -40,7 +41,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -56,7 +56,7 @@ class HttpSinkWriterTest {
 
     @Mock private ElementConverter<String, HttpSinkRequestEntry> elementConverter;
 
-    @Mock private InitContext context;
+    @Mock private WriterInitContext context;
 
     @Mock private SinkHttpClient httpClient;
 
@@ -101,11 +101,26 @@ class HttpSinkWriterTest {
         when(httpClient.putRequests(anyList(), anyString())).thenReturn(future);
 
         HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
-        Consumer<List<HttpSinkRequestEntry>> requestResult =
-                httpSinkRequestEntries -> log.info(String.valueOf(httpSinkRequestEntries));
+        ResultHandler<HttpSinkRequestEntry> resultHandler =
+                new ResultHandler<HttpSinkRequestEntry>() {
+                    @Override
+                    public void complete() {
+                        log.info("Request completed");
+                    }
+
+                    @Override
+                    public void completeExceptionally(Exception e) {
+                        log.error("Request failed", e);
+                    }
+
+                    @Override
+                    public void retryForEntries(List<HttpSinkRequestEntry> requestEntriesToRetry) {
+                        log.info("Retrying entries: " + requestEntriesToRetry);
+                    }
+                };
 
         List<HttpSinkRequestEntry> requestEntries = Collections.singletonList(request);
-        this.httpSinkWriter.submitRequestEntries(requestEntries, requestResult);
+        this.httpSinkWriter.submitRequestEntries(requestEntries, resultHandler);
 
         // would be good to use Countdown Latch instead sleep...
         Thread.sleep(2000);

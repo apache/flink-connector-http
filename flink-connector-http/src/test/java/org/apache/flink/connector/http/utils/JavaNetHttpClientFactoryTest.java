@@ -36,10 +36,10 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SOURCE_PROXY_HOST;
-import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SOURCE_PROXY_PASSWORD;
-import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SOURCE_PROXY_PORT;
-import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SOURCE_PROXY_USERNAME;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_HOST;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PASSWORD;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PORT;
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_USERNAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JavaNetHttpClientFactoryTest {
@@ -50,10 +50,10 @@ class JavaNetHttpClientFactoryTest {
     public void shouldGetClientWithAuthenticator() throws UnknownHostException {
         Properties properties = new Properties();
         Configuration configuration = new Configuration();
-        configuration.setString(SOURCE_PROXY_HOST, "google");
-        configuration.setString(SOURCE_PROXY_PORT, String.valueOf(PROXY_SERVER_PORT));
-        configuration.setString(SOURCE_PROXY_USERNAME, "username");
-        configuration.setString(SOURCE_PROXY_PASSWORD, "password");
+        configuration.set(SOURCE_LOOKUP_PROXY_HOST, "google");
+        configuration.set(SOURCE_LOOKUP_PROXY_PORT, PROXY_SERVER_PORT);
+        configuration.set(SOURCE_LOOKUP_PROXY_USERNAME, "username");
+        configuration.set(SOURCE_LOOKUP_PROXY_PASSWORD, "password");
 
         HttpLookupConfig lookupConfig =
                 HttpLookupConfig.builder()
@@ -90,8 +90,8 @@ class JavaNetHttpClientFactoryTest {
     public void shouldGetClientWithoutAuthenticator() throws UnknownHostException {
         Properties properties = new Properties();
         Configuration configuration = new Configuration();
-        configuration.setString(SOURCE_PROXY_HOST, "google");
-        configuration.setString(SOURCE_PROXY_PORT, String.valueOf(PROXY_SERVER_PORT));
+        configuration.set(SOURCE_LOOKUP_PROXY_HOST, "google");
+        configuration.set(SOURCE_LOOKUP_PROXY_PORT, PROXY_SERVER_PORT);
 
         HttpLookupConfig lookupConfig =
                 HttpLookupConfig.builder()

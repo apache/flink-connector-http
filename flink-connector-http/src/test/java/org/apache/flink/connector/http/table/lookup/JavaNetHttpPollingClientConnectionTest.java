@@ -125,7 +125,7 @@ class JavaNetHttpPollingClientConnectionTest {
     @BeforeEach
     void setUp() {
         int[][] lookupKey = {{}};
-        this.dynamicTableSourceContext = new LookupRuntimeProviderContext(lookupKey);
+        this.dynamicTableSourceContext = new LookupRuntimeProviderContext(lookupKey, false);
 
         this.lookupRowData =
                 GenericRowData.of(StringData.fromString("1"), StringData.fromString("2"));
@@ -292,8 +292,8 @@ class JavaNetHttpPollingClientConnectionTest {
 
         // GIVEN
         this.stubMapping = setUpServerStub(201);
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, successCodesExpression);
-        configuration.setString(
+        configuration.set(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, successCodesExpression);
+        configuration.set(
                 SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, ignoredResponseCodesExpression);
         JavaNetHttpPollingClient pollingClient = setUpPollingClient();
 
@@ -545,10 +545,9 @@ class JavaNetHttpPollingClientConnectionTest {
     void shouldSetIgnoreStatusCodeCompletionStateForIgnoredStatusCodes()
             throws ConfigurationException {
         // GIVEN - Configure client with ignored status codes (404, 503)
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
-        configuration.setString(
-                HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
+        configuration.set(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503");
+        configuration.set(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.set(HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES, "");
 
         // Set up WireMock to return 404
         this.stubMapping =
@@ -572,10 +571,9 @@ class JavaNetHttpPollingClientConnectionTest {
     @Test
     void shouldSetIgnoreStatusCodeForMultipleIgnoredCodes() throws ConfigurationException {
         // GIVEN - Configure client with multiple ignored status codes
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503,429");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
-        configuration.setString(
-                HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
+        configuration.set(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503,429");
+        configuration.set(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.set(HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES, "");
 
         // Set up WireMock to return 503
         this.stubMapping =
@@ -602,10 +600,9 @@ class JavaNetHttpPollingClientConnectionTest {
     @Test
     void shouldNotSetIgnoreStatusCodeForNonIgnoredCodes() throws ConfigurationException {
         // GIVEN - Configure client with ignored status codes (404, 503)
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
-        configuration.setString(
-                HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
+        configuration.set(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404,503");
+        configuration.set(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.set(HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES, "");
 
         // Set up WireMock to return 200 (success, not ignored)
         this.stubMapping = setUpServerStub(200);
@@ -624,10 +621,9 @@ class JavaNetHttpPollingClientConnectionTest {
     @Test
     void shouldReturnMetadataForIgnoredStatusCode() throws ConfigurationException {
         // GIVEN - Configure client with ignored status codes (404)
-        configuration.setString(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404");
-        configuration.setString(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
-        configuration.setString(
-                HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES.key(), "");
+        configuration.set(SOURCE_LOOKUP_HTTP_IGNORED_RESPONSE_CODES, "404");
+        configuration.set(SOURCE_LOOKUP_HTTP_SUCCESS_CODES, "200");
+        configuration.set(HttpLookupConnectorOptions.SOURCE_LOOKUP_HTTP_RETRY_CODES, "");
 
         // Set up WireMock to return 404 with custom headers
         this.stubMapping =

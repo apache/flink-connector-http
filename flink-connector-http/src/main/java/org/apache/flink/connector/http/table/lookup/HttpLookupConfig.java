@@ -42,7 +42,16 @@ public class HttpLookupConfig implements Serializable {
 
     @Builder.Default private final Properties properties = new Properties();
 
-    @Builder.Default private final ReadableConfig readableConfig = new Configuration();
+    // Use Configuration instead of ReadableConfig because Configuration is Serializable
+    @Builder.Default private final Configuration readableConfig = new Configuration();
 
     private final HttpPostRequestCallback<HttpLookupSourceRequestEntry> httpPostRequestCallback;
+
+    /**
+     * Gets the readable config. Returns the Configuration which implements ReadableConfig. This
+     * method maintains API compatibility while using the serializable Configuration type.
+     */
+    public ReadableConfig getReadableConfig() {
+        return readableConfig;
+    }
 }

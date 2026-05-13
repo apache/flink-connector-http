@@ -71,12 +71,6 @@ under the License.
         <!-- These dependencies are provided, because they should not be packaged into the JAR file. -->
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
             <artifactId>flink-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -211,6 +205,14 @@ under the License.
             <artifactId>mockito-inline</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-runtime</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-clients</artifactId>
@@ -234,7 +236,7 @@ under the License.
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java</artifactId>
-            <scope>provided</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -282,6 +284,12 @@ under the License.
         <dependency>
             <groupId> com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -384,7 +392,8 @@ under the License.
                                 <ignoredDependency>org.mockito:mockito-inline:jar:5.2.0</ignoredDependency>
                                 <ignoredDependency>net.bytebuddy:byte-buddy:jar:1.14.17</ignoredDependency>
                                 <ignoredDependency>com.google.guava:guava:jar:32.0.1-jre</ignoredDependency>
-                                <ignoredDependency>org.apache.flink:flink-clients:jar:1.20.0</ignoredDependency>
+                                <ignoredDependency>org.apache.flink:flink-clients:jar:2.2.0</ignoredDependency>
+                                <ignoredDependency>org.apache.flink:flink-streaming-java:jar:2.2.0</ignoredDependency>
                                 <ignoredDependency>net.javacrumbs.json-unit:json-unit-core:jar:2.40.1</ignoredDependency>
                                 <ignoredUnusedDeclaredDependencies>org.apache.flink:flink-table-planner_${scala.binary.version}
                                 </ignoredUnusedDeclaredDependencies>

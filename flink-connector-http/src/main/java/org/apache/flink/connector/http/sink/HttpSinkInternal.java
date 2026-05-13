@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.http.sink;
 
+import org.apache.flink.api.connector.sink2.StatefulSinkWriter;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
@@ -130,7 +132,7 @@ public class HttpSinkInternal<InputT> extends AsyncSinkBase<InputT, HttpSinkRequ
 
     @Override
     public StatefulSinkWriter<InputT, BufferedRequestState<HttpSinkRequestEntry>> createWriter(
-            InitContext context) throws IOException {
+            WriterInitContext context) throws IOException {
 
         ElementConverter<InputT, HttpSinkRequestEntry> elementConverter = getElementConverter();
         if (elementConverter instanceof SchemaLifecycleAwareElementConverter) {
@@ -159,7 +161,7 @@ public class HttpSinkInternal<InputT> extends AsyncSinkBase<InputT, HttpSinkRequ
 
     @Override
     public StatefulSinkWriter<InputT, BufferedRequestState<HttpSinkRequestEntry>> restoreWriter(
-            InitContext context,
+            WriterInitContext context,
             Collection<BufferedRequestState<HttpSinkRequestEntry>> recoveredState)
             throws IOException {
 

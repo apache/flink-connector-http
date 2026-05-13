@@ -19,6 +19,7 @@ package org.apache.flink.connector.http.table.lookup;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.HttpLoggingLevelType;
 import org.apache.flink.connector.http.HttpPostRequestCallbackFactory;
@@ -221,12 +222,17 @@ public class HttpLookupTableSourceFactory implements DynamicTableSourceFactory {
                                 HttpPostRequestCallbackFactory.class,
                                 readableConfig.get(REQUEST_CALLBACK_IDENTIFIER));
 
+        Configuration config =
+                readableConfig instanceof Configuration
+                        ? (Configuration) readableConfig
+                        : Configuration.fromMap(readableConfig.toMap());
+
         return HttpLookupConfig.builder()
                 .lookupMethod(readableConfig.get(LOOKUP_METHOD))
                 .url(readableConfig.get(URL))
                 .useAsync(readableConfig.get(ASYNC_POLLING))
                 .properties(httpConnectorProperties)
-                .readableConfig(readableConfig)
+                .readableConfig(config)
                 .httpPostRequestCallback(postRequestCallbackFactory.createHttpPostRequestCallback())
                 .build();
     }

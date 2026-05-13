@@ -126,6 +126,7 @@ public class AsyncHttpTableLookupFunction extends AsyncLookupFunction {
     public void close() throws Exception {
         this.publishingThreadPool.shutdownNow();
         this.pullingThreadPool.shutdownNow();
+        decorate.close();
         super.close();
     }
 }

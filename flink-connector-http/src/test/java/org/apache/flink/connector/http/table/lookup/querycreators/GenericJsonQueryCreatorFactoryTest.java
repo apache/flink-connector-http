@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_REQUEST_FORMAT;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -73,13 +74,13 @@ class GenericJsonQueryCreatorFactoryTest {
                 new FactoryUtil.DefaultDynamicTableContext(
                         ObjectIdentifier.of("default", "default", "test"),
                         new ResolvedCatalogTable(
-                                CatalogTable.of(
-                                        Schema.newBuilder()
-                                                .fromResolvedSchema(resolvedSchema)
-                                                .build(),
-                                        null,
-                                        Collections.emptyList(),
-                                        Collections.emptyMap()),
+                                CatalogTable.newBuilder()
+                                        .schema(
+                                                Schema.newBuilder()
+                                                        .fromResolvedSchema(resolvedSchema)
+                                                        .build())
+                                        .options(Collections.emptyMap())
+                                        .build(),
                                 resolvedSchema),
                         Collections.emptyMap(),
                         config,
@@ -96,7 +97,7 @@ class GenericJsonQueryCreatorFactoryTest {
                                 + "was called before this test execution.")
                 .isFalse();
 
-        this.config.setString("lookup-request.format", CustomFormatFactory.IDENTIFIER);
+        this.config.set(LOOKUP_REQUEST_FORMAT, CustomFormatFactory.IDENTIFIER);
         this.config.setString(
                 String.format(
                         "lookup-request.format.%s.%s",
