@@ -54,12 +54,13 @@ import java.util.regex.Pattern;
  * For PUT and POST, parameters are mapped to the json body e.g. for the body template "id1;id2" and
  * url of http://base. At lookup time with values of id1=1 and id2=2 as call of http/base will be
  * issued with a json payload of {"id1":1,"id2":2} <br>
- * For all http methods, url segments can be used to include lookup up values. Using the map from
- * <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code> which has a key of the insert and the
- * value of the associated column. e.g. for <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP
+ *
+ * For all http methods, url segments and query parameters can be used to include lookup up values.
+ * Using the map from <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code> which has a key of the
+ * insert name and the value of the associated column. e.g. for <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP
  * </code> = "key1":"col1" and url of http://base/{key1}. At lookup time with values of col1="aaaa"
- * a call of http/base/aaaa will be issued. For GETs with query params, the query param should be
- * supplie in the URL with a place-holder that will be resolved using <code>
+ * a call of http/base/aaaa will be issued. For query parameters, the query param should be
+ * supplied in the URL with a place-holder that will be resolved using <code>
  * GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code>
  */
 @Slf4j
