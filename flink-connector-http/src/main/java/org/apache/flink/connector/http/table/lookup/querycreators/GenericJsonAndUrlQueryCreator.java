@@ -54,7 +54,6 @@ import java.util.regex.Pattern;
  * For PUT and POST, parameters are mapped to the json body e.g. for the body template "id1;id2" and
  * url of http://base. At lookup time with values of id1=1 and id2=2 as call of http/base will be
  * issued with a json payload of {"id1":1,"id2":2} <br>
- *
  * For all http methods, url segments and query parameters can be used to include lookup up values.
  * Using the map from <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code> which has a key of the
  * insert name and the value of the associated column. e.g. for <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP
