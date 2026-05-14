@@ -54,7 +54,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries and handling errors (Lookup source)](#retries-and-handling-errors-lookup-source)
-        * [Retry strategy](#retry-strategy)
+      * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -71,7 +71,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Basic Authentication](#basic-authentication)
     * [OIDC Bearer Authentication](#oidc-bearer-authentication)
   * [Logging the HTTP content](#logging-the-http-content)
-      * [Restrictions at this time](#restrictions-at-this-time)
+    * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
 ## Dependencies
 
@@ -87,12 +87,12 @@ The Flink connector does have some changes that you need to be aware of if you a
 
 * Existing java applications will need to be recompiled to pick up the new flink package names.
 * Existing application and SQL need to be amended to use the new connector option names. The new option names do not have
-the _com.getindata.http_ prefix, the prefix is now _http_.
+  the _com.getindata.http_ prefix, the prefix is now _http_.
 * The name of the connector and the identifiers of components that are discovered have been changed, so that the GetInData jar file can co-exist
-with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
-* Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.                
-* Note that if you were incorrectly using `gid.connector.http.request.query-param-fields` with POST or PUT did not give an error. This connector corrects the behaviour so specifying `http.request.query-param-fields` with POST or PUT does give an error. 
-* The GetInData HTTP connector was built against Flink version 1, so works with that level of Flink and also Flink version 2. This connector is built against and supports Flink 2.2. 
+  with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
+* Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.
+* Note that if you were incorrectly using `gid.connector.http.request.query-param-fields` with POST or PUT did not give an error. This connector corrects the behaviour so specifying `http.request.query-param-fields` with POST or PUT does give an error.
+* The GetInData HTTP connector was built against Flink version 1, so works with that level of Flink and also Flink version 2. This connector is built against and supports Flink 2.2.
 
 ## Working with HTTP lookup source tables
 
@@ -205,8 +205,6 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | http.source.lookup.proxy.port                                          | optional | Specify the port of the proxy.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | http.source.lookup.proxy.username                                      | optional | Specify the username used for proxy authentication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | http.source.lookup.proxy.password                                      | optional | Specify the password used for proxy authentication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| http.request.query-param-fields                                        | optional | Used for the `http-generic-json-url` query creator. The names of the fields that will be mapped to query parameters. The parameters are separated by semicolons, such as `param1;param2`.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| http.request.query-param-fields-with-key                               | optional | A map of column names to query parameter keys. See the [Query Parameter Mapping](#query-parameter-mapping) section for details and examples.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | http.request.body-template                                             | optional | Used for the `http-generic-json-url` query creator. A JSON template string for constructing the request body for PUT and POST operations. Use `{{fieldName}}` placeholders to reference top-level columns from the lookup table. Supports creating complex nested JSON structures with both placeholders and literal values. See the [Body Template](#body-template) section for details and examples.                                                                                                                                                                                                     |
 | http.request.url-map                                                   | optional | Used for the `http-generic-json-url` query creator. The map of insert names to column names used as url segments. Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}/orders/{oid} will mean that the url used for the lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1/orders/oid1. The expected format of the map is: `key1:value1,key2:value2`. |
 
@@ -247,42 +245,22 @@ The HTTP connector supplies a number of Query Creators that you can use to defin
 The recommended Query creator for json is called _http-generic-json-url_, which allows column content to be mapped as URL, path, body and query parameter request values; it supports
 POST, PUT and GET operations. This query creator allows you to issue json requests without needing to code
 your own custom http connector. The mappings from columns to the json request are supplied in the query creator configuration
-parameters `http.request.query-param-fields`, `http.request.query-param-fields-with-key`, `http.request.body-template` and `http.request.url-map`.
-#### Query Parameter Mapping
+parameters `http.request.body-template` and `http.request.url-map`.
+#### Mapping the URL
 
-The `http.request.query-param-fields` and `http.request.query-param-fields-with-key` options provide flexible ways to map table columns to HTTP query parameters for GET requests.
+The `http.request.url-map` option provides a flexible way to map table columns to parts of the URL, either URL segments or HTTP query parameters.
+Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`,
+then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}?orders={oid} will mean that the url used for the
+lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1?orders=oid1.
+The expected format of the map is: `key1:value1,key2:value2`. |
 
-**Basic Query Parameter Mapping (`http.request.query-param-fields`):**
-
-Use this option to map column names directly to query parameters with the same name. The parameters are separated by semicolons.
-
-```sql
-'http.request.query-param-fields' = 'userId;orderId'
-```
-
-This will map the `userId` and `orderId` columns to query parameters `?userId=value1&orderId=value2`.
-
-**Advanced Query Parameter Mapping (`http.request.query-param-fields-with-key`):**
-
-Use this option when you need to use different names for query parameters than the table column names. This is necessary when request API fields have the same name as response fields and incompatible types.
-
-**Format:** `columnName1:queryParamKey1,columnName2:queryParamKey2`
-
-**Example Scenario:**
+**Example Scenario around clashing request and response columns:**
 
 If your API response has a field `customer` defined as an object (complex type), but you need to send a customer ID as a query parameter with the same name `customer`, you can:
 
 1. Define a new string type column `qp_customer` in your table for the request parameter
 2. Keep the `customer` column for the response object
 3. Map the request column to the query parameter:
-
-```sql
-'http.request.query-param-fields-with-key' = 'qp_customer:customer'
-```
-
-This will map the `qp_customer` column value to the query parameter `?customer=value`.
-
-**Complete Example:**
 
 ```sql
 CREATE TABLE CustomerLookup (
@@ -299,9 +277,9 @@ CREATE TABLE CustomerLookup (
 ) WITH (
     'connector' = 'http',
     'format' = 'json',
-    'url' = 'http://api.example.com/lookup',
+    'url' = 'http://api.example.com/lookup?customer={qp_customer}&order={qp_order}',
     'lookup-method' = 'GET',
-    'http.request.query-param-fields-with-key' = 'qp_customer:customer,qp_order:order'
+    'http.request.url-map' = 'qp_customer:qp_customer,qp_order:qp_order'
 )
 ```
 
@@ -311,13 +289,6 @@ GET http://api.example.com/lookup?customer=C123&order=O456
 ```
 
 The response will populate the `customer` and `order` complex objects.
-
-**Important Notes for `http.request.query-param-fields-with-key`:**
-- Can only be used with GET requests
-- Column names and query parameter keys cannot be null or empty
-- Query parameter keys must be unique (no duplicates allowed)
-- Cannot conflict with columns defined in `http.request.query-param-fields`
-
 
 #### Body Template
 
@@ -385,10 +356,10 @@ This query creator allows you to populate API calls very flexibly. To do this ef
 8) If you start from an OpenAPI specification that contains nested content required as a lookup join key, then use `http.request.body-template` to map top-level columns into that structure.
 9) Response content is mapped to matching named top-level columns in the lookup table. You should arrange your table columns so that some are request columns (all top level) and some are response columns.
 10) Use single quotes for the value of `http.request.body-template` so you do not need to escape the double quotes, and add newline characters for readability.
-11) If you want to enrich every event with the same API content, you can specify a placeholder as the complete URL the `url`, then use `http.request.url-map` to map it. In this scenario switching on caching is advised to avoid repeated identical API calls. 
+11) If you want to enrich every event with the same API content, you can specify a placeholder as the complete URL the `url`, then use `http.request.url-map` to map it. In this scenario switching on caching is advised to avoid repeated identical API calls.
 12) Note that columns in SQL tables (the DDL) do not have a natural way to distinguish between request and response fields. Where possible, use the API field name as column names in the DDL; this minimizes the number of columns you need to define.
 13) The exception to 12) is when a response API field name is the same as a request API field **and** they have incompatible types. In this case, define the request column with a different name, then use `http.request.query-param-fields-with-key`, `http.request.body-template`, and/or `http.request.url-map` to provide the mapping to the API field.
-14) Note the columns representing the response are those that should be used for enrichment. 
+14) Note the columns representing the response are those that should be used for enrichment.
 
 ### Format considerations
 
@@ -679,8 +650,8 @@ Metadata columns can be specified and hold http information. They are optional r
 If the `error-string` metadata column is defined on the table and the call succeeds then it will have a null value.
 When the HTTP response cannot be deserialized, then the `http-completion-state` will be `UNABLE_TO_DESERIALIZE_RESPONSE`
 and the `error-string` will be the response body.
-When the HTTP status code is in the `http.source.lookup.ignored-response-codes`, then the `http-completion-state` will 
-be `IGNORE_STATUS_CODE`and no data is returned; any metadata columns contain information about the API call that 
+When the HTTP status code is in the `http.source.lookup.ignored-response-codes`, then the `http-completion-state` will
+be `IGNORE_STATUS_CODE`and no data is returned; any metadata columns contain information about the API call that
 occurred.
 
 When a HTTP lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the HTTP call

@@ -162,6 +162,55 @@ public class BodyBasedRequestFactoryTest {
                         Map.of("param1", "value1", "param2", "value2"),
                         "http://service/{param1}/param2/{param2}",
                         lookupMethod,
-                        "http://service/value1/param2/value2?param3=value3&param4=value4"));
+                        "http://service/value1/param2/value2?param3=value3&param4=value4"),
+                // URL encoding: path param with spaces
+                new TestSpec(
+                        null,
+                        Map.of("param1", "hello world"),
+                        "http://service/{param1}",
+                        lookupMethod,
+                        "http://service/hello+world"),
+                // URL encoding: path param with special characters
+                new TestSpec(
+                        null,
+                        Map.of("param1", "user@example.com"),
+                        "http://service/{param1}",
+                        lookupMethod,
+                        "http://service/user%40example.com"),
+                // URL encoding: path param with slash
+                new TestSpec(
+                        null,
+                        Map.of("param1", "path/to/resource"),
+                        "http://service/{param1}",
+                        lookupMethod,
+                        "http://service/path%2Fto%2Fresource"),
+                // URL encoding: multiple path params with special characters
+                new TestSpec(
+                        null,
+                        Map.of("param1", "hello world", "param2", "user@example.com"),
+                        "http://service/{param1}/users/{param2}",
+                        lookupMethod,
+                        "http://service/hello+world/users/user%40example.com"),
+                // URL encoding: query param with special characters (?, &, ;, space)
+                new TestSpec(
+                        Map.of("param1", "value with ?&; chars"),
+                        null,
+                        "http://service",
+                        lookupMethod,
+                        "http://service?param1=value+with+%3F%26%3B+chars"),
+                // URL encoding: multiple query params with special characters
+                new TestSpec(
+                        Map.of("param1", "hello world", "param2", "a=b&c=d"),
+                        null,
+                        "http://service",
+                        lookupMethod,
+                        "http://service?param1=hello+world&param2=a%3Db%26c%3Dd"),
+                // URL encoding: combined path and query params with special characters
+                new TestSpec(
+                        Map.of("query1", "value?test"),
+                        Map.of("path1", "user@domain"),
+                        "http://service/{path1}",
+                        lookupMethod,
+                        "http://service/user%40domain?query1=value%3Ftest"));
     }
 }

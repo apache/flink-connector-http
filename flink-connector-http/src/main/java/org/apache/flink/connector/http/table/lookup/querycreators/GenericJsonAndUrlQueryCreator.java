@@ -39,34 +39,28 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Obje
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Generic JSON and URL query creator; in addition to be able to map columns to json requests, it
  * allows url inserts to be mapped to column names using templating. <br>
- * For GETs, column names are mapped to query parameters. e.g. for <code>
- * GenericJsonAndUrlQueryCreator.REQUEST_PARAM_FIELDS</code> = "id1;id2" and url of http://base. At
- * lookup time with values of id1=1 and id2=2 a call of http/base?id1=1&amp;id2=2 will be issued.
  * <br>
- * For PUT and POST, parameters are mapped to the json body e.g. for REQUEST_PARAM_FIELDS =
- * "id1;id2" and url of http://base. At lookup time with values of id1=1 and id2=2 as call of
- * http/base will be issued with a json payload of {"id1":1,"id2":2} <br>
+ * For PUT and POST, parameters are mapped to the json body e.g. for the body template "id1;id2" and
+ * url of http://base. At lookup time with values of id1=1 and id2=2 as call of http/base will be
+ * issued with a json payload of {"id1":1,"id2":2} <br>
  * For all http methods, url segments can be used to include lookup up values. Using the map from
  * <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code> which has a key of the insert and the
  * value of the associated column. e.g. for <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP
  * </code> = "key1":"col1" and url of http://base/{key1}. At lookup time with values of col1="aaaa"
- * a call of http/base/aaaa will be issued.
+ * a call of http/base/aaaa will be issued. For GETs with query params, the query param should be
+ * supplie in the URL with a place-holder that will be resolved using <code>
+ * GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code>
  */
 @Slf4j
 public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
@@ -79,7 +73,6 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     private boolean schemaOpened = false;
     private LookupRow lookupRow;
     private final String httpMethod;
-    private final Map<String, String> requestQueryParamsMap;
     private final Map<String, String> requestUrlMap;
     private final String bodyTemplate;
 
@@ -88,7 +81,6 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
      *
      * @param httpMethod the requested http method
      * @param serializationSchema serialization schema for RowData
-     * @param requestQueryParamsMap map of column names to query parameter keys
      * @param requestUrlMap url map
      * @param bodyTemplate template string for request body with placeholders like {@code
      *     {{fieldName}}}
@@ -97,14 +89,12 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     public GenericJsonAndUrlQueryCreator(
             final String httpMethod,
             final SerializationSchema<RowData> serializationSchema,
-            final Map<String, String> requestQueryParamsMap,
             final Map<String, String> requestUrlMap,
             final String bodyTemplate,
             final LookupRow lookupRow) {
         this.httpMethod = httpMethod;
         this.serializationSchema = serializationSchema;
         this.lookupRow = lookupRow;
-        this.requestQueryParamsMap = requestQueryParamsMap;
         this.requestUrlMap = requestUrlMap;
         this.bodyTemplate = bodyTemplate;
     }
@@ -119,7 +109,6 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         this.checkOpened();
 
         final String lookupQuery;
-        Map<String, String> bodyBasedUrlQueryParams = new HashMap<>();
         final Collection<LookupArg> lookupArgs = lookupRow.convertToLookupArgs(lookupDataRow);
         ObjectNode jsonObject;
         try {
@@ -132,31 +121,13 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             log.error(message, e);
             throw new RuntimeException(message, e);
         }
-        // Parameters are encoded as query params for GET and none GET.
-        // Later code will turn these query params into the body for PUTs and POSTs
-        // Use the map to rename columns to query param keys
-        ObjectNode jsonObjectForQueryParams = ObjectMapperAdapter.instance().createObjectNode();
-        for (Map.Entry<String, String> entry : this.requestQueryParamsMap.entrySet()) {
-            String columnName = entry.getKey();
-            String queryParamKey = entry.getValue();
-            JsonNode value = jsonObject.get(columnName);
-            if (value == null) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Query parameter mapping references column '%s' that does not exist in the lookup row. Available columns: %s",
-                                columnName, getAvailableColumnNames(jsonObject)));
-            }
-            jsonObjectForQueryParams.set(queryParamKey, value);
-        }
-        // TODO can we convertToQueryParameters for all ops
-        //  and not use/deprecate bodyBasedUrlQueryParams
+
         if (httpMethod.equalsIgnoreCase("GET")) {
-            // add the query parameters
-            lookupQuery =
-                    convertToQueryParameters(
-                            jsonObjectForQueryParams, StandardCharsets.UTF_8.toString());
+            // For GET requests, query parameters are now handled via URL placeholders
+            // No query string is generated here
+            lookupQuery = "";
         } else {
-            // Body-based queries
+            // Body-based queries (POST/PUT)
             // Check if body template is provided
             if (bodyTemplate != null && !bodyTemplate.trim().isEmpty()) {
                 // Use template substitution
@@ -165,15 +136,12 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
                 // No template provided - no body (consistent with ElasticSearchLiteQueryCreator)
                 lookupQuery = "";
             }
-            // body parameters
-            // use the request json object to scope the required fields and the lookupArgs as values
-            bodyBasedUrlQueryParams = createBodyBasedParams(lookupArgs, jsonObjectForQueryParams);
         }
         // add the path map
         final Map<String, String> pathBasedUrlParams =
                 createPathBasedParams(lookupArgs, requestUrlMap);
 
-        return new LookupQueryInfo(lookupQuery, bodyBasedUrlQueryParams, pathBasedUrlParams);
+        return new LookupQueryInfo(lookupQuery, null, pathBasedUrlParams);
     }
 
     /**
@@ -208,18 +176,6 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
         }
         matcher.appendTail(result);
         return result.toString();
-    }
-
-    /**
-     * Get a comma-separated list of available column names from the JSON object.
-     *
-     * @param jsonObject the JSON object containing field names
-     * @return comma-separated string of available column names
-     */
-    private String getAvailableColumnNames(ObjectNode jsonObject) {
-        StringJoiner joiner = new StringJoiner(", ");
-        jsonObject.fieldNames().forEachRemaining(joiner::add);
-        return joiner.toString();
     }
 
     /**
@@ -289,40 +245,6 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             }
         }
         return mapOfJsonKeyToLookupArg;
-    }
-
-    /**
-     * Convert json object to query params string.
-     *
-     * @param jsonObject supplies json object
-     * @param enc encoding string - used in unit test to drive unsupported encoding
-     * @return query params string
-     */
-    @VisibleForTesting
-    static String convertToQueryParameters(final ObjectNode jsonObject, String enc) {
-        Preconditions.checkNotNull(jsonObject);
-
-        final StringJoiner result = new StringJoiner("&");
-        jsonObject
-                .fields()
-                .forEachRemaining(
-                        field -> {
-                            final String fieldName = field.getKey();
-                            final String fieldValue = field.getValue().asText();
-
-                            try {
-                                result.add(fieldName + "=" + URLEncoder.encode(fieldValue, enc));
-                            } catch (UnsupportedEncodingException e) {
-                                final String message =
-                                        "Failed to encode the value of the query parameter name "
-                                                + fieldName
-                                                + ": "
-                                                + fieldValue;
-                                throw new RuntimeException(message, e);
-                            }
-                        });
-
-        return result.toString();
     }
 
     private void checkOpened() {
