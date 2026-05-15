@@ -137,8 +137,17 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                             "Unexpected error while parsing the URL for path parameters.");
                 }
                 int endIndex = startIndex + pathParam.length();
-                String encodedValue = URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8);
-                resolvedUrl = resolvedUrl.replace(startIndex, endIndex, encodedValue);
+                String value = entry.getValue();
+                // Don't encode if the entire URL is just a placeholder (e.g., "{url}")
+                // Check if resolvedUrl starts with { and ends with }
+                String replacementValue;
+                if (resolvedUrl.charAt(0) == '{'
+                        && resolvedUrl.charAt(resolvedUrl.length() - 1) == '}') {
+                    replacementValue = value;
+                } else {
+                    replacementValue = URLEncoder.encode(value, StandardCharsets.UTF_8);
+                }
+                resolvedUrl = resolvedUrl.replace(startIndex, endIndex, replacementValue);
             }
         }
         return resolvedUrl;

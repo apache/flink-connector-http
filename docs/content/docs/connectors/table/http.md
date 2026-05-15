@@ -252,7 +252,11 @@ The `http.request.url-map` option provides a flexible way to map table columns t
  Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, 
 then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}?orders={oid} will mean that the url used for the
 lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1?orders=oid1. 
-The expected format of the map is: `key1:value1,key2:value2`. |
+The expected format of the map is: `key1:value1,key2:value2`. 
+
+As these values are being supplied as URL segments or part or query parameters, the connector url encodes that content so characters like spaces
+do not appear invalidly in the URL. In the case where the complete url is the insert then url encoding is not performed; the url needs to be valid and already
+properly url encoded as appropriate.   
 
 **Example Scenario around clashing request and response columns:**
 

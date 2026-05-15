@@ -211,6 +211,14 @@ public class BodyBasedRequestFactoryTest {
                         Map.of("path1", "user@domain"),
                         "http://service/{path1}",
                         lookupMethod,
-                        "http://service/user%40domain?query1=value%3Ftest"));
+                        "http://service/user%40domain?query1=value%3Ftest"),
+                // Complete URL replacement with URL-encoded parts
+                new TestSpec(
+                        null,
+                        Map.of("url", "https://api.example.com/search?q=hello%20world&filter=type%3Dbook&sort=date%3Adesc"),
+                        "{url}",
+                        lookupMethod,
+                        "https://api.example.com/search?q=hello%20world&filter=type%3Dbook&sort=date%3Adesc"));
+
     }
 }
