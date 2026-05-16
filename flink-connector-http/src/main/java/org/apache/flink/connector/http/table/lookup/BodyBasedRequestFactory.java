@@ -63,8 +63,19 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
     protected Builder setUpRequestMethod(LookupQueryInfo lookupQueryInfo) {
         HttpRequest.Builder builder = super.setUpRequestMethod(lookupQueryInfo);
         String body = lookupQueryInfo.getLookupQuery();
-        builder.uri(constructUri(lookupQueryInfo))
-                .method(methodName, BodyPublishers.ofString(body));
+        URI uri = constructUri(lookupQueryInfo);
+        try {
+            builder.uri(uri).method(methodName, BodyPublishers.ofString(body));
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException(
+                    "Failed to build URI '"
+                            + uri
+                            + "', baseUrl is '"
+                            + baseUrl
+                            + "', Path parameters: "
+                            + lookupQueryInfo.getPathBasedUrlParameters(),
+                    e);
+        }
         this.httpLogger.logRequestBody(body);
         return builder;
     }
@@ -86,7 +97,14 @@ public class BodyBasedRequestFactory extends RequestFactoryBase {
         try {
             return new URIBuilder(resolvedUrl.toString()).build();
         } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(
+                    "Failed to construct URI. Base URL: '"
+                            + baseUrl
+                            + "', Resolved URL: '"
+                            + resolvedUrl.toString()
+                            + "', Path parameters: "
+                            + lookupQueryInfo.getPathBasedUrlParameters(),
+                    e);
         }
     }
 }

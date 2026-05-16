@@ -1169,8 +1169,8 @@ class HttpLookupTableSourceITCaseTest {
         // - Orders table has "id" column (string)
         // - API expects query param named "customer" (string)
         // - API response has field "customer" (ROW type with nested fields)
-        // Solution: Use http.request.query-param-fields-with-key to map:
-        //   - Lookup table column "id" → query parameter "customer"
+        // Solution: Use http.request.url-map with URL placeholders to map:
+        //   - Lookup table column "id" → query parameter "customer" via {customer} placeholder
         //   - Lookup table column "customer" → response field "customer" (ROW type)
 
         int serverPort2 = WireMockServerPortAllocator.getServerPort();
@@ -1235,15 +1235,14 @@ class HttpLookupTableSourceITCaseTest {
                         + "'lookup-method' = 'GET',"
                         + "'url' = 'http://localhost:"
                         + serverPort2
-                        + "/client',"
+                        + "/client?customer={customer}&id2={id2}',"
                         + "'http.source.lookup.header.Content-Type' = 'application/json',"
                         + "'asyncPolling' = 'true',"
                         + "'http.source.lookup.query-creator' = 'http-generic-json-url',"
                         + "'table.exec.async-lookup.buffer-capacity' = '50',"
                         + "'table.exec.async-lookup.timeout' = '20s',"
-                        // Map "id" column to "customer" query parameter
-                        + "'http.request.query-param-fields-with-key' = 'id:customer',"
-                        + "'http.request.query-param-fields' = 'id2'"
+                        // Map "id" column to "customer" placeholder and "id2" to "id2" placeholder
+                        + "'http.request.url-map' = 'id:customer,id2:id2'"
                         + ")";
 
         tEnv.executeSql(sourceTable);
@@ -1336,7 +1335,6 @@ class HttpLookupTableSourceITCaseTest {
                         // Template maps body_customer to "customer" in request body
                         + "'http.request.body-template' = '{\"customer\": {{body_customer}}, \"id2\": {{id2}}}'"
                         + ")";
-
         tEnv.executeSql(sourceTable);
         tEnv.executeSql(lookupTable);
 

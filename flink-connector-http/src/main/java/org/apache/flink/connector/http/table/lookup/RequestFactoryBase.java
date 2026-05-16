@@ -28,9 +28,11 @@ import org.apache.flink.util.FlinkRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.Builder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
@@ -135,7 +137,17 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
                             "Unexpected error while parsing the URL for path parameters.");
                 }
                 int endIndex = startIndex + pathParam.length();
-                resolvedUrl = resolvedUrl.replace(startIndex, endIndex, entry.getValue());
+                String value = entry.getValue();
+                // Don't encode if the entire URL is just a placeholder (e.g., "{url}")
+                // Check if resolvedUrl starts with { and ends with }
+                String replacementValue;
+                if (resolvedUrl.charAt(0) == '{'
+                        && resolvedUrl.charAt(resolvedUrl.length() - 1) == '}') {
+                    replacementValue = value;
+                } else {
+                    replacementValue = URLEncoder.encode(value, StandardCharsets.UTF_8);
+                }
+                resolvedUrl = resolvedUrl.replace(startIndex, endIndex, replacementValue);
             }
         }
         return resolvedUrl;

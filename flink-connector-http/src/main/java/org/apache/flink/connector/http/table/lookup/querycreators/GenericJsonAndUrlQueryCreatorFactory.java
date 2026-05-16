@@ -33,9 +33,6 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -58,22 +55,6 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
     private static final long serialVersionUID = 1L;
 
     public static final String ID = "http-generic-json-url";
-
-    public static final ConfigOption<List<String>> REQUEST_QUERY_PARAM_FIELDS =
-            key("http.request.query-param-fields")
-                    .stringType()
-                    .asList()
-                    .defaultValues() // default to empty list so we do not need to check for null
-                    .withDescription(
-                            "The names of the fields that will be mapped to query parameters."
-                                    + " The parameters are separated by semicolons,"
-                                    + " such as 'param1;param2'.");
-
-    public static final ConfigOption<Map<String, String>> REQUEST_QUERY_PARAM_FIELDS_WITH_KEY =
-            ConfigOptions.key("http.request.query-param-fields-with-key")
-                    .mapType()
-                    .noDefaultValue()
-                    .withDescription("A map of column names to query parameter keys.");
 
     public static final ConfigOption<Map<String, String>> REQUEST_URL_MAP =
             ConfigOptions.key("http.request.url-map")
@@ -115,23 +96,6 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         // Validate configuration based on HTTP method
         validateConfigurationForHttpMethod(httpMethod, readableConfig);
 
-        // Handle query param fields - merge both list and map formats
-        Map<String, String> requestQueryParamsMap = new LinkedHashMap<>();
-
-        // First, add entries from list format (key = value for backward compatibility)
-        final List<String> requestQueryParamsFields =
-                readableConfig.get(REQUEST_QUERY_PARAM_FIELDS);
-        requestQueryParamsFields.forEach(field -> requestQueryParamsMap.put(field, field));
-
-        // Then, add entries from map format
-        if (readableConfig.getOptional(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY).isPresent()) {
-            Map<String, String> queryParamFieldsWithKey =
-                    readableConfig.get(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY);
-
-            validateQueryParamMap(queryParamFieldsWithKey, readableConfig);
-            requestQueryParamsMap.putAll(queryParamFieldsWithKey);
-        }
-
         Map<String, String> requestUrlMap = readableConfig.get(REQUEST_URL_MAP);
         String bodyTemplate = readableConfig.getOptional(REQUEST_BODY_TEMPLATE).orElse(null);
 
@@ -142,12 +106,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
         // create using config parameter values and specify serialization
         // schema from json format.
         return new GenericJsonAndUrlQueryCreator(
-                httpMethod,
-                jsonSerializationSchema,
-                requestQueryParamsMap,
-                requestUrlMap,
-                bodyTemplate,
-                lookupRow);
+                httpMethod, jsonSerializationSchema, requestUrlMap, bodyTemplate, lookupRow);
     }
 
     @Override
@@ -162,87 +121,7 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
-        return Set.of(
-                REQUEST_QUERY_PARAM_FIELDS,
-                REQUEST_QUERY_PARAM_FIELDS_WITH_KEY,
-                REQUEST_URL_MAP,
-                REQUEST_BODY_TEMPLATE);
-    }
-
-    /**
-     * Validates the query parameter map to ensure all constraints are met.
-     *
-     * <ul>
-     *   <li>Column names (keys) are not null or empty
-     *   <li>Query param keys (values) are not null or empty
-     *   <li>Query param keys do not conflict with old REQUEST_QUERY_PARAM_FIELDS list
-     *   <li>Query param keys are unique (no duplicates)
-     *   <li>Column names in new map do not conflict with column names in old list
-     * </ul>
-     *
-     * @param queryParamMap the map to validate
-     * @param readableConfig the configuration to check for conflicts
-     * @throws IllegalArgumentException if validation fails
-     */
-    private void validateQueryParamMap(
-            Map<String, String> queryParamMap, ReadableConfig readableConfig) {
-        if (queryParamMap == null || queryParamMap.isEmpty()) {
-            return; // Empty map is valid
-        }
-
-        // Get the list format for conflict checking
-        final List<String> queryParamFields = readableConfig.get(REQUEST_QUERY_PARAM_FIELDS);
-
-        // Track seen query param keys to detect duplicates
-        Set<String> seenQueryParamKeys = new HashSet<>();
-
-        for (Map.Entry<String, String> entry : queryParamMap.entrySet()) {
-            String columnName = entry.getKey();
-            String queryParamKey = entry.getValue();
-
-            // Validate column name (map key)
-            if (columnName == null || columnName.trim().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Column name in "
-                                + REQUEST_QUERY_PARAM_FIELDS_WITH_KEY.key()
-                                + " cannot be null or empty");
-            }
-
-            // Validate query param key (map value)
-            if (queryParamKey == null || queryParamKey.trim().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Query parameter key for column '"
-                                + columnName
-                                + "' in "
-                                + REQUEST_QUERY_PARAM_FIELDS_WITH_KEY.key()
-                                + " cannot be null or empty");
-            }
-
-            // Check for duplicate query param keys
-            if (seenQueryParamKeys.contains(queryParamKey)) {
-                throw new IllegalArgumentException(
-                        "Duplicate query parameter key '"
-                                + queryParamKey
-                                + "' in "
-                                + REQUEST_QUERY_PARAM_FIELDS_WITH_KEY.key()
-                                + ". Each query parameter key must be unique.");
-            }
-            seenQueryParamKeys.add(queryParamKey);
-
-            // Check for conflicts with list format - both query param keys and column names
-            if (!queryParamFields.isEmpty()
-                    && (queryParamFields.contains(queryParamKey)
-                            || queryParamFields.contains(columnName))) {
-                throw new IllegalArgumentException(
-                        (queryParamFields.contains(queryParamKey)
-                                        ? "Query parameter key '" + queryParamKey
-                                        : "Column name '" + columnName)
-                                + "' in "
-                                + REQUEST_QUERY_PARAM_FIELDS_WITH_KEY.key()
-                                + " conflicts with existing columns defined in "
-                                + REQUEST_QUERY_PARAM_FIELDS.key());
-            }
-        }
+        return Set.of(REQUEST_URL_MAP, REQUEST_BODY_TEMPLATE);
     }
 
     /**
@@ -251,7 +130,6 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
      * <p>Rules:
      *
      * <ul>
-     *   <li>Query parameter configs can only be used with GET
      *   <li>Body template can only be used with POST/PUT
      * </ul>
      *
@@ -261,9 +139,6 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
      */
     private void validateConfigurationForHttpMethod(
             String httpMethod, ReadableConfig readableConfig) {
-        boolean hasQueryParams = !readableConfig.get(REQUEST_QUERY_PARAM_FIELDS).isEmpty();
-        boolean hasQueryParamsWithKey =
-                readableConfig.getOptional(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY).isPresent();
         boolean hasBodyTemplate =
                 readableConfig.getOptional(REQUEST_BODY_TEMPLATE).isPresent()
                         && !readableConfig.get(REQUEST_BODY_TEMPLATE).trim().isEmpty();
@@ -274,24 +149,9 @@ public class GenericJsonAndUrlQueryCreatorFactory implements LookupQueryCreatorF
                         "Body template configuration ("
                                 + REQUEST_BODY_TEMPLATE.key()
                                 + ") cannot be used with GET method. "
-                                + "For GET requests, use "
-                                + REQUEST_QUERY_PARAM_FIELDS.key()
-                                + " or "
-                                + REQUEST_QUERY_PARAM_FIELDS_WITH_KEY.key()
-                                + " instead.");
-            }
-        } else {
-            // POST/PUT
-            if (hasQueryParams || hasQueryParamsWithKey) {
-                throw new IllegalArgumentException(
-                        "Query parameter configuration ("
-                                + REQUEST_QUERY_PARAM_FIELDS.key()
-                                + " or "
-                                + REQUEST_QUERY_PARAM_FIELDS_WITH_KEY.key()
-                                + ") can only be used with GET method. "
-                                + "For POST/PUT requests, use "
-                                + REQUEST_BODY_TEMPLATE.key()
-                                + " instead.");
+                                + "For GET requests, use query parameters in the URL with "
+                                + REQUEST_URL_MAP.key()
+                                + " to map columns to placeholders.");
             }
         }
     }

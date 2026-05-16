@@ -34,7 +34,6 @@ import org.apache.flink.types.Row;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,8 +45,6 @@ import java.util.Map;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.LOOKUP_METHOD;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupTableSourceFactory.row;
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_BODY_TEMPLATE;
-import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS;
-import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_QUERY_PARAM_FIELDS_WITH_KEY;
 import static org.apache.flink.connector.http.table.lookup.querycreators.GenericJsonAndUrlQueryCreatorFactory.REQUEST_URL_MAP;
 import static org.apache.flink.connector.http.table.lookup.querycreators.QueryCreatorUtils.getTableContext;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,7 +56,6 @@ class GenericJsonAndUrlQueryCreatorTest {
     private static final String KEY_1 = "key1";
     private static final String KEY_2 = "key2";
     private static final String VALUE = "val1";
-    private static final List<String> QUERY_PARAMS = List.of(KEY_1);
     private static final Map<String, String> urlParams = Map.of(KEY_1, KEY_1);
     private static final DataType DATATYPE_1 =
             row(List.of(DataTypes.FIELD(KEY_1, DataTypes.STRING())));
@@ -114,7 +110,6 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN
         LookupRow lookupRow = getLookupRow(KEY_1, KEY_2);
         Configuration config = new Configuration();
-        config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
         config.set(REQUEST_URL_MAP, urlParams);
         config.set(LOOKUP_METHOD, "GET");
         lookupRow.setLookupPhysicalRowDataType(DATATYPE_1_2);
@@ -127,11 +122,12 @@ class GenericJsonAndUrlQueryCreatorTest {
                                         getTableContext(config, RESOLVED_SCHEMA));
         // WHEN
         GenericRowData lookupRowData =
-                GenericRowData.of(StringData.fromString("val1"), StringData.fromString("val2"));
+                GenericRowData.of(StringData.fromString(VALUE), StringData.fromString("val2"));
         LookupQueryInfo createdQuery =
                 genericJsonAndUrlQueryCreator.createLookupQuery(lookupRowData);
-        // THEN - Only KEY_1 is in QUERY_PARAMS, so only key1=val1 in query string
-        assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
+        // THEN - no lookup query
+        assertThat(createdQuery.getLookupQuery()).isEqualTo("");
+        assertThat(createdQuery.getPathBasedUrlParameters()).isEqualTo(Map.of(KEY_1, VALUE));
     }
 
     @Test
@@ -163,24 +159,6 @@ class GenericJsonAndUrlQueryCreatorTest {
         genericJsonAndUrlQueryCreator.setSerializationSchema(failingSchema);
         // WHEN/THEN
         assertThatThrownBy(() -> genericJsonAndUrlQueryCreator.createLookupQuery(ROWDATA))
-                .isInstanceOf(RuntimeException.class);
-    }
-
-    @Test
-    void convertToQueryParametersUnsupportedEncodingTest() {
-        // GIVEN
-        PersonBean person = new PersonBean("aaa", "bbb");
-        JsonNode personNode;
-        try {
-            personNode = OBJECT_MAPPER.readTree(OBJECT_MAPPER.writeValueAsString(person));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        // WHEN/THEN
-        assertThatThrownBy(
-                        () ->
-                                GenericJsonAndUrlQueryCreator.convertToQueryParameters(
-                                        (ObjectNode) personNode, "bad encoding"))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -316,7 +294,7 @@ class GenericJsonAndUrlQueryCreatorTest {
         // GIVEN - GET request with body template (should be rejected by validation)
         Configuration config = new Configuration();
         config.set(LOOKUP_METHOD, "GET");
-        config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
+        // config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
         config.set(REQUEST_BODY_TEMPLATE, "{\"userId\":{{key1}}}");
 
         LookupRow lookupRow = getLookupRow(KEY_1);
@@ -564,190 +542,6 @@ class GenericJsonAndUrlQueryCreatorTest {
         assertThat(literalObject.get("key").asText()).isEqualTo("value");
     }
 
-    @Test
-    public void testQueryParamFieldsWithKeyForGet() {
-        // GIVEN - Use new map format to rename query params
-        Configuration config = new Configuration();
-        config.set(LOOKUP_METHOD, "GET");
-        Map<String, String> queryParamMap = Map.of("key1", "qp1");
-        config.set(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY, queryParamMap);
-
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-
-        // WHEN
-        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
-
-        // THEN - Query params should use renamed key
-        assertThat(createdQuery.hasLookupQuery()).isTrue();
-        String queryString = createdQuery.getLookupQuery();
-        assertThat(queryString).isEqualTo("qp1=val1");
-        // Should NOT contain original column name
-        assertThat(queryString).doesNotContain("key1=");
-    }
-
-    @Test
-    public void testBackwardCompatibilityWithOldListFormat() {
-        // GIVEN - Use old list format (should still work)
-        Configuration config = new Configuration();
-        config.set(LOOKUP_METHOD, "GET");
-        config.set(REQUEST_QUERY_PARAM_FIELDS, List.of(KEY_1));
-
-        LookupRow lookupRow = getLookupRow(KEY_1);
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-
-        // WHEN
-        LookupQueryInfo createdQuery = creator.createLookupQuery(ROWDATA);
-
-        // THEN - Should work as before (column name = query param key)
-        assertThat(createdQuery.hasLookupQuery()).isTrue();
-        assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
-    }
-
-    @Test
-    public void testBothFormatsAreMergedWhenNoConflict() {
-        // GIVEN - Both old list and new map are provided with different fields
-        Configuration config = new Configuration();
-        config.set(LOOKUP_METHOD, "GET");
-        config.set(REQUEST_QUERY_PARAM_FIELDS, List.of("key2")); // Old format for key2
-        Map<String, String> queryParamMap = Map.of("key1", "renamed_key"); // New format for key1
-        config.set(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY, queryParamMap);
-
-        // Create schema with both key1 and key2
-        ResolvedSchema schemaWithBothKeys =
-                ResolvedSchema.of(
-                        Column.physical("key1", DataTypes.STRING()),
-                        Column.physical("key2", DataTypes.STRING()));
-
-        LookupRow lookupRow = new LookupRow();
-        lookupRow.addLookupEntry(
-                new RowDataSingleValueLookupSchemaEntry(
-                        "key1", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
-        lookupRow.addLookupEntry(
-                new RowDataSingleValueLookupSchemaEntry(
-                        "key2", RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 1)));
-
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, schemaWithBothKeys));
-
-        // WHEN
-        GenericRowData lookupRowData =
-                GenericRowData.of(StringData.fromString("val1"), StringData.fromString("val2"));
-        LookupQueryInfo createdQuery = creator.createLookupQuery(lookupRowData);
-
-        // THEN - Both formats should be merged: key1 renamed to renamed_key, key2 stays as key2
-        assertThat(createdQuery.hasLookupQuery()).isTrue();
-        String queryString = createdQuery.getLookupQuery();
-        assertThat(queryString).contains("key2=val2"); // From old list format
-        assertThat(queryString).contains("renamed_key=val1"); // From new map format
-        assertThat(queryString).doesNotContain("key1="); // key1 should be renamed
-    }
-
-    @Test
-    public void testQueryParamFieldsWithKeyMultipleFields() {
-        // GIVEN - Multiple fields with different renamed keys
-        Configuration config = new Configuration();
-        config.set(LOOKUP_METHOD, "GET");
-        Map<String, String> queryParamMap =
-                Map.of(
-                        "customerId", "cid",
-                        "orderName", "oname",
-                        "status", "st");
-        config.set(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY, queryParamMap);
-
-        // Create schema with all three fields
-        ResolvedSchema schemaWithAllFields =
-                ResolvedSchema.of(
-                        Column.physical("customerId", DataTypes.STRING()),
-                        Column.physical("orderName", DataTypes.STRING()),
-                        Column.physical("status", DataTypes.STRING()));
-
-        LookupRow lookupRow = new LookupRow();
-        lookupRow.addLookupEntry(
-                new RowDataSingleValueLookupSchemaEntry(
-                        "customerId",
-                        RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 0)));
-        lookupRow.addLookupEntry(
-                new RowDataSingleValueLookupSchemaEntry(
-                        "orderName",
-                        RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 1)));
-        lookupRow.addLookupEntry(
-                new RowDataSingleValueLookupSchemaEntry(
-                        "status",
-                        RowData.createFieldGetter(DataTypes.STRING().getLogicalType(), 2)));
-
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, schemaWithAllFields));
-
-        // WHEN
-        GenericRowData lookupRowData =
-                GenericRowData.of(
-                        StringData.fromString("123"),
-                        StringData.fromString("Order1"),
-                        StringData.fromString("active"));
-        LookupQueryInfo createdQuery = creator.createLookupQuery(lookupRowData);
-
-        // THEN - All fields should be renamed
-        assertThat(createdQuery.hasLookupQuery()).isTrue();
-        String queryString = createdQuery.getLookupQuery();
-        assertThat(queryString).contains("cid=123");
-        assertThat(queryString).contains("oname=Order1");
-        assertThat(queryString).contains("st=active");
-        // Should NOT contain original column names
-        assertThat(queryString).doesNotContain("customerId=");
-        assertThat(queryString).doesNotContain("orderName=");
-        assertThat(queryString).doesNotContain("status=");
-    }
-
-    @Test
-    public void testQueryParamFieldsWithKeyMissingColumn() {
-        // GIVEN - Query param map references a column that doesn't exist
-        Configuration config = new Configuration();
-        config.set(LOOKUP_METHOD, "GET");
-        Map<String, String> queryParamMap = new java.util.HashMap<>();
-        queryParamMap.put("misspelledCol", "customer"); // misspelledCol doesn't exist
-        config.set(REQUEST_QUERY_PARAM_FIELDS_WITH_KEY, queryParamMap);
-
-        LookupRow lookupRow = getLookupRow(KEY_1); // Only has key1
-
-        GenericJsonAndUrlQueryCreator creator =
-                (GenericJsonAndUrlQueryCreator)
-                        new GenericJsonAndUrlQueryCreatorFactory()
-                                .createLookupQueryCreator(
-                                        config,
-                                        lookupRow,
-                                        getTableContext(config, RESOLVED_SCHEMA));
-
-        // WHEN/THEN - Should throw IllegalArgumentException with helpful message
-        assertThatThrownBy(() -> creator.createLookupQuery(ROWDATA))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("misspelledCol")
-                .hasMessageContaining("does not exist")
-                .hasMessageContaining("Available columns:");
-    }
-
     // Helper methods
     private static GenericRowData getRowData(int numFields, String value) {
         if (numFields == 1) {
@@ -771,7 +565,6 @@ class GenericJsonAndUrlQueryCreatorTest {
 
     private Configuration getConfigurationForGet() {
         Configuration config = new Configuration();
-        config.set(REQUEST_QUERY_PARAM_FIELDS, QUERY_PARAMS);
         config.set(REQUEST_URL_MAP, urlParams);
         config.set(LOOKUP_METHOD, "GET");
         return config;
@@ -786,16 +579,14 @@ class GenericJsonAndUrlQueryCreatorTest {
     }
 
     private void validateCreatedQueryForGet(LookupQueryInfo createdQuery) {
-        assertThat(createdQuery.hasLookupQuery()).isTrue();
-        assertThat(createdQuery.getLookupQuery()).isEqualTo("key1=val1");
+        assertThat(createdQuery.hasLookupQuery()).isFalse();
         assertThat(createdQuery.hasBodyBasedUrlQueryParameters()).isFalse();
         assertThat(createdQuery.hasPathBasedUrlParameters()).isTrue();
     }
 
     private void validateCreatedQueryForPutAndPost(LookupQueryInfo createdQuery) {
-        // When no template is provided, body is empty (no body sent)
+        // no body template so no lookup query
         assertThat(createdQuery.hasLookupQuery()).isFalse();
-        assertThat(createdQuery.getLookupQuery()).isEqualTo("");
         assertThat(createdQuery.hasBodyBasedUrlQueryParameters()).isFalse();
         assertThat(createdQuery.hasPathBasedUrlParameters()).isTrue();
     }
