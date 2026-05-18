@@ -90,9 +90,9 @@ The Flink connector does have some changes that you need to be aware of if you a
 the _com.getindata.http_ prefix, the prefix is now _http_.
 * The name of the connector and the identifiers of components that are discovered have been changed, so that the GetInData jar file can co-exist
 with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
-* Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.                
-* Note that if you were incorrectly using `gid.connector.http.request.query-param-fields` with POST or PUT did not give an error. This connector corrects the behaviour so specifying `http.request.query-param-fields` with POST or PUT does give an error. 
-* The GetInData HTTP connector was built against Flink version 1, so works with that level of Flink and also Flink version 2. This connector is built against and supports Flink 2.2. 
+* Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.
+* Note that if you were incorrectly using `gid.connector.http.request.query-param-fields` with POST or PUT did not give an error. This connector corrects the behaviour so specifying `http.request.query-param-fields` with POST or PUT does give an error.
+* The GetInData HTTP connector was built against Flink version 1, so works with that level of Flink and also Flink version 2. This connector is built against and supports Flink 2.2.
 
 ## Working with HTTP lookup source tables
 
@@ -142,7 +142,7 @@ CREATE TABLE Orders (
 Then we can enrich the _Orders_ table with the _Customers_ HTTP table with the following SQL:
 
 ```roomsql
-SELECT o.id, o.id2, c.msg, c.uuid, c.details.isActive, c.details.nestedDetails.balance FROM Orders AS o 
+SELECT o.id, o.id2, c.msg, c.uuid, c.details.isActive, c.details.nestedDetails.balance FROM Orders AS o
 JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c ON o.id = c.id AND o.id2 = c.id2
 ```
 
@@ -249,14 +249,14 @@ parameters `http.request.body-template` and `http.request.url-map`.
 #### Mapping the URL
 
 The `http.request.url-map` option provides a flexible way to map table columns to parts of the URL, either URL segments or HTTP query parameters.
- Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, 
+ Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`,
 then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{{cid}}?orders={{oid}} will mean that the url used for the
-lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1?orders=oid1. 
-The expected format of the map is: `key1:value1,key2:value2`. 
+lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1?orders=oid1.
+The expected format of the map is: `key1:value1,key2:value2`.
 
 As these values are being supplied as URL segments or part or query parameters, the connector url encodes that content so characters like spaces
 do not appear invalidly in the URL. In the case where the complete url is the insert then url encoding is not performed; the url needs to be valid and already
-properly url encoded as appropriate.   
+properly url encoded as appropriate.
 
 **Example Scenario around clashing request and response columns:**
 
@@ -360,10 +360,10 @@ This query creator allows you to populate API calls very flexibly. To do this ef
 8) If you start from an OpenAPI specification that contains nested content required as a lookup join key, then use `http.request.body-template` to map top-level columns into that structure.
 9) Response content is mapped to matching named top-level columns in the lookup table. You should arrange your table columns so that some are request columns (all top level) and some are response columns.
 10) Use single quotes for the value of `http.request.body-template` so you do not need to escape the double quotes, and add newline characters for readability.
-11) If you want to enrich every event with the same API content, you can specify a placeholder as the complete URL the `url`, then use `http.request.url-map` to map it. In this scenario switching on caching is advised to avoid repeated identical API calls. 
+11) If you want to enrich every event with the same API content, you can specify a placeholder as the complete URL the `url`, then use `http.request.url-map` to map it. In this scenario switching on caching is advised to avoid repeated identical API calls.
 12) Note that columns in SQL tables (the DDL) do not have a natural way to distinguish between request and response fields. Where possible, use the API field name as column names in the DDL; this minimizes the number of columns you need to define.
 13) The exception to 12) is when a response API field name is the same as a request API field **and** they have incompatible types. In this case, define the request column with a different name, then use `http.request.query-param-fields-with-key`, `http.request.body-template`, and/or `http.request.url-map` to provide the mapping to the API field.
-14) Note the columns representing the response are those that should be used for enrichment. 
+14) Note the columns representing the response are those that should be used for enrichment.
 
 ### Format considerations
 
@@ -654,8 +654,8 @@ Metadata columns can be specified and hold http information. They are optional r
 If the `error-string` metadata column is defined on the table and the call succeeds then it will have a null value.
 When the HTTP response cannot be deserialized, then the `http-completion-state` will be `UNABLE_TO_DESERIALIZE_RESPONSE`
 and the `error-string` will be the response body.
-When the HTTP status code is in the `http.source.lookup.ignored-response-codes`, then the `http-completion-state` will 
-be `IGNORE_STATUS_CODE`and no data is returned; any metadata columns contain information about the API call that 
+When the HTTP status code is in the `http.source.lookup.ignored-response-codes`, then the `http-completion-state` will
+be `IGNORE_STATUS_CODE`and no data is returned; any metadata columns contain information about the API call that
 occurred.
 
 When a HTTP lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the HTTP call
