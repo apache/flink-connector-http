@@ -21,6 +21,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.connector.http.LookupArg;
 import org.apache.flink.connector.http.LookupQueryCreator;
+import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
 import org.apache.flink.connector.http.table.lookup.LookupQueryInfo;
 import org.apache.flink.connector.http.table.lookup.LookupRow;
 import org.apache.flink.connector.http.utils.SerializationSchemaUtils;
@@ -51,23 +52,23 @@ import java.util.regex.Pattern;
  * Generic JSON and URL query creator; in addition to be able to map columns to json requests, it
  * allows url inserts to be mapped to column names using templating. <br>
  * <br>
- * For PUT and POST, parameters are mapped to the json body e.g. for the body template "id1;id2" and
- * url of http://base. At lookup time with values of id1=1 and id2=2 as call of http/base will be
- * issued with a json payload of {"id1":1,"id2":2} <br>
- * For all http methods, url segments and query parameters can be used to include lookup up values.
- * Using the map from <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code> which has a key of
- * the insert name and the value of the associated column. e.g. for <code>
- * GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP
- * </code> = "key1":"col1" and url of http://base/{key1}. At lookup time with values of col1="aaaa"
- * a call of http/base/aaaa will be issued. For query parameters, the query param should be supplied
- * in the URL with a place-holder that will be resolved using <code>
- * GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code>
+ * For PUT and POST, parameters are mapped to the json body e.g. for REQUEST_PARAM_FIELDS =
+ * "id1;id2" and url of http://base. At lookup time with values of id1=1 and id2=2 as call of
+ * http/base will be issued with a json payload of {"id1":1,"id2":2} <br>
+ * For all http methods, url segments can be used to include lookup up values. Using the map from
+ * <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP</code> which has a key of the insert and the
+ * value of the associated column. e.g. for <code>GenericJsonAndUrlQueryCreator.REQUEST_URL_MAP
+ * </code> = "key1":"col1" and url of http://base/{{key1}}. At lookup time with values of
+ * col1="aaaa" a call of http/base/aaaa will be issued.
  */
 @Slf4j
 public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
     private static final long serialVersionUID = 1L;
     private static final Pattern TEMPLATE_PLACEHOLDER_PATTERN =
-            Pattern.compile("\\{\\{([^}]+)\\}\\}");
+            Pattern.compile(
+                    Pattern.quote(HttpConnectorConfigConstants.PLACEHOLDER_START)
+                            + "([^{}]+)"
+                            + Pattern.quote(HttpConnectorConfigConstants.PLACEHOLDER_END));
 
     // not final so we can mutate for unit test
     private SerializationSchema<RowData> serializationSchema;
@@ -164,8 +165,10 @@ public class GenericJsonAndUrlQueryCreator implements LookupQueryCreator {
             if (fieldValue == null) {
                 throw new IllegalArgumentException(
                         String.format(
-                                "Template placeholder {{%s}} references a field that does not exist in the lookup row",
-                                fieldName));
+                                "Template placeholder %s%s%s references a field that does not exist in the lookup row",
+                                HttpConnectorConfigConstants.PLACEHOLDER_START,
+                                fieldName,
+                                HttpConnectorConfigConstants.PLACEHOLDER_END));
             }
 
             String valueStr =

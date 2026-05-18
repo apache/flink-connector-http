@@ -125,14 +125,14 @@ public class BodyBasedRequestFactoryTest {
                 new TestSpec(
                         null,
                         Map.of("param1", "value1"),
-                        "http://service/{param1}",
+                        "http://service/{{param1}}",
                         lookupMethod,
                         "http://service/value1"),
                 // 2 path param
                 new TestSpec(
                         null,
                         Map.of("param1", "value1", "param2", "value2"),
-                        "http://service/{param1}/param2/{param2}",
+                        "http://service/{{param1}}/param2/{{param2}}",
                         lookupMethod,
                         "http://service/value1/param2/value2"),
                 // 1 query param
@@ -160,35 +160,35 @@ public class BodyBasedRequestFactoryTest {
                 new TestSpec(
                         Map.of("param3", "value3", "param4", "value4"),
                         Map.of("param1", "value1", "param2", "value2"),
-                        "http://service/{param1}/param2/{param2}",
+                        "http://service/{{param1}}/param2/{{param2}}",
                         lookupMethod,
                         "http://service/value1/param2/value2?param3=value3&param4=value4"),
                 // URL encoding: path param with spaces
                 new TestSpec(
                         null,
                         Map.of("param1", "hello world"),
-                        "http://service/{param1}",
+                        "http://service/{{param1}}",
                         lookupMethod,
                         "http://service/hello+world"),
                 // URL encoding: path param with special characters
                 new TestSpec(
                         null,
                         Map.of("param1", "user@example.com"),
-                        "http://service/{param1}",
+                        "http://service/{{param1}}",
                         lookupMethod,
                         "http://service/user%40example.com"),
                 // URL encoding: path param with slash
                 new TestSpec(
                         null,
                         Map.of("param1", "path/to/resource"),
-                        "http://service/{param1}",
+                        "http://service/{{param1}}",
                         lookupMethod,
                         "http://service/path%2Fto%2Fresource"),
                 // URL encoding: multiple path params with special characters
                 new TestSpec(
                         null,
                         Map.of("param1", "hello world", "param2", "user@example.com"),
-                        "http://service/{param1}/users/{param2}",
+                        "http://service/{{param1}}/users/{{param2}}",
                         lookupMethod,
                         "http://service/hello+world/users/user%40example.com"),
                 // URL encoding: query param with special characters (?, &, ;, space)
@@ -209,7 +209,7 @@ public class BodyBasedRequestFactoryTest {
                 new TestSpec(
                         Map.of("query1", "value?test"),
                         Map.of("path1", "user@domain"),
-                        "http://service/{path1}",
+                        "http://service/{{path1}}",
                         lookupMethod,
                         "http://service/user%40domain?query1=value%3Ftest"),
                 // Complete URL replacement with URL-encoded parts
@@ -218,7 +218,7 @@ public class BodyBasedRequestFactoryTest {
                         Map.of(
                                 "url",
                                 "https://api.example.com/search?q=hello%20world&filter=type%3Dbook&sort=date%3Adesc"),
-                        "{url}",
+                        "{{url}}",
                         lookupMethod,
                         "https://api.example.com/search?q=hello%20world&filter=type%3Dbook&sort=date%3Adesc"));
     }

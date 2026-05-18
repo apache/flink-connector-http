@@ -37,6 +37,9 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.PLACEHOLDER_END;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.PLACEHOLDER_START;
+
 /** Base class for {@link HttpRequest} factories. */
 @Slf4j
 public abstract class RequestFactoryBase implements HttpRequestFactory {
@@ -130,7 +133,7 @@ public abstract class RequestFactoryBase implements HttpRequestFactory {
         if (lookupQueryInfo.hasPathBasedUrlParameters()) {
             for (Map.Entry<String, String> entry :
                     lookupQueryInfo.getPathBasedUrlParameters().entrySet()) {
-                String pathParam = "{" + entry.getKey() + "}";
+                String pathParam = PLACEHOLDER_START + entry.getKey() + PLACEHOLDER_END;
                 int startIndex = resolvedUrl.indexOf(pathParam);
                 if (startIndex == -1) {
                     throw new FlinkRuntimeException(

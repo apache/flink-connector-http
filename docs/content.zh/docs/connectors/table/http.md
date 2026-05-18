@@ -54,7 +54,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Timeouts](#timeouts)
     * [Source table HTTP status code](#source-table-http-status-code)
     * [Retries and handling errors (Lookup source)](#retries-and-handling-errors-lookup-source)
-      * [Retry strategy](#retry-strategy)
+        * [Retry strategy](#retry-strategy)
       * [Lookup multiple results](#lookup-multiple-results)
   * [Working with HTTP sink tables](#working-with-http-sink-tables)
     * [HTTP Sink](#http-sink)
@@ -71,7 +71,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Basic Authentication](#basic-authentication)
     * [OIDC Bearer Authentication](#oidc-bearer-authentication)
   * [Logging the HTTP content](#logging-the-http-content)
-    * [Restrictions at this time](#restrictions-at-this-time)
+      * [Restrictions at this time](#restrictions-at-this-time)
 <!-- TOC -->
 ## Dependencies
 
@@ -87,9 +87,9 @@ The Flink connector does have some changes that you need to be aware of if you a
 
 * Existing java applications will need to be recompiled to pick up the new flink package names.
 * Existing application and SQL need to be amended to use the new connector option names. The new option names do not have
-  the _com.getindata.http_ prefix, the prefix is now _http_.
+the _com.getindata.http_ prefix, the prefix is now _http_.
 * The name of the connector and the identifiers of components that are discovered have been changed, so that the GetInData jar file can co-exist
-  with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
+with this connector's jar file. Be aware that if you have created custom pluggable components; you will need to recompile against this connector.
 * Note that the `http-generic-json-url` query creator now processes HTTP bodies differently using `http.request.body-template`.
 * Note that if you were incorrectly using `gid.connector.http.request.query-param-fields` with POST or PUT did not give an error. This connector corrects the behaviour so specifying `http.request.query-param-fields` with POST or PUT does give an error.
 * The GetInData HTTP connector was built against Flink version 1, so works with that level of Flink and also Flink version 2. This connector is built against and supports Flink 2.2.
@@ -142,7 +142,7 @@ CREATE TABLE Orders (
 Then we can enrich the _Orders_ table with the _Customers_ HTTP table with the following SQL:
 
 ```roomsql
-SELECT o.id, o.id2, c.msg, c.uuid, c.details.isActive, c.details.nestedDetails.balance FROM Orders AS o 
+SELECT o.id, o.id2, c.msg, c.uuid, c.details.isActive, c.details.nestedDetails.balance FROM Orders AS o
 JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c ON o.id = c.id AND o.id2 = c.id2
 ```
 
@@ -249,8 +249,8 @@ parameters `http.request.body-template` and `http.request.url-map`.
 #### Mapping the URL
 
 The `http.request.url-map` option provides a flexible way to map table columns to parts of the URL, either URL segments or HTTP query parameters.
-Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`,
-then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}?orders={oid} will mean that the url used for the
+ Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`,
+then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{{cid}}?orders={{oid}} will mean that the url used for the
 lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1?orders=oid1.
 The expected format of the map is: `key1:value1,key2:value2`.
 
@@ -281,7 +281,7 @@ CREATE TABLE CustomerLookup (
 ) WITH (
     'connector' = 'http',
     'format' = 'json',
-    'url' = 'http://api.example.com/lookup?customer={qp_customer}&order={qp_order}',
+    'url' = 'http://api.example.com/lookup?customer={{qp_customer}}&order={{qp_order}}',
     'lookup-method' = 'GET',
     'http.request.url-map' = 'qp_customer:qp_customer,qp_order:qp_order'
 )

@@ -969,7 +969,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "  `email` STRING\n"
                         + ") WITH ("
                         + "'connector' = 'http',"
-                        + "'url' = '{url}',"
+                        + "'url' = '{{url}}',"
                         + "'http.request.url-map' = 'url:url',"
                         + "'format' = 'json',"
                         + "'asyncPolling' = 'false',"
@@ -1235,7 +1235,7 @@ class HttpLookupTableSourceITCaseTest {
                         + "'lookup-method' = 'GET',"
                         + "'url' = 'http://localhost:"
                         + serverPort2
-                        + "/client?customer={customer}&id2={id2}',"
+                        + "/client?customer={{customer}}&id2={{id2}}',"
                         + "'http.source.lookup.header.Content-Type' = 'application/json',"
                         + "'asyncPolling' = 'true',"
                         + "'http.source.lookup.query-creator' = 'http-generic-json-url',"
