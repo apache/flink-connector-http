@@ -364,6 +364,31 @@ class GenericJsonAndUrlQueryCreatorTest {
     }
 
     @Test
+    public void testBodyTemplateWithInvalidNestedPlaceholders() {
+        // GIVEN - Body template with invalid nested placeholders like {{aaa}}/{{bbb}}
+        Configuration config = new Configuration();
+        config.set(LOOKUP_METHOD, "POST");
+        config.set(REQUEST_BODY_TEMPLATE, "{\"path\":\"{{aaa}}/{{bbb}}\"}");
+
+        LookupRow lookupRow = getLookupRow(KEY_1);
+        lookupRow.setLookupPhysicalRowDataType(DATATYPE_1);
+
+        GenericJsonAndUrlQueryCreator creator =
+                (GenericJsonAndUrlQueryCreator)
+                        new GenericJsonAndUrlQueryCreatorFactory()
+                                .createLookupQueryCreator(
+                                        config,
+                                        lookupRow,
+                                        getTableContext(config, RESOLVED_SCHEMA));
+
+        // WHEN/THEN - Should throw IllegalArgumentException because {{aaa}}/{{bbb}} is not a valid
+        // field name
+        assertThatThrownBy(() -> creator.createLookupQuery(ROWDATA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not exist");
+    }
+
+    @Test
     public void testBodyTemplateWithComplexNestedStructureAndTimestamps() throws Exception {
         // GIVEN - Complex template with primitives, arrays, nested objects, timestamps, and
         // literals

@@ -250,7 +250,7 @@ parameters `http.request.body-template` and `http.request.url-map`.
 
 The `http.request.url-map` option provides a flexible way to map table columns to parts of the URL, either URL segments or HTTP query parameters.
  Parses a string as a map of strings. For example if there are table columns called `customerId` and `orderId`, 
-then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{cid}?orders={oid} will mean that the url used for the
+then specifying value `customerId:cid,orderID:oid` and a url of https://myendpoint/customers/{{cid}}?orders={{oid}} will mean that the url used for the
 lookup query will dynamically pickup the values for `customerId`, `orderId` and use them in the url e.g. https://myendpoint/customers/cid1?orders=oid1. 
 The expected format of the map is: `key1:value1,key2:value2`. 
 
@@ -281,7 +281,7 @@ CREATE TABLE CustomerLookup (
 ) WITH (
     'connector' = 'http',
     'format' = 'json',
-    'url' = 'http://api.example.com/lookup?customer={qp_customer}&order={qp_order}',
+    'url' = 'http://api.example.com/lookup?customer={{qp_customer}}&order={{qp_order}}',
     'lookup-method' = 'GET',
     'http.request.url-map' = 'qp_customer:qp_customer,qp_order:qp_order'
 )

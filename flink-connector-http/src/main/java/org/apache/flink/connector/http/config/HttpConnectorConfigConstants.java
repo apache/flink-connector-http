@@ -29,6 +29,12 @@ public final class HttpConnectorConfigConstants {
 
     public static final String PROP_DELIM = ",";
 
+    /** Placeholder delimiter for template substitution (start). */
+    public static final String PLACEHOLDER_START = "{{";
+
+    /** Placeholder delimiter for template substitution (end). */
+    public static final String PLACEHOLDER_END = "}}";
+
     /** A property prefix for http connector. */
     public static final String FLINK_CONNECTOR_HTTP = "http.";
 

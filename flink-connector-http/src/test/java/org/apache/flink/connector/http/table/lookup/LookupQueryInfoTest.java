@@ -68,7 +68,7 @@ class LookupQueryInfoTest {
         Map<String, String> pathBasedUrlPathParameters = Map.of("key1", "value1");
 
         lookupQueryInfo =
-                new LookupQueryInfo("http://service/{key1}", null, pathBasedUrlPathParameters);
+                new LookupQueryInfo("http://service/{{key1}}", null, pathBasedUrlPathParameters);
 
         assertThat(lookupQueryInfo.hasLookupQuery()).isTrue();
         assertThat(lookupQueryInfo.hasPathBasedUrlParameters()).isTrue();
