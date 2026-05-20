@@ -25,7 +25,7 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# HTTP Connector
+# Apache HTTP SQL Connector
 
 {{< label "Sink: Streaming Append Mode" >}}
 {{< label "Lookup Source: Sync Mode" >}}
