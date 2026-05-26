@@ -644,10 +644,12 @@ under the License.
                             <ignoredDependencies>
                                 <!--These dependencies are required for the unit tests to succeed  -->
                                 <ignoredDependency>org.mockito:mockito-inline:jar:4.6.1</ignoredDependency>
-                                <!-- Runtime dependencies loaded via ServiceLoader for test execution -->
-                                <ignoredDependency>org.apache.flink:flink-clients:jar:*:test</ignoredDependency>
-                                <ignoredDependency>org.apache.flink:flink-streaming-java:jar:*:test</ignoredDependency>
                             </ignoredDependencies>
+                            <ignoredUnusedDeclaredDependencies>
+                                <!-- Runtime dependencies loaded via ServiceLoader for test execution -->
+                                <ignoredUnusedDeclaredDependency>org.apache.flink:flink-clients</ignoredUnusedDeclaredDependency>
+                                <ignoredUnusedDeclaredDependency>org.apache.flink:flink-streaming-java</ignoredUnusedDeclaredDependency>
+                            </ignoredUnusedDeclaredDependencies>
                         </configuration>
                     </execution>
                 </executions>
