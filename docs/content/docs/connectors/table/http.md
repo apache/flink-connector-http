@@ -115,7 +115,8 @@ CREATE TABLE Customers (
 'connector' = 'http',
 'format' = 'json',
 'url' = 'http://localhost:8080/client',
-'asyncPolling' = 'true'
+'asyncPolling' = 'true',
+'http.source.lookup.query-creator' = 'http-generic-get-query'
 )
 ```
 
@@ -172,6 +173,7 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 | url                                                                    | required | The base URL that should be used for GET requests. For example _http://localhost:8080/client_                                                                                                                                                                                                                                                                                                          |
 | asyncPolling                                                           | optional | true/false - determines whether Async Polling should be used. Mechanism is based on Flink's Async I/O.                                                                                                                                                                                                                                                                                                 |
 | lookup-method                                                          | optional | GET/POST/PUT (and any other) - determines what REST method should be used for lookup REST query. If not specified, `GET` method will be used.                                                                                                                                                                                                                                                          |
+| http.source.lookup.query-creator                                       | optional | Identifier of the query creator used to build lookup requests. If not specified, GET requests use `http-generic-get-query` and non-GET requests use `http-generic-json-query`. Set this to `http-generic-json-url` when using `http.request.url-map` or `http.request.body-template`.                                                                                                                     |
 | lookup.cache                                                           | optional | Enum possible values: `NONE`, `PARTIAL`. The cache strategy for the lookup table. Currently supports `NONE` (no caching) and `PARTIAL` (caching entries on lookup operation in external API).                                                                                                                                                                                                          |
 | lookup.partial-cache.max-rows                                          | optional | The max number of rows of lookup cache, over this value, the oldest rows will be expired. `lookup.cache` must be set to `PARTIAL` to use this option. See the following <a href="#lookup-cache">Lookup Cache</a> section for more details.                                                                                                                                                             |
 | lookup.partial-cache.expire-after-write                                | optional | The max time to live for each rows in lookup cache after writing into the cache. Specify as a [Duration](https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/deployment/config/#duration).  `lookup.cache` must be set to `PARTIAL` to use this option. See the following <a href="#lookup-cache">Lookup Cache</a> section for more details.                                               |
@@ -212,15 +214,17 @@ Note the options with the prefix _http_ are the HTTP connector specific options,
 
 In the above example we see that HTTP GET operations and HTTP POST operations result in different mapping of the columns to the
 HTTP request content. In reality, you will want to have more control over how the SQL columns are mapped to the HTTP content.
-The HTTP connector supplies a number of Query Creators that you can use to define these mappings.
+The HTTP connector supplies a number of Query Creators that you can use to define these mappings. Set the desired query creator
+with the `http.source.lookup.query-creator` option.
 
 <table class="table table-bordered">
     <thead>
     <tr>
-      <th class="text-left" style="width: 76%">Name</th>
+      <th class="text-left" style="width: 68%">Name</th>
       <th class="text-center" style="width: 8%">Query param mapping</th>
   <th class="text-center" style="width: 8%">URL path mapping</th>
   <th class="text-center" style="width: 8%">Body mapping</th>
+  <th class="text-center" style="width: 8%">Default</th>
     </tr>
     </thead>
     <tbody>
@@ -229,12 +233,21 @@ The HTTP connector supplies a number of Query Creators that you can use to defin
       <td>✓</td>
       <td>✓</td>
       <td>✓</td>
+      <td></td>
     </tr>
     <tr>
       <td><h5>http-generic-get-query</h5></td>
       <td>✓ for GETs</td>
       <td></td>
+      <td></td>
+      <td>GET</td>
+    </tr>
+    <tr>
+      <td><h5>http-generic-json-query</h5></td>
+      <td></td>
+      <td></td>
       <td>✓ for PUTs and POSTs</td>
+      <td>non-GET</td>
     </tr>
 
     </tbody>
@@ -283,6 +296,7 @@ CREATE TABLE CustomerLookup (
     'format' = 'json',
     'url' = 'http://api.example.com/lookup?customer={{qp_customer}}&order={{qp_order}}',
     'lookup-method' = 'GET',
+    'http.source.lookup.query-creator' = 'http-generic-json-url',
     'http.request.url-map' = 'qp_customer:qp_customer,qp_order:qp_order'
 )
 ```
@@ -375,7 +389,7 @@ property and {propertyValue} is the property value.
 For example:
 `'lookup-request.format.myCustomFormatName.foo' = 'baa'`.
 
-With the default configuration, flink-Json format is used for `GenericGetQueryCreator`; all options defined in [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/) can be passed through the table DDL.
+With the default configuration, the JSON format is used by body-based query creators such as `http-generic-json-query` and `http-generic-json-url`; all options defined in [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/) can be passed through the table DDL.
 For example:
 `'lookup-request.format.json.fail-on-missing-field' = 'true'`.
 
@@ -388,8 +402,11 @@ Specify your format options at the top level. For example:
 
 ### Default Query Creator Implementation
 
-The default Query Creator is called _http-generic-json-url_. For body based queries such as POST/PUT requests, the GenericGetQueryCreator is provided as a default query creator. This implementation uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/) to convert RowData object into Json String.
-For GET requests it can be used for query parameter based queries.
+If `http.source.lookup.query-creator` is not configured, the connector selects a query creator from `lookup-method`.
+GET requests default to _http-generic-get-query_, which maps lookup join keys to URL query parameters.
+Non-GET requests, such as POST and PUT, default to _http-generic-json-query_, which uses Flink's [json-format](https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/) to convert RowData objects into JSON request bodies.
+
+The _http-generic-json-url_ query creator is not selected by default. Set `http.source.lookup.query-creator` to _http-generic-json-url_ explicitly when you need URL path mapping, query parameter mapping, or body templates through `http.request.url-map` and `http.request.body-template`.
 
 The _http-generic-json-url_ allows for using custom formats that will perform serialization to Json. Thanks to this, users can create their own logic for converting RowData to Json Strings suitable for their HTTP endpoints and use this logic as custom format
 with HTTP Lookup connector and SQL queries.
