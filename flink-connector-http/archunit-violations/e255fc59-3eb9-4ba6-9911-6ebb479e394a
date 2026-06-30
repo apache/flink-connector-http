@@ -1,0 +1,4 @@
+Class <org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions> does not reside in a package 'org.apache.flink..table' in (HttpLookupConnectorOptions.java:0)
+Class <org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions> does not reside in a package 'org.apache.flink..table' in (HttpDynamicSinkConnectorOptions.java:0)
+org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions does not satisfy: annotated with @PublicEvolving or annotated with @Public
+org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions does not satisfy: annotated with @PublicEvolving or annotated with @Public
