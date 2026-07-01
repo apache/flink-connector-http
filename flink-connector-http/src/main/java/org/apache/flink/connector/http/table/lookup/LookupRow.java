@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.http.table.lookup;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.http.LookupArg;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
@@ -65,7 +64,6 @@ public class LookupRow implements Serializable {
         return this;
     }
 
-    @VisibleForTesting
     List<LookupSchemaEntry<RowData>> getLookupEntries() {
         return new LinkedList<>(lookupEntries);
     }
