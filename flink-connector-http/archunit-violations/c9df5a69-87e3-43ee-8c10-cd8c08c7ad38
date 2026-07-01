@@ -1,1 +1,0 @@
-Method <org.apache.flink.connector.http.table.lookup.HttpTableLookupFunction.lookup(org.apache.flink.table.data.RowData)> calls method <org.apache.flink.connector.http.table.lookup.LookupRow.getLookupEntries()> in (HttpTableLookupFunction.java:123)
