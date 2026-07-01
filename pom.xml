@@ -62,7 +62,7 @@ under the License.
         <!-- IMPORTANT: If you update Flink, remember to update link to its docs in maven-javadoc-plugin <links>
              section, omitting the patch part (so for 1.15.0 use 1.15).
              TODO is this still valid in Flink connector. -->
-        <flink.version>2.2.0</flink.version>
+        <flink.version>2.2.1</flink.version>
         <flink.shaded.jackson.version>2.18.2</flink.shaded.jackson.version>
         <flink.shaded.version>20.0</flink.shaded.version>
         <flink.parent.artifactId>flink-connector-http-parent</flink.parent.artifactId>
