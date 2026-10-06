@@ -23,7 +23,7 @@ import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.base.sink.writer.ResultHandler;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
 import org.apache.flink.connector.http.config.HttpSinkConfigFactory;
 import org.apache.flink.connector.http.table.sink.Slf4jHttpPostRequestCallback;
 import org.apache.flink.metrics.Counter;
@@ -86,7 +86,7 @@ class HttpSinkWriterTest {
     @Test
     public void testTransportErrorFailsRequest() throws InterruptedException {
 
-        CompletableFuture<SinkHttpClientResponse> future = new CompletableFuture<>();
+        CompletableFuture<SinkHttpClientResponses> future = new CompletableFuture<>();
         future.completeExceptionally(new Exception("Test Exception"));
 
         when(httpClient.putRequests(anyList(), anyString())).thenReturn(future);
@@ -111,7 +111,7 @@ class HttpSinkWriterTest {
         when(httpClient.putRequests(anyList(), anyString()))
                 .thenReturn(
                         CompletableFuture.completedFuture(
-                                new SinkHttpClientResponse(
+                                new SinkHttpClientResponses(
                                         Collections.emptyList(),
                                         Collections.singletonList(request),
                                         Collections.emptyList())));
@@ -132,7 +132,7 @@ class HttpSinkWriterTest {
         when(httpClient.putRequests(anyList(), anyString()))
                 .thenReturn(
                         CompletableFuture.completedFuture(
-                                new SinkHttpClientResponse(
+                                new SinkHttpClientResponses(
                                         Collections.emptyList(),
                                         Collections.singletonList(request),
                                         Collections.emptyList())));
@@ -152,7 +152,7 @@ class HttpSinkWriterTest {
         when(httpClient.putRequests(anyList(), anyString()))
                 .thenReturn(
                         CompletableFuture.completedFuture(
-                                new SinkHttpClientResponse(
+                                new SinkHttpClientResponses(
                                         Collections.emptyList(),
                                         Collections.emptyList(),
                                         Collections.singletonList(request))));

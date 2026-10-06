@@ -38,7 +38,6 @@ import org.apache.flink.util.StringUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Properties;
 
 /**
  * An internal implementation of HTTP Sink that performs async requests against a specified HTTP
@@ -168,11 +167,6 @@ public class HttpSinkInternal<InputT> extends AsyncSinkBase<InputT, HttpSinkRequ
             this.sinkConfig = sinkConfig;
             this.headerPreprocessor = headerPreprocessor;
             this.defaultBatchSize = defaultBatchSize;
-        }
-
-        @Override
-        public Properties getProperties() {
-            return sinkConfig.getProperties();
         }
 
         @Override

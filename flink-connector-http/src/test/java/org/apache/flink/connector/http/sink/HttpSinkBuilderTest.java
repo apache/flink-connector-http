@@ -21,7 +21,7 @@ package org.apache.flink.connector.http.sink;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.http.HttpSink;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
 
 import org.junit.jupiter.api.Test;
 
@@ -77,7 +77,7 @@ public class HttpSinkBuilderTest {
         MockHttpClient() {}
 
         @Override
-        public CompletableFuture<SinkHttpClientResponse> putRequests(
+        public CompletableFuture<SinkHttpClientResponses> putRequests(
                 List<HttpSinkRequestEntry> requestEntries, String endpointUrl) {
             throw new RuntimeException("Mock implementation of HttpClient");
         }

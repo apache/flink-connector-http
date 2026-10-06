@@ -37,10 +37,10 @@ public interface SinkHttpClient {
      *
      * @param requestEntries a set of request entries that should be sent to the destination
      * @param endpointUrl the URL of the endpoint
-     * @return the new {@link CompletableFuture} wrapping {@link SinkHttpClientResponse} that
+     * @return the new {@link CompletableFuture} wrapping {@link SinkHttpClientResponses} that
      *     completes when all requests have been sent and returned their statuses
      */
-    CompletableFuture<SinkHttpClientResponse> putRequests(
+    CompletableFuture<SinkHttpClientResponses> putRequests(
             List<HttpSinkRequestEntry> requestEntries, String endpointUrl);
 
     default void close() {}

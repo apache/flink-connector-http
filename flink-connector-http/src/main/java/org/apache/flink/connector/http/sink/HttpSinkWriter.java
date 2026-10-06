@@ -133,8 +133,8 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                                         "HTTP sink received fatal response status for "
                                                 + failedRequestsNumber
                                                 + " request(s)."));
-                    } else if (!response.getFailedRequests().isEmpty()) {
-                        int failedRequestsNumber = response.getFailedRequests().size();
+                    } else if (!response.getRetriableFailedRequests().isEmpty()) {
+                        int failedRequestsNumber = response.getRetriableFailedRequests().size();
                         log.error(
                                 "Http Sink exhausted client-level retries for {} retryable requests",
                                 failedRequestsNumber);

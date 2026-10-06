@@ -185,7 +185,7 @@ class JavaNetSinkHttpClientTest {
 
         assertThat(response.getSuccessfulRequests()).containsExactly(successfulEntry);
         assertThat(response.getIgnoredRequests()).containsExactly(ignoredEntry);
-        assertThat(response.getFailedRequests()).containsExactly(retryableEntry);
+        assertThat(response.getRetriableFailedRequests()).containsExactly(retryableEntry);
         assertThat(response.getFatalFailedRequests()).containsExactly(fatalEntry);
     }
 
@@ -212,7 +212,7 @@ class JavaNetSinkHttpClientTest {
         var response = client.putRequests(List.of(retryableEntry), "http://localhost").join();
 
         assertThat(response.getSuccessfulRequests()).containsExactly(retryableEntry);
-        assertThat(response.getFailedRequests()).isEmpty();
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
         assertThat(response.getFatalFailedRequests()).isEmpty();
         assertThat(calls).hasValue(2);
     }
@@ -250,7 +250,7 @@ class JavaNetSinkHttpClientTest {
 
         assertThat(response.getSuccessfulRequests())
                 .containsExactly(successfulEntry, retryableEntry);
-        assertThat(response.getFailedRequests()).isEmpty();
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
         assertThat(response.getFatalFailedRequests()).isEmpty();
         assertThat(calls).hasValue(2);
     }
@@ -278,7 +278,7 @@ class JavaNetSinkHttpClientTest {
         var response = client.putRequests(List.of(retryableEntry), "http://localhost").join();
 
         assertThat(response.getSuccessfulRequests()).isEmpty();
-        assertThat(response.getFailedRequests()).containsExactly(retryableEntry);
+        assertThat(response.getRetriableFailedRequests()).containsExactly(retryableEntry);
         assertThat(response.getFatalFailedRequests()).isEmpty();
         assertThat(calls).hasValue(3);
     }
@@ -310,7 +310,7 @@ class JavaNetSinkHttpClientTest {
         var response = client.putRequests(List.of(retryableEntry), "http://localhost").join();
 
         assertThat(response.getSuccessfulRequests()).containsExactly(retryableEntry);
-        assertThat(response.getFailedRequests()).isEmpty();
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
         assertThat(response.getFatalFailedRequests()).isEmpty();
         assertThat(calls).hasValue(2);
     }

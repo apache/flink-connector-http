@@ -21,7 +21,9 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
+import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
 import org.apache.flink.connector.http.sink.httpclient.HttpRequest;
+import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -29,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.io.Serializable;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_IGNORED_RESPONSE_CODES;
@@ -47,7 +50,9 @@ import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnecto
  * Unified HTTP sink configuration for table and DataStream API.
  *
  * <p>Typed user-facing options are read from {@link #readableConfig}. Open-ended keys such as
- * headers, TLS paths, and status-code lists remain in {@link #properties}.
+ * headers, TLS paths, legacy error-code lists, and request-mode remain in {@link #properties}.
+ * Prefer typed getters (and {@link #prepareHeaderMap(HeaderPreprocessor)}) over reading properties
+ * directly when a dedicated accessor exists.
  */
 @Builder
 @Getter
@@ -70,6 +75,20 @@ public class HttpSinkConfig implements Serializable {
      */
     public ReadableConfig getReadableConfig() {
         return readableConfig;
+    }
+
+    /**
+     * Builds the sink HTTP header map from {@code http.sink.header.*} properties after
+     * preprocessing.
+     */
+    public Map<String, String> prepareHeaderMap(HeaderPreprocessor headerPreprocessor) {
+        return HttpHeaderUtils.prepareHeaderMap(
+                HttpConnectorConfigConstants.SINK_HEADER_PREFIX, properties, headerPreprocessor);
+    }
+
+    /** Returns the configured sink request mode property, or {@code null} if unset. */
+    public String getRequestMode() {
+        return properties.getProperty(HttpConnectorConfigConstants.SINK_HTTP_REQUEST_MODE);
     }
 
     public Duration getRequestTimeout() {

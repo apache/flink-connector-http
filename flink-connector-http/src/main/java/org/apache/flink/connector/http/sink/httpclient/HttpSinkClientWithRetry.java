@@ -17,7 +17,7 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
 import io.github.resilience4j.retry.Retry;
@@ -46,7 +46,7 @@ class HttpSinkClientWithRetry {
                 Executors.newSingleThreadScheduledExecutor(new HttpSinkRetryThreadFactory());
     }
 
-    CompletableFuture<SinkHttpClientResponse> send(
+    CompletableFuture<SinkHttpClientResponses> send(
             List<HttpSinkRequestEntry> requestEntries,
             Function<List<HttpSinkRequestEntry>, CompletionStage<HttpSinkAttemptResult>>
                     attemptSubmitter) {
@@ -101,7 +101,7 @@ class HttpSinkClientWithRetry {
 
     private static final class ResponseAccumulator {
         private final List<HttpSinkRequestEntry> successfulRequests = new ArrayList<>();
-        private final List<HttpSinkRequestEntry> failedRequests = new ArrayList<>();
+        private final List<HttpSinkRequestEntry> retriableFailedRequests = new ArrayList<>();
         private final List<HttpSinkRequestEntry> fatalFailedRequests = new ArrayList<>();
         private final List<HttpSinkRequestEntry> ignoredRequests = new ArrayList<>();
 
@@ -112,12 +112,15 @@ class HttpSinkClientWithRetry {
         }
 
         private void markRetriesExhausted(HttpSinkAttemptResult attemptResult) {
-            failedRequests.addAll(attemptResult.getRetryableRequests());
+            retriableFailedRequests.addAll(attemptResult.getRetryableRequests());
         }
 
-        private SinkHttpClientResponse toResponse() {
-            return new SinkHttpClientResponse(
-                    successfulRequests, failedRequests, fatalFailedRequests, ignoredRequests);
+        private SinkHttpClientResponses toResponse() {
+            return new SinkHttpClientResponses(
+                    successfulRequests,
+                    retriableFailedRequests,
+                    fatalFailedRequests,
+                    ignoredRequests);
         }
     }
 

@@ -23,8 +23,7 @@ import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
 import org.apache.flink.connector.http.clients.SinkHttpClientBuilder;
 import org.apache.flink.connector.http.clients.SinkHttpClientContext;
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
-import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
 import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.config.SinkRequestSubmitMode;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
@@ -80,13 +79,8 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
             HeaderPreprocessor headerPreprocessor,
             RequestSubmitterFactory requestSubmitterFactory) {
 
-        var properties = sinkConfig.getProperties();
         this.httpPostRequestCallback = sinkConfig.getHttpPostRequestCallback();
-        this.headerMap =
-                HttpHeaderUtils.prepareHeaderMap(
-                        HttpConnectorConfigConstants.SINK_HEADER_PREFIX,
-                        properties,
-                        headerPreprocessor);
+        this.headerMap = sinkConfig.prepareHeaderMap(headerPreprocessor);
 
         this.responseClassifier = new HttpSinkResponseClassifier(sinkConfig);
 
@@ -94,13 +88,13 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
         this.requestSubmitter =
                 requestSubmitterFactory.createSubmitter(sinkConfig, headersAndValues);
 
-        this.httpLogger = HttpLogger.getHttpLogger(properties);
+        this.httpLogger = HttpLogger.getHttpLogger(sinkConfig.getProperties());
         this.httpClientWithRetry =
                 new HttpSinkClientWithRetry(SinkRetryConfigProvider.create(sinkConfig));
     }
 
     @Override
-    public CompletableFuture<SinkHttpClientResponse> putRequests(
+    public CompletableFuture<SinkHttpClientResponses> putRequests(
             List<HttpSinkRequestEntry> requestEntries, String endpointUrl) {
         return httpClientWithRetry.send(
                 requestEntries, requestsToSubmit -> submitAttempt(requestsToSubmit, endpointUrl));
@@ -170,12 +164,8 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
 
     private static RequestSubmitterFactory createRequestSubmitterFactory(
             SinkHttpClientContext context) {
-        if (SinkRequestSubmitMode.SINGLE
-                .getMode()
-                .equalsIgnoreCase(
-                        context.getProperties()
-                                .getProperty(
-                                        HttpConnectorConfigConstants.SINK_HTTP_REQUEST_MODE))) {
+        String requestMode = context.getSinkConfig().getRequestMode();
+        if (SinkRequestSubmitMode.SINGLE.getMode().equalsIgnoreCase(requestMode)) {
             return new PerRequestRequestSubmitterFactory();
         }
         return new BatchRequestSubmitterFactory(context.getDefaultBatchSize());
