@@ -17,26 +17,40 @@
 
 package org.apache.flink.connector.http.clients;
 
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 import org.apache.flink.connector.http.sink.httpclient.HttpRequest;
-
-import lombok.Data;
-import lombok.NonNull;
-import lombok.ToString;
 
 import java.util.List;
 
 /**
- * Data class holding {@link HttpSinkRequestEntry} instances that {@link SinkHttpClient} attempted
- * to write, divided into two lists &mdash; successful and failed ones.
+ * @deprecated Use {@link SinkHttpClientResponses} instead.
  */
-@Data
-@ToString
-public class SinkHttpClientResponse {
+@Deprecated
+@PublicEvolving
+public class SinkHttpClientResponse extends SinkHttpClientResponses {
 
-    /** A list of successfully written requests. */
-    @NonNull private final List<HttpRequest> successfulRequests;
+    public SinkHttpClientResponse(
+            List<HttpSinkRequestEntry> successfulRequests,
+            List<HttpSinkRequestEntry> retriableFailedRequests,
+            List<HttpSinkRequestEntry> fatalFailedRequests,
+            List<HttpSinkRequestEntry> ignoredRequests) {
+        super(successfulRequests, retriableFailedRequests, fatalFailedRequests, ignoredRequests);
+    }
 
-    /** A list of requests that {@link SinkHttpClient} failed to write. */
-    @NonNull private final List<HttpRequest> failedRequests;
+    public SinkHttpClientResponse(
+            List<HttpSinkRequestEntry> successfulRequests,
+            List<HttpSinkRequestEntry> retriableFailedRequests,
+            List<HttpSinkRequestEntry> fatalFailedRequests) {
+        super(successfulRequests, retriableFailedRequests, fatalFailedRequests);
+    }
+
+    /**
+     * @deprecated Use {@link SinkHttpClientResponses#SinkHttpClientResponses(List, List)} instead.
+     */
+    @Deprecated
+    public SinkHttpClientResponse(
+            List<HttpRequest> successfulRequests, List<HttpRequest> failedRequests) {
+        super(successfulRequests, failedRequests);
+    }
 }

@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 
 import static org.apache.flink.connector.base.sink.writer.AsyncSinkWriterTestUtils.assertThatBufferStatesAreEqual;
 import static org.apache.flink.connector.base.sink.writer.AsyncSinkWriterTestUtils.getTestState;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test for {@link HttpSinkWriter }. */
 public class HttpSinkWriterStateSerializerTest {
@@ -45,8 +46,15 @@ public class HttpSinkWriterStateSerializerTest {
 
         HttpSinkWriterStateSerializer serializer = new HttpSinkWriterStateSerializer();
         BufferedRequestState<HttpSinkRequestEntry> actualState =
-                serializer.deserialize(1, serializer.serialize(expectedState));
+                serializer.deserialize(
+                        serializer.getVersion(), serializer.serialize(expectedState));
 
         assertThatBufferStatesAreEqual(actualState, expectedState);
+    }
+
+    @Test
+    public void testSerializerVersionRemainsOne() {
+        HttpSinkWriterStateSerializer serializer = new HttpSinkWriterStateSerializer();
+        assertThat(serializer.getVersion()).isEqualTo(1);
     }
 }

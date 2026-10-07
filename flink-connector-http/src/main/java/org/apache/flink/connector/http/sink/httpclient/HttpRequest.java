@@ -17,12 +17,16 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
+
 import lombok.Data;
 
 import java.util.List;
 
 /** Http request. */
 @Data
+@PublicEvolving
 public class HttpRequest {
 
     public final java.net.http.HttpRequest httpRequest;
@@ -30,4 +34,6 @@ public class HttpRequest {
     public final List<byte[]> elements;
 
     public final String method;
+
+    public final List<HttpSinkRequestEntry> requestEntries;
 }

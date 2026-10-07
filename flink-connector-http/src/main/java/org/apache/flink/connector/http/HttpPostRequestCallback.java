@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.http;
 
+import org.apache.flink.annotation.PublicEvolving;
+
 import java.io.Serializable;
 import java.net.http.HttpResponse;
 import java.util.Map;
@@ -29,6 +31,7 @@ import java.util.Map;
  *
  * @param <RequestT> type of the HTTP request wrapper
  */
+@PublicEvolving
 public interface HttpPostRequestCallback<RequestT> extends Serializable {
     /**
      * Process HTTP request and the matching response.

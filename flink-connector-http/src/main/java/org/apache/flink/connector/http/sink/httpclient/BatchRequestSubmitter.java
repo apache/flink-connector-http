@@ -19,6 +19,7 @@ package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,8 +35,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * This implementation groups received events in batches and submits each batch as individual HTTP
@@ -53,14 +54,19 @@ public class BatchRequestSubmitter extends AbstractRequestSubmitter {
     private final int httpRequestBatchSize;
 
     public BatchRequestSubmitter(
-            Properties properties, String[] headersAndValue, HttpClient httpClient) {
+            HttpSinkConfig sinkConfig,
+            String[] headersAndValue,
+            HttpClient httpClient,
+            ExecutorService httpClientExecutor) {
 
-        super(properties, headersAndValue, httpClient);
+        super(sinkConfig, headersAndValue, httpClient, httpClientExecutor);
 
         this.httpRequestBatchSize =
                 Integer.parseInt(
-                        properties.getProperty(
-                                HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE));
+                        sinkConfig
+                                .getProperties()
+                                .getProperty(
+                                        HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE));
     }
 
     @Override
@@ -144,7 +150,11 @@ public class BatchRequestSubmitter extends AbstractRequestSubmitter {
                 requestBuilder.headers(headersAndValues);
             }
 
-            return new HttpRequest(requestBuilder.build(), elements, method);
+            return new HttpRequest(
+                    requestBuilder.build(),
+                    elements,
+                    method,
+                    Collections.unmodifiableList(new ArrayList<>(requestBatch)));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

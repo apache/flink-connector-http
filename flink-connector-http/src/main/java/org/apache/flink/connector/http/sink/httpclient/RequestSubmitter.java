@@ -23,8 +23,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /** Submits request via HTTP. */
-public interface RequestSubmitter {
+interface RequestSubmitter {
 
     List<CompletableFuture<JavaNetHttpResponseWrapper>> submit(
             String endpointUrl, List<HttpSinkRequestEntry> requestToSubmit);
+
+    default void close() {}
 }

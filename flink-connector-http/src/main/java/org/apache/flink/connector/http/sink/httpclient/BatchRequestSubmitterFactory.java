@@ -19,6 +19,7 @@ package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.connector.http.config.ConfigException;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.utils.JavaNetHttpClientFactory;
 import org.apache.flink.connector.http.utils.ThreadUtils;
 import org.apache.flink.util.StringUtils;
@@ -29,7 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Batch request submitter factory. */
-public class BatchRequestSubmitterFactory implements RequestSubmitterFactory {
+class BatchRequestSubmitterFactory implements RequestSubmitterFactory {
 
     // TODO Add this property to config. Make sure to add note in README.md that will describe that
     //  any value greater than one will break order of messages.
@@ -46,7 +47,9 @@ public class BatchRequestSubmitterFactory implements RequestSubmitterFactory {
     }
 
     @Override
-    public BatchRequestSubmitter createSubmitter(Properties properties, String[] headersAndValues) {
+    public BatchRequestSubmitter createSubmitter(
+            HttpSinkConfig sinkConfig, String[] headersAndValues) {
+        Properties properties = sinkConfig.getProperties();
         String batchRequestSize =
                 properties.getProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE);
         if (StringUtils.isNullOrWhitespaceOnly(batchRequestSize)) {
@@ -82,8 +85,9 @@ public class BatchRequestSubmitterFactory implements RequestSubmitterFactory {
                                 ThreadUtils.LOGGING_EXCEPTION_HANDLER));
 
         return new BatchRequestSubmitter(
-                properties,
+                sinkConfig,
                 headersAndValues,
-                JavaNetHttpClientFactory.createClient(properties, httpClientExecutor));
+                JavaNetHttpClientFactory.createClient(properties, httpClientExecutor),
+                httpClientExecutor);
     }
 }

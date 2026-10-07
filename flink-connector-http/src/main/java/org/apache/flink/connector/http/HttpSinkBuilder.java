@@ -20,8 +20,9 @@ package org.apache.flink.connector.http;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.base.sink.AsyncSinkBaseBuilder;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
-import org.apache.flink.connector.http.clients.SinkHttpClient;
 import org.apache.flink.connector.http.clients.SinkHttpClientBuilder;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
+import org.apache.flink.connector.http.config.HttpSinkConfigFactory;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 import org.apache.flink.connector.http.sink.httpclient.HttpRequest;
@@ -79,7 +80,8 @@ public class HttpSinkBuilder<InputT>
 
     private static final long DEFAULT_MAX_RECORD_SIZE_IN_B = 1024 * 1024;
 
-    private static final SinkHttpClientBuilder DEFAULT_CLIENT_BUILDER = JavaNetSinkHttpClient::new;
+    private static final SinkHttpClientBuilder DEFAULT_CLIENT_BUILDER =
+            JavaNetSinkHttpClient.builder();
 
     private static final HttpPostRequestCallback<HttpRequest> DEFAULT_POST_REQUEST_CALLBACK =
             new Slf4jHttpPostRequestCallback();
@@ -88,6 +90,8 @@ public class HttpSinkBuilder<InputT>
             HttpHeaderUtils.createBasicAuthorizationHeaderPreprocessor();
 
     private final Properties properties = new Properties();
+
+    private HttpSinkConfig httpSinkConfig;
 
     // Mandatory field
     private String endpointUrl;
@@ -191,6 +195,25 @@ public class HttpSinkBuilder<InputT>
         return this;
     }
 
+    /**
+     * Sets unified sink configuration for table and DataStream API.
+     *
+     * @param httpSinkConfig unified sink configuration
+     * @return {@link HttpSinkBuilder} itself
+     */
+    public HttpSinkBuilder<InputT> setHttpSinkConfig(HttpSinkConfig httpSinkConfig) {
+        this.httpSinkConfig = httpSinkConfig;
+        return this;
+    }
+
+    private HttpSinkConfig resolveSinkConfig() {
+        if (httpSinkConfig != null) {
+            return httpSinkConfig;
+        }
+        return HttpSinkConfigFactory.fromDataStream(
+                endpointUrl, properties, httpPostRequestCallback);
+    }
+
     @Override
     public HttpSink<InputT> build() {
         return new HttpSink<>(
@@ -202,10 +225,8 @@ public class HttpSinkBuilder<InputT>
                 Optional.ofNullable(getMaxBatchSizeInBytes()).orElse(DEFAULT_MAX_BATCH_SIZE_IN_B),
                 Optional.ofNullable(getMaxTimeInBufferMS()).orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS),
                 Optional.ofNullable(getMaxRecordSizeInBytes()).orElse(DEFAULT_MAX_RECORD_SIZE_IN_B),
-                endpointUrl,
-                httpPostRequestCallback,
+                resolveSinkConfig(),
                 headerPreprocessor,
-                sinkHttpClientBuilder,
-                properties);
+                sinkHttpClientBuilder);
     }
 }

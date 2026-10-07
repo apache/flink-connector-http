@@ -20,6 +20,8 @@ package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.connector.http.config.ConfigException;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
+import org.apache.flink.connector.http.table.sink.Slf4jHttpPostRequestCallback;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,6 +34,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link BatchRequestSubmitterFactory}. */
 class BatchRequestSubmitterFactoryTest {
+
+    private static HttpSinkConfig sinkConfig(Properties properties) {
+        return HttpSinkConfig.builder()
+                .url("http://localhost")
+                .properties(properties)
+                .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                .build();
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
@@ -46,7 +56,7 @@ class BatchRequestSubmitterFactoryTest {
         int defaultBatchSize = 10;
         BatchRequestSubmitter submitter =
                 new BatchRequestSubmitterFactory(defaultBatchSize)
-                        .createSubmitter(new Properties(), new String[0]);
+                        .createSubmitter(sinkConfig(new Properties()), new String[0]);
 
         assertThat(submitter.getBatchSize()).isEqualTo(defaultBatchSize);
     }
@@ -60,7 +70,8 @@ class BatchRequestSubmitterFactoryTest {
                 HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, batchSize);
 
         BatchRequestSubmitter submitter =
-                new BatchRequestSubmitterFactory(10).createSubmitter(properties, new String[0]);
+                new BatchRequestSubmitterFactory(10)
+                        .createSubmitter(sinkConfig(properties), new String[0]);
 
         assertThat(submitter.getBatchSize()).isEqualTo(Integer.valueOf(batchSize));
     }
@@ -75,7 +86,7 @@ class BatchRequestSubmitterFactoryTest {
 
         BatchRequestSubmitterFactory factory = new BatchRequestSubmitterFactory(10);
 
-        assertThatThrownBy(() -> factory.createSubmitter(properties, new String[0]))
+        assertThatThrownBy(() -> factory.createSubmitter(sinkConfig(properties), new String[0]))
                 .isInstanceOf(ConfigException.class);
     }
 
@@ -89,7 +100,7 @@ class BatchRequestSubmitterFactoryTest {
 
         BatchRequestSubmitterFactory factory = new BatchRequestSubmitterFactory(10);
 
-        assertThatThrownBy(() -> factory.createSubmitter(properties, new String[0]))
+        assertThatThrownBy(() -> factory.createSubmitter(sinkConfig(properties), new String[0]))
                 .isInstanceOf(ConfigException.class);
     }
 }

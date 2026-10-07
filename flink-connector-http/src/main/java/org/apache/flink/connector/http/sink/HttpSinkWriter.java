@@ -25,7 +25,7 @@ import org.apache.flink.connector.base.sink.writer.ResultHandler;
 import org.apache.flink.connector.base.sink.writer.config.AsyncSinkWriterConfiguration;
 import org.apache.flink.connector.http.HttpSink;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
-import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.utils.ThreadUtils;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
@@ -34,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,8 +53,6 @@ import java.util.concurrent.Executors;
 @Slf4j
 @SuppressWarnings("deprecation") // AsyncSinkWriter constructor is deprecated in Flink 2.x
 public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequestEntry> {
-
-    private static final String HTTP_SINK_WRITER_THREAD_POOL_SIZE = "4";
 
     /** Thread pool to handle HTTP response from HTTP client. */
     private final ExecutorService sinkWriterThreadPool;
@@ -78,7 +75,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
             String endpointUrl,
             SinkHttpClient sinkHttpClient,
             Collection<BufferedRequestState<HttpSinkRequestEntry>> bufferedRequestStates,
-            Properties properties) {
+            HttpSinkConfig sinkConfig) {
 
         super(
                 elementConverter,
@@ -98,11 +95,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
         var metrics = context.metricGroup();
         this.numRecordsSendErrorsCounter = metrics.getNumRecordsSendErrorsCounter();
 
-        int sinkWriterThreadPoolSize =
-                Integer.parseInt(
-                        properties.getProperty(
-                                HttpConnectorConfigConstants.SINK_HTTP_WRITER_THREAD_POOL_SIZE,
-                                HTTP_SINK_WRITER_THREAD_POOL_SIZE));
+        int sinkWriterThreadPoolSize = sinkConfig.getWriterThreadPoolSize();
 
         this.sinkWriterThreadPool =
                 Executors.newFixedThreadPool(
@@ -111,7 +104,6 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                                 "http-sink-writer-worker", ThreadUtils.LOGGING_EXCEPTION_HANDLER));
     }
 
-    // TODO: Reintroduce retries by adding backoff policy
     @Override
     protected void submitRequestEntries(
             List<HttpSinkRequestEntry> requestEntries,
@@ -126,27 +118,32 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
                                 failedRequestsNumber);
                         numRecordsSendErrorsCounter.inc(failedRequestsNumber);
 
-                        // TODO: Make `HttpSinkInternal` retry the failed requests.
-                        //  Currently, it does not retry those at all, only adds their count
-                        //  to the `numRecordsSendErrors` metric. It is due to the fact we do not
-                        // have
-                        //  a clear image how we want to do it, so it would be both efficient and
-                        // correct.
-                        // resultHandler.retryForEntries(requestEntries);
-                        resultHandler.complete();
-                    } else if (response.getFailedRequests().size() > 0) {
-                        int failedRequestsNumber = response.getFailedRequests().size();
+                        resultHandler.completeExceptionally(
+                                new RuntimeException(
+                                        "HTTP sink request failed before receiving a response for "
+                                                + failedRequestsNumber
+                                                + " request(s).",
+                                        err));
+                    } else if (!response.getFatalFailedRequests().isEmpty()) {
+                        int failedRequestsNumber = response.getFatalFailedRequests().size();
                         log.error("Http Sink failed to write {} requests", failedRequestsNumber);
                         numRecordsSendErrorsCounter.inc(failedRequestsNumber);
-
-                        // TODO: Make `HttpSinkInternal` retry the failed requests. Currently,
-                        //  it does not retry those at all, only adds their count to the
-                        //  `numRecordsSendErrors` metric. It is due to the fact we do not have
-                        //  a clear image how we want to do it, so it would be both efficient and
-                        // correct.
-
-                        // resultHandler.retryForEntries(response.getFailedRequests());
-                        resultHandler.complete();
+                        resultHandler.completeExceptionally(
+                                new RuntimeException(
+                                        "HTTP sink received fatal response status for "
+                                                + failedRequestsNumber
+                                                + " request(s)."));
+                    } else if (!response.getRetriableFailedRequests().isEmpty()) {
+                        int failedRequestsNumber = response.getRetriableFailedRequests().size();
+                        log.error(
+                                "Http Sink exhausted client-level retries for {} retryable requests",
+                                failedRequestsNumber);
+                        numRecordsSendErrorsCounter.inc(failedRequestsNumber);
+                        resultHandler.completeExceptionally(
+                                new RuntimeException(
+                                        "HTTP sink exhausted retries for "
+                                                + failedRequestsNumber
+                                                + " request(s)."));
                     } else {
                         resultHandler.complete();
                     }
@@ -161,6 +158,7 @@ public class HttpSinkWriter<InputT> extends AsyncSinkWriter<InputT, HttpSinkRequ
 
     @Override
     public void close() {
+        sinkHttpClient.close();
         sinkWriterThreadPool.shutdownNow();
         super.close();
     }

@@ -15,22 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.http.preprocessor;
+package org.apache.flink.connector.http.sink.httpclient;
 
-import org.apache.flink.annotation.PublicEvolving;
-
-import java.io.Serializable;
-
-/** Interface for header preprocessing. */
-@PublicEvolving
-public interface HeaderPreprocessor extends Serializable {
-
-    /**
-     * Preprocess value of a header.Preprocessing can change or validate header value.
-     *
-     * @param headerName header name which value should be preprocessed.
-     * @param headerRawValue header value to process.
-     * @return preprocessed header value.
-     */
-    String preprocessValueForHeader(String headerName, String headerRawValue);
+/** Classification of an HTTP sink response. */
+public enum HttpSinkResponseStatus {
+    SUCCESS,
+    IGNORED,
+    RETRYABLE_FAILURE,
+    FATAL_FAILURE
 }

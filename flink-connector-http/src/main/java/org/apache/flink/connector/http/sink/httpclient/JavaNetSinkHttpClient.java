@@ -21,24 +21,24 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.http.HttpLogger;
 import org.apache.flink.connector.http.HttpPostRequestCallback;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
-import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.clients.SinkHttpClientBuilder;
+import org.apache.flink.connector.http.clients.SinkHttpClientContext;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
+import org.apache.flink.connector.http.config.SinkRequestSubmitMode;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
+import org.apache.flink.connector.http.retry.SinkRetryConfigProvider;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
-import org.apache.flink.connector.http.status.ComposeHttpStatusCodeChecker;
-import org.apache.flink.connector.http.status.ComposeHttpStatusCodeChecker.ComposeHttpStatusCodeCheckerConfig;
-import org.apache.flink.connector.http.status.HttpStatusCodeChecker;
 import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.http.HttpClient;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 /**
@@ -52,7 +52,7 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
 
     private final Map<String, String> headerMap;
 
-    private final HttpStatusCodeChecker statusCodeChecker;
+    private final HttpSinkResponseClassifier responseClassifier;
 
     private final HttpPostRequestCallback<HttpRequest> httpPostRequestCallback;
 
@@ -60,43 +60,59 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
 
     private final HttpLogger httpLogger;
 
-    public JavaNetSinkHttpClient(
-            Properties properties,
-            HttpPostRequestCallback<HttpRequest> httpPostRequestCallback,
+    private final HttpSinkClientWithRetry httpClientWithRetry;
+
+    public static SinkHttpClientBuilder builder() {
+        return new SinkHttpClientBuilder() {
+            @Override
+            public SinkHttpClient build(SinkHttpClientContext context) {
+                return new JavaNetSinkHttpClient(
+                        context.getSinkConfig(),
+                        context.getHeaderPreprocessor(),
+                        createRequestSubmitterFactory(context));
+            }
+        };
+    }
+
+    JavaNetSinkHttpClient(
+            HttpSinkConfig sinkConfig,
             HeaderPreprocessor headerPreprocessor,
             RequestSubmitterFactory requestSubmitterFactory) {
 
-        this.httpPostRequestCallback = httpPostRequestCallback;
-        this.headerMap =
-                HttpHeaderUtils.prepareHeaderMap(
-                        HttpConnectorConfigConstants.SINK_HEADER_PREFIX,
-                        properties,
-                        headerPreprocessor);
+        this.httpPostRequestCallback = sinkConfig.getHttpPostRequestCallback();
+        this.headerMap = sinkConfig.prepareHeaderMap(headerPreprocessor);
 
-        // TODO Inject this via constructor when implementing a response processor.
-        //  Processor will be injected and it will wrap statusChecker implementation.
-        ComposeHttpStatusCodeCheckerConfig checkerConfig =
-                ComposeHttpStatusCodeCheckerConfig.builder()
-                        .properties(properties)
-                        .includeListPrefix(
-                                HttpConnectorConfigConstants.HTTP_ERROR_SINK_CODE_INCLUDE_LIST)
-                        .errorCodePrefix(HttpConnectorConfigConstants.HTTP_ERROR_SINK_CODES_LIST)
-                        .build();
-
-        this.statusCodeChecker = new ComposeHttpStatusCodeChecker(checkerConfig);
+        this.responseClassifier = new HttpSinkResponseClassifier(sinkConfig);
 
         this.headersAndValues = HttpHeaderUtils.toHeaderAndValueArray(this.headerMap);
         this.requestSubmitter =
-                requestSubmitterFactory.createSubmitter(properties, headersAndValues);
+                requestSubmitterFactory.createSubmitter(sinkConfig, headersAndValues);
 
-        this.httpLogger = HttpLogger.getHttpLogger(properties);
+        this.httpLogger = HttpLogger.getHttpLogger(sinkConfig.getProperties());
+        this.httpClientWithRetry =
+                new HttpSinkClientWithRetry(SinkRetryConfigProvider.create(sinkConfig));
     }
 
     @Override
-    public CompletableFuture<SinkHttpClientResponse> putRequests(
+    public CompletableFuture<SinkHttpClientResponses> putRequests(
+            List<HttpSinkRequestEntry> requestEntries, String endpointUrl) {
+        return httpClientWithRetry.send(
+                requestEntries, requestsToSubmit -> submitAttempt(requestsToSubmit, endpointUrl));
+    }
+
+    @Override
+    public void close() {
+        try {
+            requestSubmitter.close();
+        } finally {
+            httpClientWithRetry.close();
+        }
+    }
+
+    private CompletionStage<HttpSinkAttemptResult> submitAttempt(
             List<HttpSinkRequestEntry> requestEntries, String endpointUrl) {
         return submitRequests(requestEntries, endpointUrl)
-                .thenApply(responses -> prepareSinkHttpClientResponse(responses, endpointUrl));
+                .thenApply(responses -> prepareAttemptResult(responses, endpointUrl));
     }
 
     private CompletableFuture<List<JavaNetHttpResponseWrapper>> submitRequests(
@@ -111,32 +127,47 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                                 .collect(Collectors.toList()));
     }
 
-    private SinkHttpClientResponse prepareSinkHttpClientResponse(
+    private HttpSinkAttemptResult prepareAttemptResult(
             List<JavaNetHttpResponseWrapper> responses, String endpointUrl) {
-        var successfulResponses = new ArrayList<HttpRequest>();
-        var failedResponses = new ArrayList<HttpRequest>();
+        var attemptResult = new HttpSinkAttemptResult();
 
         for (var response : responses) {
             var sinkRequestEntry = response.getHttpRequest();
             var optResponse = response.getResponse();
-            this.httpLogger.logResponse(response.getResponse().get());
+            optResponse.ifPresent(this.httpLogger::logResponse);
             httpPostRequestCallback.call(
                     optResponse.orElse(null), sinkRequestEntry, endpointUrl, headerMap);
 
-            // TODO Add response processor here and orchestrate it with statusCodeChecker.
-            if (optResponse.isEmpty()
-                    || statusCodeChecker.isErrorCode(optResponse.get().statusCode())) {
-                failedResponses.add(sinkRequestEntry);
-            } else {
-                successfulResponses.add(sinkRequestEntry);
+            switch (responseClassifier.classify(optResponse.orElse(null))) {
+                case SUCCESS:
+                    attemptResult.addSuccessfulRequests(sinkRequestEntry.getRequestEntries());
+                    break;
+                case IGNORED:
+                    attemptResult.addIgnoredRequests(sinkRequestEntry.getRequestEntries());
+                    break;
+                case RETRYABLE_FAILURE:
+                    attemptResult.addRetryableRequests(sinkRequestEntry.getRequestEntries());
+                    break;
+                case FATAL_FAILURE:
+                    attemptResult.addFatalFailedRequests(sinkRequestEntry.getRequestEntries());
+                    break;
             }
         }
 
-        return new SinkHttpClientResponse(successfulResponses, failedResponses);
+        return attemptResult;
     }
 
     @VisibleForTesting
     String[] getHeadersAndValues() {
         return Arrays.copyOf(headersAndValues, headersAndValues.length);
+    }
+
+    private static RequestSubmitterFactory createRequestSubmitterFactory(
+            SinkHttpClientContext context) {
+        String requestMode = context.getSinkConfig().getRequestMode();
+        if (SinkRequestSubmitMode.SINGLE.getMode().equalsIgnoreCase(requestMode)) {
+            return new PerRequestRequestSubmitterFactory();
+        }
+        return new BatchRequestSubmitterFactory(context.getDefaultBatchSize());
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
 import lombok.extern.slf4j.Slf4j;
@@ -29,17 +30,20 @@ import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /** This implementation creates HTTP requests for every processed event. */
 @Slf4j
 public class PerRequestSubmitter extends AbstractRequestSubmitter {
 
     public PerRequestSubmitter(
-            Properties properties, String[] headersAndValues, HttpClient httpClient) {
+            HttpSinkConfig sinkConfig,
+            String[] headersAndValues,
+            HttpClient httpClient,
+            ExecutorService httpClientExecutor) {
 
-        super(properties, headersAndValues, httpClient);
+        super(sinkConfig, headersAndValues, httpClient, httpClientExecutor);
     }
 
     @Override
@@ -88,6 +92,9 @@ public class PerRequestSubmitter extends AbstractRequestSubmitter {
         }
 
         return new HttpRequest(
-                requestBuilder.build(), List.of(requestEntry.element), requestEntry.method);
+                requestBuilder.build(),
+                List.of(requestEntry.element),
+                requestEntry.method,
+                List.of(requestEntry));
     }
 }

@@ -1,13 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * or more contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +18,7 @@
 package org.apache.flink.connector.http.table.sink;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.table.sink.HttpDynamicSink.HttpDynamicTableSinkBuilder;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -35,16 +35,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Test for {@link HttpDynamicSink}. */
 public class HttpDynamicSinkTest {
 
+    private HttpSinkConfig testSinkConfig(Configuration tableOptions) {
+        Configuration config =
+                tableOptions instanceof Configuration
+                        ? tableOptions
+                        : Configuration.fromMap(tableOptions.toMap());
+        return HttpSinkConfig.builder()
+                .url(config.get(URL))
+                .readableConfig(config)
+                .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                .build();
+    }
+
     @Test
     public void testAsSummaryString() {
         var mockFormat = new TestFormatFactory.EncodingFormatMock(",", ChangelogMode.insertOnly());
 
         HttpDynamicSink dynamicSink =
                 new HttpDynamicTableSinkBuilder()
-                        .setTableOptions(new Configuration())
+                        .setSinkConfig(testSinkConfig(new Configuration()))
                         .setConsumedDataType(new AtomicDataType(new BooleanType(false)))
                         .setEncodingFormat(mockFormat)
-                        .setHttpPostRequestCallback(new Slf4jHttpPostRequestCallback())
                         .build();
 
         assertThat(dynamicSink.asSummaryString()).isEqualTo("HttpSink");
@@ -55,17 +66,17 @@ public class HttpDynamicSinkTest {
         var mockFormat = new TestFormatFactory.EncodingFormatMock(",", ChangelogMode.insertOnly());
         var sink =
                 new HttpDynamicTableSinkBuilder()
-                        .setTableOptions(
-                                new Configuration() {
-                                    {
-                                        this.set(URL, "localhost:8123");
-                                        this.set(INSERT_METHOD, "POST");
-                                        this.set(FactoryUtil.FORMAT, "json");
-                                    }
-                                })
+                        .setSinkConfig(
+                                testSinkConfig(
+                                        new Configuration() {
+                                            {
+                                                this.set(URL, "localhost:8123");
+                                                this.set(INSERT_METHOD, "POST");
+                                                this.set(FactoryUtil.FORMAT, "json");
+                                            }
+                                        }))
                         .setConsumedDataType(new AtomicDataType(new BooleanType(false)))
                         .setEncodingFormat(mockFormat)
-                        .setHttpPostRequestCallback(new Slf4jHttpPostRequestCallback())
                         .build();
 
         assertThat(sink.copy()).isEqualTo(sink);
@@ -77,17 +88,17 @@ public class HttpDynamicSinkTest {
         var consumedDataType = new AtomicDataType(new BooleanType(false));
 
         return new HttpDynamicTableSinkBuilder()
-                .setTableOptions(
-                        new Configuration() {
-                            {
-                                this.set(URL, "localhost:8123");
-                                this.set(INSERT_METHOD, "POST");
-                                this.set(FactoryUtil.FORMAT, "json");
-                            }
-                        })
+                .setSinkConfig(
+                        testSinkConfig(
+                                new Configuration() {
+                                    {
+                                        this.set(URL, "localhost:8123");
+                                        this.set(INSERT_METHOD, "POST");
+                                        this.set(FactoryUtil.FORMAT, "json");
+                                    }
+                                }))
                 .setConsumedDataType(consumedDataType)
                 .setEncodingFormat(mockFormat)
-                .setHttpPostRequestCallback(new Slf4jHttpPostRequestCallback())
                 .setMaxBatchSize(1);
     }
 
@@ -97,14 +108,15 @@ public class HttpDynamicSinkTest {
         var sinkBatchSize = getSinkBuilder().setMaxBatchSize(10).build();
         var sinkSinkConfig =
                 getSinkBuilder()
-                        .setTableOptions(
-                                new Configuration() {
-                                    {
-                                        this.set(URL, "localhost:8124");
-                                        this.set(INSERT_METHOD, "POST");
-                                        this.set(FactoryUtil.FORMAT, "json");
-                                    }
-                                })
+                        .setSinkConfig(
+                                testSinkConfig(
+                                        new Configuration() {
+                                            {
+                                                this.set(URL, "localhost:8124");
+                                                this.set(INSERT_METHOD, "POST");
+                                                this.set(FactoryUtil.FORMAT, "json");
+                                            }
+                                        }))
                         .build();
         var sinkDataType =
                 getSinkBuilder()
@@ -117,7 +129,19 @@ public class HttpDynamicSinkTest {
                         .build();
         var sinkHttpPostRequestCallback =
                 getSinkBuilder()
-                        .setHttpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                        .setSinkConfig(
+                                HttpSinkConfig.builder()
+                                        .url("localhost:8123")
+                                        .readableConfig(
+                                                new Configuration() {
+                                                    {
+                                                        this.set(URL, "localhost:8123");
+                                                        this.set(INSERT_METHOD, "POST");
+                                                        this.set(FactoryUtil.FORMAT, "json");
+                                                    }
+                                                })
+                                        .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                                        .build())
                         .build();
 
         assertThat(sink).isEqualTo(sink);

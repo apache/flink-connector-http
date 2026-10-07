@@ -38,10 +38,13 @@ public final class HttpConnectorConfigConstants {
     /** A property prefix for http connector. */
     public static final String FLINK_CONNECTOR_HTTP = "http.";
 
+    /** A property prefix for http sink connector properties. */
+    public static final String FLINK_CONNECTOR_HTTP_SINK = FLINK_CONNECTOR_HTTP + "sink.";
+
     private static final String SOURCE_LOOKUP_PREFIX = FLINK_CONNECTOR_HTTP + "source.lookup.";
 
     /** A property prefix for http connector header properties. */
-    public static final String SINK_HEADER_PREFIX = FLINK_CONNECTOR_HTTP + "sink.header.";
+    public static final String SINK_HEADER_PREFIX = FLINK_CONNECTOR_HTTP_SINK + "header.";
 
     public static final String LOOKUP_SOURCE_HEADER_PREFIX = SOURCE_LOOKUP_PREFIX + "header.";
     public static final String OIDC_AUTH_TOKEN_REQUEST =
@@ -72,17 +75,17 @@ public final class HttpConnectorConfigConstants {
     // https://github.com/getindata/flink-http-connector/blob/e00d57607f7d1a0d72c6ca48abe[…]nnectors/http/internal/config/HttpConnectorConfigConstants.java
     // Changing label name to INCLUDE, but the value is exclude. Needs investigating.
     public static final String HTTP_ERROR_SINK_CODE_INCLUDE_LIST =
-            FLINK_CONNECTOR_HTTP + "sink.error.code.exclude";
+            FLINK_CONNECTOR_HTTP_SINK + "error.code.exclude";
 
     public static final String HTTP_ERROR_SINK_CODES_LIST =
-            FLINK_CONNECTOR_HTTP + "sink.error.code";
+            FLINK_CONNECTOR_HTTP_SINK + "error.code";
     // -----------------------------------------------------
 
     public static final String SOURCE_LOOKUP_REQUEST_CALLBACK_IDENTIFIER =
             SOURCE_LOOKUP_PREFIX + "request-callback";
 
     public static final String SINK_REQUEST_CALLBACK_IDENTIFIER =
-            FLINK_CONNECTOR_HTTP + "sink.request-callback";
+            FLINK_CONNECTOR_HTTP_SINK + "request-callback";
 
     public static final String SOURCE_LOOKUP_QUERY_CREATOR_IDENTIFIER =
             SOURCE_LOOKUP_PREFIX + "query-creator";
@@ -127,7 +130,7 @@ public final class HttpConnectorConfigConstants {
     public static final String SOURCE_PROXY_PASSWORD = SOURCE_LOOKUP_PREFIX + "proxy.password";
 
     public static final String SINK_HTTP_TIMEOUT_SECONDS =
-            FLINK_CONNECTOR_HTTP + "sink.request.timeout";
+            FLINK_CONNECTOR_HTTP_SINK + "request.timeout";
 
     public static final String LOOKUP_HTTP_POLLING_THREAD_POOL_SIZE =
             SOURCE_LOOKUP_PREFIX + "request.thread-pool.size";
@@ -136,16 +139,48 @@ public final class HttpConnectorConfigConstants {
             SOURCE_LOOKUP_PREFIX + "response.thread-pool.size";
 
     public static final String SINK_HTTP_WRITER_THREAD_POOL_SIZE =
-            FLINK_CONNECTOR_HTTP + "sink.writer.thread-pool.size";
+            FLINK_CONNECTOR_HTTP_SINK + "writer.thread-pool.size";
+
+    public static final String SINK_MAX_RETRIES = FLINK_CONNECTOR_HTTP_SINK + "max-retries";
+
+    public static final String SINK_SUCCESS_CODES = FLINK_CONNECTOR_HTTP_SINK + "success-codes";
+
+    public static final String SINK_RETRY_CODES = FLINK_CONNECTOR_HTTP_SINK + "retry-codes";
+
+    public static final String SINK_IGNORE_RESPONSE_CODES =
+            FLINK_CONNECTOR_HTTP_SINK + "ignored-response-codes";
+
+    public static final String SINK_RETRY_STRATEGY_PREFIX =
+            FLINK_CONNECTOR_HTTP_SINK + "retry-strategy.";
+
+    public static final String SINK_RETRY_STRATEGY_TYPE = SINK_RETRY_STRATEGY_PREFIX + "type";
+
+    private static final String SINK_RETRY_FIXED_DELAY_PREFIX =
+            SINK_RETRY_STRATEGY_PREFIX + "fixed-delay.";
+
+    public static final String SINK_RETRY_FIXED_DELAY_DELAY =
+            SINK_RETRY_FIXED_DELAY_PREFIX + "delay";
+
+    private static final String SINK_RETRY_EXP_DELAY_PREFIX =
+            SINK_RETRY_STRATEGY_PREFIX + "exponential-delay.";
+
+    public static final String SINK_RETRY_EXP_DELAY_INITIAL_BACKOFF =
+            SINK_RETRY_EXP_DELAY_PREFIX + "initial-backoff";
+
+    public static final String SINK_RETRY_EXP_DELAY_MAX_BACKOFF =
+            SINK_RETRY_EXP_DELAY_PREFIX + "max-backoff";
+
+    public static final String SINK_RETRY_EXP_DELAY_MULTIPLIER =
+            SINK_RETRY_EXP_DELAY_PREFIX + "backoff-multiplier";
 
     // -----------------------------------------------------
 
     // ------ Sink request submitter settings ------
     public static final String SINK_HTTP_REQUEST_MODE =
-            FLINK_CONNECTOR_HTTP + "sink.writer.request.mode";
+            FLINK_CONNECTOR_HTTP_SINK + "writer.request.mode";
 
     public static final String SINK_HTTP_BATCH_REQUEST_SIZE =
-            FLINK_CONNECTOR_HTTP + "sink.request.batch.size";
+            FLINK_CONNECTOR_HTTP_SINK + "request.batch.size";
 
     // ---------------------------------------------
     public static final String SOURCE_RETRY_SUCCESS_CODES = SOURCE_LOOKUP_PREFIX + "success-codes";

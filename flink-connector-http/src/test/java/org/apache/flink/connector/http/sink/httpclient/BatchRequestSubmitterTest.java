@@ -18,8 +18,11 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
+import org.apache.flink.connector.http.table.sink.Slf4jHttpPostRequestCallback;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,10 +38,13 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -49,7 +55,20 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class BatchRequestSubmitterTest {
 
+    private static HttpSinkConfig sinkConfig(Properties properties) {
+        return HttpSinkConfig.builder()
+                .url("http://hello.pl")
+                .properties(properties)
+                .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                .build();
+    }
+
     @Mock private HttpClient mockHttpClient;
+
+    private static BatchRequestSubmitter submitter(
+            HttpSinkConfig sinkConfig, HttpClient httpClient, ExecutorService httpClientExecutor) {
+        return new BatchRequestSubmitter(sinkConfig, new String[0], httpClient, httpClientExecutor);
+    }
 
     @ParameterizedTest
     @CsvSource(value = {"50, 1", "5, 1", "3, 2", "2, 3", "1, 5"})
@@ -63,7 +82,10 @@ class BatchRequestSubmitterTest {
         when(mockHttpClient.sendAsync(any(), any())).thenReturn(new CompletableFuture<>());
 
         BatchRequestSubmitter submitter =
-                new BatchRequestSubmitter(properties, new String[0], mockHttpClient);
+                submitter(
+                        sinkConfig(properties),
+                        mockHttpClient,
+                        Executors.newSingleThreadExecutor());
 
         submitter.submit(
                 "http://hello.pl",
@@ -74,20 +96,24 @@ class BatchRequestSubmitterTest {
         verify(mockHttpClient, times(expectedNumberOfBatchRequests)).sendAsync(any(), any());
     }
 
-    /**
-     * The sink shares the same latent defect as FLINK-39364 (#31): {@code
-     * http.sink.request.timeout} was declared as a {@code durationType()} option but read with
-     * {@code Integer.parseInt(...)}, so a unit-suffixed value like {@code "45s"} threw {@link
-     * NumberFormatException}. It must now be parsed as a real {@link Duration}.
-     */
     @Test
-    public void requestTimeoutWithUnitIsParsedAsDuration() {
+    public void requestTimeoutIsReadFromReadableConfig() {
         Properties properties = new Properties();
         properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "50");
-        properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_TIMEOUT_SECONDS, "45s");
+
+        Configuration configuration = new Configuration();
+        configuration.set(SINK_REQUEST_TIMEOUT, Duration.ofSeconds(45));
+
+        HttpSinkConfig sinkConfig =
+                HttpSinkConfig.builder()
+                        .url("http://hello.pl")
+                        .properties(properties)
+                        .readableConfig(configuration)
+                        .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                        .build();
 
         BatchRequestSubmitter submitter =
-                new BatchRequestSubmitter(properties, new String[0], mockHttpClient);
+                submitter(sinkConfig, mockHttpClient, Executors.newSingleThreadExecutor());
 
         assertThat(submitter.httpRequestTimeout).isEqualTo(Duration.ofSeconds(45));
     }
@@ -98,7 +124,10 @@ class BatchRequestSubmitterTest {
         properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "50");
 
         BatchRequestSubmitter submitter =
-                new BatchRequestSubmitter(properties, new String[0], mockHttpClient);
+                submitter(
+                        sinkConfig(properties),
+                        mockHttpClient,
+                        Executors.newSingleThreadExecutor());
 
         assertThat(submitter.httpRequestTimeout).isEqualTo(Duration.ofSeconds(30));
     }
@@ -122,7 +151,10 @@ class BatchRequestSubmitterTest {
         when(mockHttpClient.sendAsync(any(), any())).thenReturn(new CompletableFuture<>());
 
         BatchRequestSubmitter submitter =
-                new BatchRequestSubmitter(properties, new String[0], mockHttpClient);
+                submitter(
+                        sinkConfig(properties),
+                        mockHttpClient,
+                        Executors.newSingleThreadExecutor());
 
         submitter.submit(
                 "http://hello.pl",
@@ -131,5 +163,19 @@ class BatchRequestSubmitterTest {
                         .collect(Collectors.toList()));
 
         verify(mockHttpClient, times(expectedNumberOfBatchRequests)).sendAsync(any(), any());
+    }
+
+    @Test
+    public void closeShutsDownExecutors() {
+        Properties properties = new Properties();
+        properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "50");
+        ExecutorService httpClientExecutor = Executors.newSingleThreadExecutor();
+        BatchRequestSubmitter submitter =
+                submitter(sinkConfig(properties), mockHttpClient, httpClientExecutor);
+
+        submitter.close();
+
+        assertThat(httpClientExecutor.isShutdown()).isTrue();
+        assertThat(submitter.publishingThreadPool.isShutdown()).isTrue();
     }
 }

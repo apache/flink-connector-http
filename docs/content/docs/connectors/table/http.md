@@ -597,12 +597,21 @@ another format name.
 | http.sink.request-callback                | optional | Specify which `HttpPostRequestCallback` implementation to use. By default, it is set to `slf4j-logger` corresponding to `Slf4jHttpPostRequestCallback`.                                                                            |
 | http.sink.error.code                      | optional | List of HTTP status codes that should be treated as errors by HTTP Sink, separated with comma.                                                                                                                                     |
 | http.sink.error.code.exclude              | optional | List of HTTP status codes that should be excluded from the `http.sink.error.code` list, separated with comma.                                                                                                                      |
+| http.sink.success-codes                   | optional | Comma separated HTTP status codes considered as successful sink responses. Use [1-5]XX for groups and `!` for exclusions. The default is `2XX`. Cannot be set together with the legacy `http.sink.error.code` properties. |
+| http.sink.retry-codes                     | optional | Comma separated HTTP status codes considered as retryable sink responses. Use [1-5]XX for groups and `!` for exclusions. The default is `500,503,504`. Cannot be set together with the legacy `http.sink.error.code` properties. |
+| http.sink.ignored-response-codes          | optional | Comma separated HTTP status codes that should be treated as successful without retrying. Use [1-5]XX for groups and `!` for exclusions. Empty by default. Cannot be set together with legacy `http.sink.error.code.exclude`. |
 | http.security.cert.server                 | optional | Path to trusted HTTP server certificate that should be added to connectors key store. More than one path can be specified using `,` as path delimiter.                                                                               |
 | http.security.cert.client                 | optional | Path to trusted certificate that should be used by connector's HTTP client for mTLS communication.                                                                                                                                 |
 | http.security.key.client                  | optional | Path to trusted private key that should be used by connector's HTTP client for mTLS communication.                                                                                                                                 |
 | http.security.cert.server.allowSelfSigned | optional | Accept untrusted certificates for TLS communication.                                                                                                                                                                               |
 | http.sink.request.timeout                 | optional | Sets HTTP request timeout for the HTTP sink as a Duration (e.g. `'30s'`, `'1min'`). If not specified, the default value of `30s` will be used.                                                                                                                              |
-| http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 1 thread will be used.     |
+| http.sink.max-retries                     | optional | The maximum number of retries for failed HTTP sink requests. Defaults to `0` (retries disabled) so existing jobs keep send-once behaviour. Set a positive value to enable retries.                                                                                     |
+| http.sink.retry-strategy.type             | optional | Retry strategy for failed HTTP sink requests. Valid values are `fixed-delay` (the default) and `exponential-delay`. Applies only when `http.sink.max-retries` is greater than 0. |
+| http.sink.retry-strategy.fixed-delay.delay | optional | Delay between HTTP sink retries when using `fixed-delay`. The default is `1s`. |
+| http.sink.retry-strategy.exponential-delay.initial-backoff | optional | Initial backoff when using `exponential-delay`. The default is `1s`. |
+| http.sink.retry-strategy.exponential-delay.max-backoff | optional | Maximum backoff when using `exponential-delay`. The default is `1min`. |
+| http.sink.retry-strategy.exponential-delay.backoff-multiplier | optional | Backoff multiplier when using `exponential-delay`. The default is `1.5`. |
+| http.sink.writer.thread-pool.size         | optional | Sets the size of pool thread for HTTP Sink request processing. Increasing this value would mean that more concurrent requests can be processed in the same time. If not specified, the default value of 4 threads will be used.     |
 | http.sink.writer.request.mode             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
 
@@ -619,6 +628,10 @@ This behavior can be changed by using the below properties in the table definiti
   Many status codes can be defined in one value, where each code should be separated with comma, for example:
   `401, 402, 403`. In this example, codes 401, 402 and 403 would not be interpreted as error codes.
 
+If either legacy property is set together with `http.sink.success-codes` or `http.sink.retry-codes`, sink creation fails. Setting `http.sink.error.code.exclude` together with `http.sink.ignored-response-codes` also fails. Use one option set or the other. Existing jobs that only set the legacy properties keep the previous error-code behaviour. Prefer:
+- `http.sink.success-codes` (default `2XX`) for successful responses
+- `http.sink.retry-codes` (default `500,503,504`) for retryable responses
+- `http.sink.ignored-response-codes` for responses that should be treated as successful without retrying
 
 ### Request submission
 HTTP Sink by default submits events in batch. The submission mode can be changed using `http.sink.writer.request.mode` property using `single` or `batch` as property value.

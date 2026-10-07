@@ -17,10 +17,10 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
-import java.util.Properties;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 
 /** Request submitter factory. */
-public interface RequestSubmitterFactory {
+interface RequestSubmitterFactory {
 
-    RequestSubmitter createSubmitter(Properties properties, String[] headersAndValues);
+    RequestSubmitter createSubmitter(HttpSinkConfig sinkConfig, String[] headersAndValues);
 }

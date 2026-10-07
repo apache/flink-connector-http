@@ -20,29 +20,15 @@ package org.apache.flink.connector.http;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.http.clients.SinkHttpClientBuilder;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
 import org.apache.flink.connector.http.sink.HttpSinkInternal;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
-import org.apache.flink.connector.http.sink.httpclient.HttpRequest;
-
-import java.util.Properties;
 
 /**
  * A public implementation for {@code HttpSink} that performs async requests against a specified
  * HTTP endpoint using the buffering protocol specified in {@link
  * org.apache.flink.connector.base.sink.AsyncSinkBase}.
- *
- * <p>To create a new instance of this class use {@link HttpSinkBuilder}. An example would be:
- *
- * <pre>{@code
- * HttpSink<String> httpSink =
- *     HttpSink.<String>builder()
- *             .setEndpointUrl("http://example.com/myendpoint")
- *             .setElementConverter(
- *                 (s, _context) -> new HttpSinkRequestEntry("POST", "text/plain",
- *                 s.getBytes(StandardCharsets.UTF_8)))
- *             .build();
- * }</pre>
  *
  * @param <InputT> type of the elements that should be sent through HTTP request.
  */
@@ -57,11 +43,9 @@ public class HttpSink<InputT> extends HttpSinkInternal<InputT> {
             long maxBatchSizeInBytes,
             long maxTimeInBufferMS,
             long maxRecordSizeInBytes,
-            String endpointUrl,
-            HttpPostRequestCallback<HttpRequest> httpPostRequestCallback,
+            HttpSinkConfig sinkConfig,
             HeaderPreprocessor headerPreprocessor,
-            SinkHttpClientBuilder sinkHttpClientBuilder,
-            Properties properties) {
+            SinkHttpClientBuilder sinkHttpClientBuilder) {
 
         super(
                 elementConverter,
@@ -71,11 +55,9 @@ public class HttpSink<InputT> extends HttpSinkInternal<InputT> {
                 maxBatchSizeInBytes,
                 maxTimeInBufferMS,
                 maxRecordSizeInBytes,
-                endpointUrl,
-                httpPostRequestCallback,
+                sinkConfig,
                 headerPreprocessor,
-                sinkHttpClientBuilder,
-                properties);
+                sinkHttpClientBuilder);
     }
 
     /**

@@ -17,23 +17,23 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.utils.JavaNetHttpClientFactory;
 import org.apache.flink.connector.http.utils.ThreadUtils;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Per request submitter factory. */
-public class PerRequestRequestSubmitterFactory implements RequestSubmitterFactory {
+class PerRequestRequestSubmitterFactory implements RequestSubmitterFactory {
 
     // TODO Add this property to config. Make sure to add note in README.md that will describe that
     //  any value greater than one will break order of messages.
     static final int HTTP_CLIENT_THREAD_POOL_SIZE = 1;
 
     @Override
-    public RequestSubmitter createSubmitter(Properties properties, String[] headersAndValues) {
+    public RequestSubmitter createSubmitter(HttpSinkConfig sinkConfig, String[] headersAndValues) {
 
         ExecutorService httpClientExecutor =
                 Executors.newFixedThreadPool(
@@ -43,8 +43,10 @@ public class PerRequestRequestSubmitterFactory implements RequestSubmitterFactor
                                 ThreadUtils.LOGGING_EXCEPTION_HANDLER));
 
         return new PerRequestSubmitter(
-                properties,
+                sinkConfig,
                 headersAndValues,
-                JavaNetHttpClientFactory.createClient(properties, httpClientExecutor));
+                JavaNetHttpClientFactory.createClient(
+                        sinkConfig.getProperties(), httpClientExecutor),
+                httpClientExecutor);
     }
 }

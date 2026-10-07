@@ -20,8 +20,9 @@ package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.connector.http.HttpsConnectionTestBase;
 import org.apache.flink.connector.http.WireMockServerPortAllocator;
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -248,16 +249,22 @@ class JavaNetSinkHttpClientConnectionTest extends HttpsConnectionTestBase {
         assertThatThrownBy(
                         () ->
                                 new JavaNetSinkHttpClient(
-                                        properties,
-                                        postRequestCallback,
+                                        HttpSinkConfig.builder()
+                                                .url("http://localhost")
+                                                .properties(properties)
+                                                .httpPostRequestCallback(postRequestCallback)
+                                                .build(),
                                         headerPreprocessor,
                                         perRequestSubmitterFactory))
                 .isInstanceOf(RuntimeException.class);
         assertThatThrownBy(
                         () ->
                                 new JavaNetSinkHttpClient(
-                                        properties,
-                                        postRequestCallback,
+                                        HttpSinkConfig.builder()
+                                                .url("http://localhost")
+                                                .properties(properties)
+                                                .httpPostRequestCallback(postRequestCallback)
+                                                .build(),
                                         headerPreprocessor,
                                         batchRequestSubmitterFactory))
                 .isInstanceOf(RuntimeException.class);
@@ -289,21 +296,24 @@ class JavaNetSinkHttpClientConnectionTest extends HttpsConnectionTestBase {
             RequestSubmitterFactory requestSubmitterFactory) {
 
         try {
+            HttpSinkConfig sinkConfig =
+                    HttpSinkConfig.builder()
+                            .url(endpointUrl + httpsServerPort)
+                            .properties(properties)
+                            .httpPostRequestCallback(postRequestCallback)
+                            .build();
             JavaNetSinkHttpClient client =
                     new JavaNetSinkHttpClient(
-                            properties,
-                            postRequestCallback,
-                            headerPreprocessor,
-                            requestSubmitterFactory);
+                            sinkConfig, headerPreprocessor, requestSubmitterFactory);
             HttpSinkRequestEntry requestEntry = new HttpSinkRequestEntry("GET", new byte[0]);
-            SinkHttpClientResponse response =
+            SinkHttpClientResponses response =
                     client.putRequests(
                                     Collections.singletonList(requestEntry),
                                     endpointUrl + httpsServerPort + ENDPOINT)
                             .get();
 
             assertThat(response.getSuccessfulRequests()).isNotEmpty();
-            assertThat(response.getFailedRequests()).isEmpty();
+            assertThat(response.getRetriableFailedRequests()).isEmpty();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

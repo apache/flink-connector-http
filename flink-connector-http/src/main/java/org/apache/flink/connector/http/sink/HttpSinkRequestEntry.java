@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.http.sink;
 
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.http.HttpSink;
 
 import lombok.EqualsAndHashCode;
@@ -30,8 +31,9 @@ import java.io.Serializable;
  * Represents a single {@link HttpSink} request. Contains the HTTP method name, Content-Type header
  * value, and byte representation of the body of the request.
  */
-@RequiredArgsConstructor
 @EqualsAndHashCode
+@PublicEvolving
+@RequiredArgsConstructor
 @ToString
 public final class HttpSinkRequestEntry implements Serializable {
 

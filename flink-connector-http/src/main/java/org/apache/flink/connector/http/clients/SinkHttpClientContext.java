@@ -18,12 +18,28 @@
 package org.apache.flink.connector.http.clients;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.connector.http.HttpPostRequestCallback;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
+import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
+import org.apache.flink.connector.http.sink.httpclient.HttpRequest;
 
-import java.io.Serializable;
-
-/** Builder building {@link SinkHttpClient}. */
+/**
+ * Context passed to {@link SinkHttpClientBuilder} when creating a sink HTTP client.
+ *
+ * <p>Instances are created at writer open time and are not part of Flink checkpoint or job-graph
+ * serialization. Do not retain or serialize the context.
+ *
+ * <p>Open-ended configuration such as headers and TLS settings is available via {@link
+ * #getSinkConfig()}.
+ */
 @PublicEvolving
-public interface SinkHttpClientBuilder extends Serializable {
+public interface SinkHttpClientContext {
 
-    SinkHttpClient build(SinkHttpClientContext context);
+    HttpSinkConfig getSinkConfig();
+
+    HttpPostRequestCallback<HttpRequest> getHttpPostRequestCallback();
+
+    HeaderPreprocessor getHeaderPreprocessor();
+
+    int getDefaultBatchSize();
 }

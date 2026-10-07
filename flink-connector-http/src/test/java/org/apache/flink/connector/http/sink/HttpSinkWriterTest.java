@@ -23,12 +23,13 @@ import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.base.sink.writer.ResultHandler;
 import org.apache.flink.connector.http.clients.SinkHttpClient;
-import org.apache.flink.connector.http.clients.SinkHttpClientResponse;
+import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
+import org.apache.flink.connector.http.config.HttpSinkConfigFactory;
+import org.apache.flink.connector.http.table.sink.Slf4jHttpPostRequestCallback;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.OperatorIOMetricGroup;
 import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,14 +42,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Test for {@link HttpSinkWriter }. */
-@Slf4j
 @ExtendWith(MockitoExtension.class)
 class HttpSinkWriterTest {
 
@@ -76,54 +80,151 @@ class HttpSinkWriterTest {
 
         Collection<BufferedRequestState<HttpSinkRequestEntry>> stateBuffer = new ArrayList<>();
 
-        this.httpSinkWriter =
-                new HttpSinkWriter<>(
-                        elementConverter,
-                        context,
-                        10,
-                        10,
-                        100,
-                        10,
-                        10,
-                        10,
-                        "http://localhost/client",
-                        httpClient,
-                        stateBuffer,
-                        new Properties());
+        this.httpSinkWriter = createWriter(stateBuffer);
     }
 
     @Test
-    public void testErrorMetric() throws InterruptedException {
+    public void testTransportErrorFailsRequest() throws InterruptedException {
 
-        CompletableFuture<SinkHttpClientResponse> future = new CompletableFuture<>();
+        CompletableFuture<SinkHttpClientResponses> future = new CompletableFuture<>();
         future.completeExceptionally(new Exception("Test Exception"));
 
         when(httpClient.putRequests(anyList(), anyString())).thenReturn(future);
 
         HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
-        ResultHandler<HttpSinkRequestEntry> resultHandler =
-                new ResultHandler<HttpSinkRequestEntry>() {
-                    @Override
-                    public void complete() {
-                        log.info("Request completed");
-                    }
-
-                    @Override
-                    public void completeExceptionally(Exception e) {
-                        log.error("Request failed", e);
-                    }
-
-                    @Override
-                    public void retryForEntries(List<HttpSinkRequestEntry> requestEntriesToRetry) {
-                        log.info("Retrying entries: " + requestEntriesToRetry);
-                    }
-                };
+        RecordingResultHandler resultHandler = new RecordingResultHandler();
 
         List<HttpSinkRequestEntry> requestEntries = Collections.singletonList(request);
         this.httpSinkWriter.submitRequestEntries(requestEntries, resultHandler);
 
-        // would be good to use Countdown Latch instead sleep...
-        Thread.sleep(2000);
+        assertThat(resultHandler.await()).isTrue();
+        assertThat(resultHandler.getRetriedEntries()).isEmpty();
+        assertThat(resultHandler.getFailure()).isInstanceOf(RuntimeException.class);
+        assertThat(resultHandler.getFailure()).hasMessageContaining("failed before receiving");
         verify(errorCounter).inc(requestEntries.size());
+    }
+
+    @Test
+    public void testRetryableResponseFailsAfterClientRetriesAreExhausted()
+            throws InterruptedException {
+        HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
+        when(httpClient.putRequests(anyList(), anyString()))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                new SinkHttpClientResponses(
+                                        Collections.emptyList(),
+                                        Collections.singletonList(request),
+                                        Collections.emptyList())));
+
+        RecordingResultHandler resultHandler = new RecordingResultHandler();
+        this.httpSinkWriter.submitRequestEntries(Collections.singletonList(request), resultHandler);
+
+        assertThat(resultHandler.await()).isTrue();
+        assertThat(resultHandler.getRetriedEntries()).isEmpty();
+        assertThat(resultHandler.getFailure()).isInstanceOf(RuntimeException.class);
+        assertThat(resultHandler.getFailure()).hasMessageContaining("exhausted retries");
+        verify(errorCounter).inc(1);
+    }
+
+    @Test
+    public void testRetryExhaustionFailsRequest() throws InterruptedException {
+        HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
+        when(httpClient.putRequests(anyList(), anyString()))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                new SinkHttpClientResponses(
+                                        Collections.emptyList(),
+                                        Collections.singletonList(request),
+                                        Collections.emptyList())));
+
+        RecordingResultHandler resultHandler = new RecordingResultHandler();
+        this.httpSinkWriter.submitRequestEntries(Collections.singletonList(request), resultHandler);
+
+        assertThat(resultHandler.await()).isTrue();
+        assertThat(resultHandler.getFailure()).isInstanceOf(RuntimeException.class);
+        assertThat(resultHandler.getFailure()).hasMessageContaining("exhausted retries");
+        verify(errorCounter).inc(1);
+    }
+
+    @Test
+    public void testFatalResponseFailsRequest() throws InterruptedException {
+        HttpSinkRequestEntry request = new HttpSinkRequestEntry("PUT", "hello".getBytes());
+        when(httpClient.putRequests(anyList(), anyString()))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                new SinkHttpClientResponses(
+                                        Collections.emptyList(),
+                                        Collections.emptyList(),
+                                        Collections.singletonList(request))));
+
+        RecordingResultHandler resultHandler = new RecordingResultHandler();
+        this.httpSinkWriter.submitRequestEntries(Collections.singletonList(request), resultHandler);
+
+        assertThat(resultHandler.await()).isTrue();
+        assertThat(resultHandler.getFailure()).isInstanceOf(RuntimeException.class);
+        assertThat(resultHandler.getFailure()).hasMessageContaining("fatal response status");
+        verify(errorCounter).inc(1);
+    }
+
+    @Test
+    public void testCloseClosesHttpClient() {
+        httpSinkWriter.close();
+
+        verify(httpClient).close();
+    }
+
+    private HttpSinkWriter<String> createWriter(
+            Collection<BufferedRequestState<HttpSinkRequestEntry>> stateBuffer) {
+        Properties properties = new Properties();
+        return new HttpSinkWriter<>(
+                elementConverter,
+                context,
+                10,
+                10,
+                100,
+                10,
+                10,
+                10,
+                "http://localhost/client",
+                httpClient,
+                stateBuffer,
+                HttpSinkConfigFactory.fromDataStream(
+                        "http://localhost/client", properties, new Slf4jHttpPostRequestCallback()));
+    }
+
+    private static class RecordingResultHandler implements ResultHandler<HttpSinkRequestEntry> {
+        private final CountDownLatch latch = new CountDownLatch(1);
+        private final AtomicReference<List<HttpSinkRequestEntry>> retriedEntries =
+                new AtomicReference<>(Collections.emptyList());
+        private final AtomicReference<Exception> failure = new AtomicReference<>();
+
+        @Override
+        public void complete() {
+            latch.countDown();
+        }
+
+        @Override
+        public void completeExceptionally(Exception e) {
+            failure.set(e);
+            latch.countDown();
+        }
+
+        @Override
+        public void retryForEntries(List<HttpSinkRequestEntry> requestEntriesToRetry) {
+            retriedEntries.set(requestEntriesToRetry);
+            latch.countDown();
+        }
+
+        boolean await() throws InterruptedException {
+            return latch.await(5, TimeUnit.SECONDS);
+        }
+
+        List<HttpSinkRequestEntry> getRetriedEntries() {
+            return retriedEntries.get();
+        }
+
+        Exception getFailure() {
+            return failure.get();
+        }
     }
 }

@@ -63,10 +63,12 @@ import java.util.stream.IntStream;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.any;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Test for {@link HttpSink }. */
 public class HttpSinkConnectionTest {
@@ -112,7 +114,6 @@ public class HttpSinkConnectionTest {
                                         SendErrorsTestReporterFactory.class.getName());
                             }
                         });
-
         wireMockServer = new WireMockServer(serverPort, secServerPort);
         wireMockServer.start();
     }
@@ -205,7 +206,7 @@ public class HttpSinkConnectionTest {
                                 (s, _context) ->
                                         new HttpSinkRequestEntry(
                                                 "POST", s.getBytes(StandardCharsets.UTF_8)))
-                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient::new)
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
                         .setProperty(
                                 HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
                                 contentTypeHeader)
@@ -250,18 +251,145 @@ public class HttpSinkConnectionTest {
                                 (s, _context) ->
                                         new HttpSinkRequestEntry(
                                                 "POST", s.getBytes(StandardCharsets.UTF_8)))
-                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient::new)
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
+                                "application/json")
+                        .setProperty(HttpConnectorConfigConstants.SINK_MAX_RETRIES, "1")
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_RETRY_FIXED_DELAY_DELAY, "1ms")
                         .build();
         source.sinkTo(httpSink);
         env.execute("Http Sink test failed connection");
 
+        assertThat(SendErrorsTestReporterFactory.getCount()).isZero();
+        var postedRequests =
+                wireMockServer.findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
+        assertThat(postedRequests).hasSize(2);
+        assertThat(postedRequests.get(0).getBodyAsString())
+                .isEqualTo(postedRequests.get(1).getBodyAsString());
+    }
+
+    @Test
+    public void testServerErrorConnectionBatchRequestModeRetriesSameBatch() throws Exception {
+        wireMockServer.stubFor(
+                any(urlPathEqualTo("/myendpoint"))
+                        .withHeader("Content-Type", equalTo("application/json"))
+                        .inScenario("Batch Retry Scenario")
+                        .whenScenarioStateIs(STARTED)
+                        .willReturn(serverError())
+                        .willSetStateTo("Cause Success"));
+        wireMockServer.stubFor(
+                any(urlPathEqualTo("/myendpoint"))
+                        .withHeader("Content-Type", equalTo("application/json"))
+                        .inScenario("Batch Retry Scenario")
+                        .whenScenarioStateIs("Cause Success")
+                        .willReturn(aResponse().withStatus(200))
+                        .willSetStateTo("Cause Success"));
+
+        env.setParallelism(1);
+        var sourceMessages = List.of(messages.get(0), messages.get(1));
+        var source = env.fromCollection(sourceMessages);
+        var httpSink =
+                HttpSink.<String>builder()
+                        .setEndpointUrl("http://localhost:" + serverPort + "/myendpoint")
+                        .setElementConverter(
+                                (s, _context) ->
+                                        new HttpSinkRequestEntry(
+                                                "POST", s.getBytes(StandardCharsets.UTF_8)))
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
+                                "application/json")
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HTTP_REQUEST_MODE,
+                                SinkRequestSubmitMode.BATCH.getMode())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "10")
+                        .setProperty(HttpConnectorConfigConstants.SINK_MAX_RETRIES, "1")
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_RETRY_FIXED_DELAY_DELAY, "1ms")
+                        .build();
+        source.sinkTo(httpSink);
+        env.execute("Http Sink test batch retry connection");
+
+        assertThat(SendErrorsTestReporterFactory.getCount()).isZero();
+        var postedRequests =
+                wireMockServer.findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
+        var expectedBatchBody = "[" + String.join(",", sourceMessages) + "]";
+        assertThat(postedRequests).hasSize(2);
+        assertThat(postedRequests)
+                .allSatisfy(
+                        request ->
+                                assertThat(request.getBodyAsString()).isEqualTo(expectedBatchBody));
+    }
+
+    @Test
+    public void testServerErrorConnectionFailsAfterRetryExhaustion() {
+        wireMockServer.stubFor(
+                any(urlPathEqualTo("/myendpoint"))
+                        .withHeader("Content-Type", equalTo("application/json"))
+                        .willReturn(serverError()));
+
+        var source = env.fromCollection(List.of(messages.get(0)));
+        var httpSink =
+                HttpSink.<String>builder()
+                        .setEndpointUrl("http://localhost:" + serverPort + "/myendpoint")
+                        .setElementConverter(
+                                (s, _context) ->
+                                        new HttpSinkRequestEntry(
+                                                "POST", s.getBytes(StandardCharsets.UTF_8)))
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
+                                "application/json")
+                        .setProperty(HttpConnectorConfigConstants.SINK_MAX_RETRIES, "2")
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_RETRY_FIXED_DELAY_DELAY, "1ms")
+                        .build();
+        source.sinkTo(httpSink);
+
+        assertThatThrownBy(() -> env.execute("Http Sink test retry exhaustion"))
+                .hasStackTraceContaining("HTTP sink exhausted retries for 1 request(s).");
+
         assertThat(SendErrorsTestReporterFactory.getCount()).isEqualTo(1);
-        // TODO: reintroduce along with the retries
-        //  var postedRequests = wireMockServer
-        //  .findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
-        //  assertThat(postedRequests).hasSize(2);
-        //  assertThat(postedRequests.get(0).getBodyAsString())
-        //      .isEqualTo(postedRequests.get(1).getBodyAsString());
+        var postedRequests =
+                wireMockServer.findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
+        assertThat(postedRequests).hasSize(3);
+    }
+
+    @Test
+    public void testServerErrorConnectionMaxRetriesZeroFailsWithoutRetry() {
+        wireMockServer.stubFor(
+                any(urlPathEqualTo("/myendpoint"))
+                        .withHeader("Content-Type", equalTo("application/json"))
+                        .willReturn(serverError()));
+
+        var source = env.fromCollection(List.of(messages.get(0)));
+        var httpSink =
+                HttpSink.<String>builder()
+                        .setEndpointUrl("http://localhost:" + serverPort + "/myendpoint")
+                        .setElementConverter(
+                                (s, _context) ->
+                                        new HttpSinkRequestEntry(
+                                                "POST", s.getBytes(StandardCharsets.UTF_8)))
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
+                                "application/json")
+                        .setProperty(HttpConnectorConfigConstants.SINK_MAX_RETRIES, "0")
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_RETRY_FIXED_DELAY_DELAY, "1ms")
+                        .build();
+        source.sinkTo(httpSink);
+
+        assertThatThrownBy(() -> env.execute("Http Sink test max retries zero"))
+                .hasStackTraceContaining("HTTP sink exhausted retries for 1 request(s).");
+
+        assertThat(SendErrorsTestReporterFactory.getCount()).isEqualTo(1);
+        var postedRequests =
+                wireMockServer.findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
+        assertThat(postedRequests).hasSize(1);
     }
 
     @Test
@@ -290,17 +418,23 @@ public class HttpSinkConnectionTest {
                                 (s, _context) ->
                                         new HttpSinkRequestEntry(
                                                 "POST", s.getBytes(StandardCharsets.UTF_8)))
-                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient::new)
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
+                                "application/json")
+                        .setProperty(HttpConnectorConfigConstants.SINK_MAX_RETRIES, "1")
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_RETRY_FIXED_DELAY_DELAY, "1ms")
                         .build();
         source.sinkTo(httpSink);
         env.execute("Http Sink test failed connection");
 
-        assertThat(SendErrorsTestReporterFactory.getCount()).isEqualTo(1);
-        // var postedRequests = wireMockServer
-        // .findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
-        // assertThat(postedRequests).hasSize(2);
-        // assertThat(postedRequests.get(0).getBodyAsString())
-        //     .isEqualTo(postedRequests.get(1).getBodyAsString());
+        assertThat(SendErrorsTestReporterFactory.getCount()).isZero();
+        var postedRequests =
+                wireMockServer.findAll(postRequestedFor(urlPathEqualTo("/myendpoint")));
+        assertThat(postedRequests).hasSize(2);
+        assertThat(postedRequests.get(0).getBodyAsString())
+                .isEqualTo(postedRequests.get(1).getBodyAsString());
     }
 
     @Test
@@ -318,7 +452,10 @@ public class HttpSinkConnectionTest {
                                 (s, _context) ->
                                         new HttpSinkRequestEntry(
                                                 "POST", s.getBytes(StandardCharsets.UTF_8)))
-                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient::new)
+                        .setSinkHttpClientBuilder(JavaNetSinkHttpClient.builder())
+                        .setProperty(
+                                HttpConnectorConfigConstants.SINK_HEADER_PREFIX + "Content-Type",
+                                "application/json")
                         .setProperty("http.sink.error.code.exclude", "404, 405")
                         .setProperty("http.sink.error.code", "4XX")
                         .build();
