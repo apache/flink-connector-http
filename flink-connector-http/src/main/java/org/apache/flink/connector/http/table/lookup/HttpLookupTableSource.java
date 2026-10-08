@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -178,12 +179,36 @@ public class HttpLookupTableSource
 
     @Override
     public DynamicTableSource copy() {
-        return new HttpLookupTableSource(
-                physicalRowDataType,
-                lookupConfig,
-                decodingFormat,
-                dynamicTableFactoryContext,
-                cache);
+        final HttpLookupTableSource copy =
+                new HttpLookupTableSource(
+                        physicalRowDataType,
+                        lookupConfig,
+                        decodingFormat,
+                        dynamicTableFactoryContext,
+                        cache);
+        copy.metadataKeys = metadataKeys;
+        return copy;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final HttpLookupTableSource that = (HttpLookupTableSource) o;
+        return Objects.equals(physicalRowDataType, that.physicalRowDataType)
+                && Objects.equals(lookupConfig, that.lookupConfig)
+                && Objects.equals(decodingFormat, that.decodingFormat)
+                && Objects.equals(cache, that.cache)
+                && Objects.equals(metadataKeys, that.metadataKeys);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(physicalRowDataType, lookupConfig, decodingFormat, cache, metadataKeys);
     }
 
     @Override

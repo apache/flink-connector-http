@@ -169,6 +169,21 @@ class HttpLookupTableSourceTest {
                 .isEqualTo(StringData.fromString(testCompletionState.name()));
     }
 
+    @Test
+    void copyRetainsReadableMetadata() {
+        final HttpLookupTableSource tableSource =
+                (HttpLookupTableSource) createTableSource(SCHEMA, getOptions());
+        tableSource.applyProjection(new int[][] {{0}}, PHYSICAL_ROW_DATA_TYPE);
+        tableSource.applyReadableMetadata(
+                List.of(HTTP_STATUS_CODE.key),
+                row(
+                        List.of(
+                                DataTypes.FIELD("id", DataTypes.STRING().notNull()),
+                                DataTypes.FIELD("status", HTTP_STATUS_CODE.dataType))));
+
+        assertThat(tableSource.copy()).isEqualTo(tableSource);
+    }
+
     private static Map<String, List<String>> convertGenericMapDataToMap(
             GenericMapData genericMapData, ArrayData keys) {
         Map<String, List<String>> map = new HashMap<>();
