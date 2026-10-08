@@ -37,6 +37,7 @@ import java.util.Properties;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_IGNORED_RESPONSE_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_RETRY_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_SUCCESS_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF;
@@ -93,6 +94,10 @@ public class HttpSinkConfig implements Serializable {
 
     public Duration getRequestTimeout() {
         return readableConfig.get(SINK_REQUEST_TIMEOUT);
+    }
+
+    public String getHttpVersion() {
+        return readableConfig.get(SINK_HTTP_VERSION);
     }
 
     public int getWriterThreadPoolSize() {

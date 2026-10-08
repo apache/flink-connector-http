@@ -28,7 +28,11 @@ import java.time.Duration;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_REQUEST;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 /** tests for {@link HttpHeaderUtils}. */
 public class HttpHeaderUtilsTest {
@@ -43,5 +47,24 @@ public class HttpHeaderUtilsTest {
         configuration.set(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION, Duration.ofSeconds(1));
         headerPreprocessor = HttpHeaderUtils.createOIDCHeaderPreprocessor(configuration);
         assertThat(headerPreprocessor).isNotNull();
+    }
+
+    @Test
+    void shouldCreateSinkOidcAccessTokenManagerTest() {
+        Configuration configuration = new Configuration();
+        assertThat(HttpHeaderUtils.createSinkOidcAccessTokenManager(configuration)).isNull();
+        configuration.set(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL, "http://aaa");
+        configuration.set(SINK_OIDC_AUTH_TOKEN_REQUEST, "ccc");
+        configuration.set(SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION, Duration.ofSeconds(1));
+        assertThat(HttpHeaderUtils.createSinkOidcAccessTokenManager(configuration)).isNotNull();
+    }
+
+    @Test
+    void shouldRequireSinkOidcTokenRequestWhenEndpointIsSet() {
+        Configuration configuration = new Configuration();
+        configuration.set(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL, "http://aaa");
+        assertThatThrownBy(() -> HttpHeaderUtils.createSinkOidcAccessTokenManager(configuration))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(SINK_OIDC_AUTH_TOKEN_REQUEST.key());
     }
 }

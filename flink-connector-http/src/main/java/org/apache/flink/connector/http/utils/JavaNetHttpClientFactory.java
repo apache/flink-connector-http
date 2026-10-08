@@ -19,10 +19,12 @@ package org.apache.flink.connector.http.utils;
 
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.security.SecurityContext;
 import org.apache.flink.connector.http.security.SelfSignedTrustManager;
 import org.apache.flink.connector.http.table.lookup.HttpLookupConfig;
 import org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions;
+import org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions;
 import org.apache.flink.util.StringUtils;
 
 import lombok.AccessLevel;
@@ -113,6 +115,47 @@ public class JavaNetHttpClientFactory {
                 .sslContext(sslContext)
                 .executor(executor)
                 .build();
+    }
+
+    /**
+     * Creates Java's {@link HttpClient} instance for HTTP sink requests using provided Executor for
+     * async calls.
+     *
+     * @param sinkConfig sink configuration
+     * @param executor {@link Executor} for async calls.
+     * @return new {@link HttpClient} instance.
+     */
+    public static HttpClient createClient(HttpSinkConfig sinkConfig, Executor executor) {
+
+        SSLContext sslContext = getSslContext(sinkConfig.getProperties());
+
+        var clientBuilder =
+                HttpClient.newBuilder()
+                        .followRedirects(Redirect.NORMAL)
+                        .sslContext(sslContext)
+                        .executor(executor);
+
+        ReadableConfig readableConfig = sinkConfig.getReadableConfig();
+        Optional<String> proxyHost =
+                readableConfig.getOptional(HttpDynamicSinkConnectorOptions.SINK_PROXY_HOST);
+        Optional<Integer> proxyPort =
+                readableConfig.getOptional(HttpDynamicSinkConnectorOptions.SINK_PROXY_PORT);
+
+        if (proxyHost.isPresent() && proxyPort.isPresent()) {
+            Optional<String> proxyUsername =
+                    readableConfig.getOptional(HttpDynamicSinkConnectorOptions.SINK_PROXY_USERNAME);
+            Optional<String> proxyPassword =
+                    readableConfig.getOptional(HttpDynamicSinkConnectorOptions.SINK_PROXY_PASSWORD);
+
+            ProxyConfig proxyConfig =
+                    new ProxyConfig(proxyHost.get(), proxyPort.get(), proxyUsername, proxyPassword);
+            clientBuilder.proxy(
+                    ProxySelector.of(
+                            new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort())));
+            proxyConfig.getAuthenticator().ifPresent(clientBuilder::authenticator);
+        }
+
+        return clientBuilder.build();
     }
 
     /**

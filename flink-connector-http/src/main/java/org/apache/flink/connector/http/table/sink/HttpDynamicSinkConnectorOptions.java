@@ -19,6 +19,7 @@ package org.apache.flink.connector.http.table.sink;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.connector.http.auth.OidcAccessTokenManager;
 import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
 import org.apache.flink.connector.http.retry.RetryStrategyType;
 
@@ -27,6 +28,7 @@ import java.time.Duration;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_TIMEOUT_SECONDS;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_HTTP_WRITER_THREAD_POOL_SIZE;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_IGNORE_RESPONSE_CODES;
+import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_QUERY_HTTP_VERSION;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_REQUEST_CALLBACK_IDENTIFIER;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_CODES;
 import static org.apache.flink.connector.http.config.HttpConnectorConfigConstants.SINK_RETRY_EXP_DELAY_INITIAL_BACKOFF;
@@ -63,6 +65,14 @@ public class HttpDynamicSinkConnectorOptions {
                                     + "Controls how long the HTTP client waits for a response "
                                     + "before timing out a single request. "
                                     + "Specified as a Duration, e.g. '30s' or '1min'.");
+
+    public static final ConfigOption<String> SINK_HTTP_VERSION =
+            ConfigOptions.key(SINK_QUERY_HTTP_VERSION)
+                    .stringType()
+                    .defaultValue(String.valueOf(java.net.http.HttpClient.Version.HTTP_1_1))
+                    .withDescription(
+                            "Version of HTTP to use for sink HTTP requests. "
+                                    + "The valid values are HTTP_1_1 and HTTP_2.");
 
     public static final ConfigOption<String> REQUEST_CALLBACK_IDENTIFIER =
             ConfigOptions.key(SINK_REQUEST_CALLBACK_IDENTIFIER)
@@ -116,6 +126,49 @@ public class HttpDynamicSinkConnectorOptions {
                             "Comma separated HTTP status codes that should be treated as successful "
                                     + "without retrying. Cannot be set together with legacy "
                                     + "http.sink.error.code.exclude.");
+
+    public static final ConfigOption<String> SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL =
+            ConfigOptions.key(HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("OIDC Token endpoint url.");
+
+    public static final ConfigOption<String> SINK_OIDC_AUTH_TOKEN_REQUEST =
+            ConfigOptions.key(HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_REQUEST)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("OIDC token request.");
+
+    public static final ConfigOption<Duration> SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION =
+            ConfigOptions.key(HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_EXPIRY_REDUCTION)
+                    .durationType()
+                    .defaultValue(OidcAccessTokenManager.DEFAULT_TOKEN_EXPIRATION_REDUCTION)
+                    .withDescription(
+                            "OIDC authorization access token expiry reduction as a Duration.");
+
+    public static final ConfigOption<String> SINK_PROXY_HOST =
+            ConfigOptions.key(HttpConnectorConfigConstants.SINK_PROXY_HOST)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Http client proxy host.");
+
+    public static final ConfigOption<Integer> SINK_PROXY_PORT =
+            ConfigOptions.key(HttpConnectorConfigConstants.SINK_PROXY_PORT)
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("Http client proxy port.");
+
+    public static final ConfigOption<String> SINK_PROXY_USERNAME =
+            ConfigOptions.key(HttpConnectorConfigConstants.SINK_PROXY_USERNAME)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Http client proxy username for authentication.");
+
+    public static final ConfigOption<String> SINK_PROXY_PASSWORD =
+            ConfigOptions.key(HttpConnectorConfigConstants.SINK_PROXY_PASSWORD)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Http client proxy password for authentication.");
 
     public static final ConfigOption<String> SINK_RETRY_STRATEGY =
             ConfigOptions.key(SINK_RETRY_STRATEGY_TYPE)

@@ -132,6 +132,16 @@ public final class HttpConnectorConfigConstants {
     public static final String SINK_HTTP_TIMEOUT_SECONDS =
             FLINK_CONNECTOR_HTTP_SINK + "request.timeout";
 
+    public static final String SINK_QUERY_HTTP_VERSION = FLINK_CONNECTOR_HTTP_SINK + "http-version";
+
+    public static final String SINK_PROXY_HOST = FLINK_CONNECTOR_HTTP_SINK + "proxy.host";
+
+    public static final String SINK_PROXY_PORT = FLINK_CONNECTOR_HTTP_SINK + "proxy.port";
+
+    public static final String SINK_PROXY_USERNAME = FLINK_CONNECTOR_HTTP_SINK + "proxy.username";
+
+    public static final String SINK_PROXY_PASSWORD = FLINK_CONNECTOR_HTTP_SINK + "proxy.password";
+
     public static final String LOOKUP_HTTP_POLLING_THREAD_POOL_SIZE =
             SOURCE_LOOKUP_PREFIX + "request.thread-pool.size";
 

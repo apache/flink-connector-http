@@ -87,7 +87,7 @@ class BatchRequestSubmitterFactory implements RequestSubmitterFactory {
         return new BatchRequestSubmitter(
                 sinkConfig,
                 headersAndValues,
-                JavaNetHttpClientFactory.createClient(properties, httpClientExecutor),
+                JavaNetHttpClientFactory.createClient(sinkConfig, httpClientExecutor),
                 httpClientExecutor);
     }
 }
