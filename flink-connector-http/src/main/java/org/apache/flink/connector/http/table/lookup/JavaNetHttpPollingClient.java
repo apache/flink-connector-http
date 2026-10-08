@@ -85,6 +85,9 @@ public class JavaNetHttpPollingClient implements PollingClient {
     private final boolean continueOnError;
     private final HttpLogger httpLogger;
 
+    /** Shared across lookups so the OIDC token is cached; {@code null} when OIDC is not set. */
+    private final HeaderPreprocessor oidcHeaderPreprocessor;
+
     public JavaNetHttpPollingClient(
             HttpClient httpClient,
             DeserializationSchema<RowData> responseBodyDecoder,
@@ -118,6 +121,7 @@ public class JavaNetHttpPollingClient implements PollingClient {
                         .responseChecker(new HttpResponseChecker(successCodes, errorCodes))
                         .build();
         this.httpLogger = HttpLogger.getHttpLogger(options.getProperties());
+        this.oidcHeaderPreprocessor = HttpHeaderUtils.createOIDCHeaderPreprocessor(config);
     }
 
     public void open(FunctionContext context) {
@@ -150,17 +154,13 @@ public class JavaNetHttpPollingClient implements PollingClient {
     private HttpRowDataWrapper queryAndProcess(RowData lookupData) throws Exception {
         var request = requestFactory.buildLookupRequest(lookupData);
 
-        var oidcProcessor =
-                (options.getReadableConfig() != null)
-                        ? HttpHeaderUtils.createOIDCHeaderPreprocessor(options.getReadableConfig())
-                        : null;
         HttpResponse<String> response = null;
         HttpRowDataWrapper httpRowDataWrapper = null;
         try {
             httpLogger.logRequest(request.getHttpRequest());
             response =
                     httpClient.send(
-                            () -> updateHttpRequestIfRequired(request, oidcProcessor),
+                            () -> updateHttpRequestIfRequired(request, oidcHeaderPreprocessor),
                             BodyHandlers.ofString());
             httpLogger.logResponse(response);
         } catch (HttpStatusCodeValidationFailedException e) {

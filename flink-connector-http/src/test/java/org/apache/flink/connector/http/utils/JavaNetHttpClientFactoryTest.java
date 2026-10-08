@@ -20,8 +20,10 @@ package org.apache.flink.connector.http.utils;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.http.WireMockServerPortAllocator;
+import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.table.lookup.HttpLookupConfig;
 import org.apache.flink.connector.http.table.lookup.Slf4JHttpLookupPostRequestCallback;
+import org.apache.flink.connector.http.table.sink.Slf4jHttpPostRequestCallback;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,10 @@ import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOp
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PASSWORD;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_PORT;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_PROXY_USERNAME;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_HOST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PASSWORD;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PORT;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_USERNAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JavaNetHttpClientFactoryTest {
@@ -137,5 +143,50 @@ class JavaNetHttpClientFactoryTest {
 
         HttpClient client = JavaNetHttpClientFactory.createClient(properties, httpClientExecutor);
         assertThat(client.followRedirects().equals(HttpClient.Redirect.NORMAL)).isTrue();
+    }
+
+    @Test
+    public void shouldGetSinkClientWithProxyAuthenticator() throws UnknownHostException {
+        Properties properties = new Properties();
+        Configuration configuration = new Configuration();
+        configuration.set(SINK_PROXY_HOST, "google");
+        configuration.set(SINK_PROXY_PORT, PROXY_SERVER_PORT);
+        configuration.set(SINK_PROXY_USERNAME, "username");
+        configuration.set(SINK_PROXY_PASSWORD, "password");
+
+        HttpSinkConfig sinkConfig =
+                HttpSinkConfig.builder()
+                        .url("https://google.com")
+                        .readableConfig(configuration)
+                        .properties(properties)
+                        .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                        .build();
+        ExecutorService httpClientExecutor =
+                Executors.newFixedThreadPool(
+                        1,
+                        new ExecutorThreadFactory(
+                                "http-sink-client-batch-request-worker",
+                                ThreadUtils.LOGGING_EXCEPTION_HANDLER));
+
+        HttpClient client = JavaNetHttpClientFactory.createClient(sinkConfig, httpClientExecutor);
+
+        assertThat(client.authenticator().isPresent()).isTrue();
+        assertThat(client.proxy().isPresent()).isTrue();
+
+        PasswordAuthentication auth =
+                client.authenticator()
+                        .get()
+                        .requestPasswordAuthenticationInstance(
+                                "google",
+                                InetAddress.getByName("127.0.0.1"),
+                                SERVER_PORT,
+                                "http",
+                                "Please authenticate",
+                                "basic",
+                                null,
+                                Authenticator.RequestorType.PROXY);
+
+        assertThat(auth.getUserName().equals("username")).isTrue();
+        assertThat(Arrays.equals(auth.getPassword(), "password".toCharArray())).isTrue();
     }
 }
