@@ -718,14 +718,14 @@ The metadata column `http-status-code`, if specified in the table definition, wi
 The metadata column `http-headers-map`, if specified in the table definition, will get a map of the HTTP headers.
 
 HTTP requests can fail either immediately or after temporary error retries. The usual behaviour after such failures is to end the job. If you would like to continue
-processing after these failures then specify `http.source.lookup.continue-on-error` as true. The lookup join will complete without content in the expected enrichment columns from the http call,
-this means that these columns will be null for nullable columns and hold a default value for the type for non-nullable columns.
+processing after these failures then specify `http.source.lookup.continue-on-error` as true. Without metadata columns, a failed call is then treated as a lookup miss:
+an inner lookup join drops the row, and a `LEFT JOIN` emits it with null enrichment columns.
 
 When using `http.source.lookup.continue-on-error` as true, consider adding extra metadata columns that will surface information about failures into your stream.
 
-Note that if metadata columns are specified and the status code is ignored, then a row containing metadata columns will be produced. If
-the status code is ignored and there are no metadata columns defined, then no row will be emitted; this ensures that the expected
-inner join behaviour still occurs.
+Note that if metadata columns are specified, then a row containing metadata columns will be produced for every call, including failed
+calls and ignored status codes. If there are no metadata columns defined, then no row will be emitted for a call without response data;
+this ensures that the expected inner join behaviour still occurs.
 
 Metadata columns can be specified and hold http information. They are optional read-only columns that must be declared VIRTUAL to exclude them during an INSERT INTO operation.
 
@@ -753,7 +753,7 @@ When the HTTP status code is in the `http.source.lookup.ignored-response-codes`,
 be `IGNORE_STATUS_CODE`and no data is returned; any metadata columns contain information about the API call that
 occurred.
 
-When a HTTP lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the HTTP call
+When a HTTP lookup call fails and populates the metadata columns with the error information, the expected enrichment columns from the HTTP call, including the lookup join key columns,
 are not populated, this means that they will be null for nullable columns and hold a default value for the type for non-nullable columns.
 
 If you are using the Table API `TableResult` and have an `await` with a timeout, this Timeout exception will cause the job to terminate,

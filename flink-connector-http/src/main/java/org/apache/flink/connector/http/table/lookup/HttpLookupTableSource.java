@@ -86,9 +86,6 @@ public class HttpLookupTableSource
     // Mutable attributes
     // --------------------------------------------------------------------------------------------
 
-    /** Data type that describes the final output of the source. */
-    protected DataType producedDataType;
-
     /** Metadata that is appended at the end of a physical source row. */
     protected List<String> metadataKeys;
 
@@ -157,7 +154,6 @@ public class HttpLookupTableSource
                         lookupRow,
                         lookupConfig,
                         metadataConverters,
-                        this.producedDataType,
                         this.physicalRowDataType);
         if (lookupConfig.isUseAsync()) {
             AsyncLookupFunction asyncLookupFunction =
@@ -336,7 +332,6 @@ public class HttpLookupTableSource
             decodingFormat.applyReadableMetadata(requestedFormatMetadataKeys);
         }
         this.metadataKeys = connectorMetadataKeys;
-        this.producedDataType = producedDataType;
     }
 
     // --------------------------------------------------------------------------------------------
