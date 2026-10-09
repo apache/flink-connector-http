@@ -28,7 +28,6 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.LookupFunction;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.types.RowKind;
 
 import lombok.AccessLevel;
@@ -60,7 +59,6 @@ public class HttpTableLookupFunction extends LookupFunction {
     private final HttpLookupConfig options;
 
     private transient AtomicInteger localHttpCallCounter;
-    private final DataType producedDataType;
     private final DataType physicalRowDataType;
     private transient PollingClient client;
     private final MetadataConverter[] metadataConverters;
@@ -71,7 +69,6 @@ public class HttpTableLookupFunction extends LookupFunction {
             LookupRow lookupRow,
             HttpLookupConfig options,
             MetadataConverter[] metadataConverters,
-            DataType producedDataType,
             DataType physicalRowDataType) {
 
         this.pollingClientFactory = pollingClientFactory;
@@ -79,7 +76,6 @@ public class HttpTableLookupFunction extends LookupFunction {
         this.lookupRow = lookupRow;
         this.options = options;
         this.metadataConverters = metadataConverters;
-        this.producedDataType = producedDataType;
         this.physicalRowDataType = physicalRowDataType;
     }
 
@@ -107,6 +103,10 @@ public class HttpTableLookupFunction extends LookupFunction {
         HttpRowDataWrapper httpRowDataWrapper = client.pull(keyRow);
         Collection<RowData> httpCollector = httpRowDataWrapper.getData();
 
+        if (httpCollector.isEmpty() && metadataArity == 0) {
+            // A response without data is a lookup miss unless the row carries metadata columns.
+            return Collections.emptyList();
+        }
         int physicalArity = -1;
 
         GenericRowData producedRow = null;
@@ -168,29 +168,16 @@ public class HttpTableLookupFunction extends LookupFunction {
                 producedRow.setField(pos, value);
             }
         }
-        // if we did not get the physical arity from the http response physical row then get it from
-        // the producedDataType, which is set when we have metadata or when there's no data
-        if (physicalArity == -1) {
-            if (producedDataType == null) {
-                // If producedDataType is null and we have no data, return the same way as ignore.
-                return Collections.emptyList();
-            } else {
-                List<LogicalType> childrenLogicalTypes =
-                        producedDataType.getLogicalType().getChildren();
-                physicalArity = childrenLogicalTypes.size() - metadataArity;
-            }
-        }
         // if there was no data, create an empty producedRow
         if (producedRow == null) {
+            physicalArity = physicalRowDataType.getChildren().size();
             producedRow = new GenericRowData(RowKind.INSERT, physicalArity + metadataArity);
         }
         // add any metadata
-        if (producedDataType != null) {
-            for (int metadataPos = 0; metadataPos < metadataArity; metadataPos++) {
-                producedRow.setField(
-                        physicalArity + metadataPos,
-                        metadataConverters[metadataPos].read(httpRowDataWrapper));
-            }
+        for (int metadataPos = 0; metadataPos < metadataArity; metadataPos++) {
+            producedRow.setField(
+                    physicalArity + metadataPos,
+                    metadataConverters[metadataPos].read(httpRowDataWrapper));
         }
         outputList.add(producedRow);
         return outputList;

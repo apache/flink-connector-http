@@ -100,7 +100,6 @@ class HttpTableLookupFunctionPopulateJoinKeysTest {
                         lookupRow,
                         httpLookupConfig,
                         new MetadataConverter[0],
-                        null,
                         producedDataType);
 
         // Create keyRow with join key value
@@ -171,7 +170,6 @@ class HttpTableLookupFunctionPopulateJoinKeysTest {
                         lookupRow,
                         httpLookupConfig,
                         new MetadataConverter[0],
-                        null,
                         producedDataType);
 
         // Create keyRow with three join key values
@@ -241,7 +239,6 @@ class HttpTableLookupFunctionPopulateJoinKeysTest {
                         lookupRow,
                         httpLookupConfig,
                         new MetadataConverter[0],
-                        null,
                         producedDataType);
 
         // Create keyRow with join key value
@@ -307,7 +304,6 @@ class HttpTableLookupFunctionPopulateJoinKeysTest {
                         lookupRow,
                         httpLookupConfig,
                         new MetadataConverter[0],
-                        null,
                         producedDataType);
 
         // Create keyRow with join key value

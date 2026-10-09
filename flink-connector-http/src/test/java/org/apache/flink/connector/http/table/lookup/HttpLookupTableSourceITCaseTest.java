@@ -1125,6 +1125,10 @@ class HttpLookupTableSourceITCaseTest {
     }
 
     private SortedSet<Row> testLookupJoin(String lookupTable, int maxRows) throws Exception {
+        return testLookupJoin(lookupTable, maxRows, "JOIN");
+    }
+
+    private TableResult executeLookupJoin(String lookupTable, int maxRows, String joinType) {
 
         createLookupAndSourceTables(lookupTable, maxRows);
 
@@ -1132,11 +1136,18 @@ class HttpLookupTableSourceITCaseTest {
         // SQL query that performs JOIN on both tables.
         String joinQuery =
                 "SELECT o.id, o.id2, c.msg, c.uuid, c.isActive, c.balance FROM Orders AS o "
-                        + "JOIN Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
+                        + joinType
+                        + " Customers FOR SYSTEM_TIME AS OF o.proc_time AS c "
                         + "ON o.id = c.id "
                         + "AND o.id2 = c.id2";
 
-        TableResult result = tEnv.executeSql(joinQuery);
+        return tEnv.executeSql(joinQuery);
+    }
+
+    private SortedSet<Row> testLookupJoin(String lookupTable, int maxRows, String joinType)
+            throws Exception {
+
+        TableResult result = executeLookupJoin(lookupTable, maxRows, joinType);
         result.await(SECONDS_TO_WAIT_FOR_RESPONSE, TimeUnit.SECONDS);
 
         // Wait for all async HTTP requests to complete and be processed
@@ -1448,7 +1459,13 @@ class HttpLookupTableSourceITCaseTest {
     }
 
     private void assertResultsForSpec(TestSpec spec, Collection<Row> rows) {
-        if (spec.badStatus) {
+        if (spec.badStatus && !spec.useMetadata && !spec.leftJoin) {
+            assertThat(rows).isEmpty();
+            assertThat(wireMockServer.getAllServeEvents())
+                    .hasSizeGreaterThanOrEqualTo(spec.maxRows);
+        } else if (spec.badStatus && !spec.useMetadata) {
+            assertNoEnrichment(rows);
+        } else if (spec.badStatus) {
             assertEnrichedRowsNoDataBadStatus(rows);
         } else if (spec.deserError) {
             if (spec.ignoreParseErrors) {
@@ -1492,6 +1509,22 @@ class HttpLookupTableSourceITCaseTest {
                 assertThat(row.getField("completionState"))
                         .isEqualTo(HttpCompletionState.SUCCESS.name());
             }
+        }
+    }
+
+    private void assertNoEnrichment(Collection<Row> collectedRows) {
+        assertThat(collectedRows).hasSize(4);
+        int intElement = 0;
+        for (Row row : collectedRows) {
+            intElement++;
+            assertThat(row)
+                    .returns(6, Row::getArity)
+                    .returns(String.valueOf(intElement), r -> r.getField("id"))
+                    .returns(String.valueOf(intElement + 1), r -> r.getField("id2"))
+                    .returns(null, r -> r.getField("msg"))
+                    .returns(null, r -> r.getField("uuid"))
+                    .returns(null, r -> r.getField("isActive"))
+                    .returns(null, r -> r.getField("balance"));
         }
     }
 
@@ -1719,8 +1752,14 @@ class HttpLookupTableSourceITCaseTest {
         try {
             if (spec.useMetadata) {
                 rows = testLookupJoinWithMetadata(lookupTable, spec.maxRows);
+            } else if (spec.badStatus && !spec.leftJoin) {
+                // An inner join without matches has no first row to await, so collect until the
+                // bounded job finishes.
+                rows = getCollectedRows(executeLookupJoin(lookupTable, spec.maxRows, "JOIN"));
             } else {
-                rows = testLookupJoin(lookupTable, spec.maxRows);
+                rows =
+                        testLookupJoin(
+                                lookupTable, spec.maxRows, spec.leftJoin ? "LEFT JOIN" : "JOIN");
             }
             // THEN
             assertResultsForSpec(spec, rows);
@@ -1793,6 +1832,33 @@ class HttpLookupTableSourceITCaseTest {
             }
         }
 
+        // Bad status test cases without metadata columns, so the planner never calls
+        // applyReadableMetadata on the lookup source
+        for (String method : Arrays.asList("GET", "POST", "PUT")) {
+            for (boolean asyncFlag : Arrays.asList(false, true)) {
+                for (boolean continueOnError : Arrays.asList(false, true)) {
+                    for (boolean leftJoin : Arrays.asList(false, true)) {
+                        specs.add(
+                                TestSpec.builder()
+                                        .testName(
+                                                "HTTP Lookup Join Bad Status continue on error:"
+                                                        + continueOnError
+                                                        + ". asyncFlag:"
+                                                        + asyncFlag
+                                                        + ". leftJoin:"
+                                                        + leftJoin)
+                                        .methodName(method)
+                                        .maxRows(4)
+                                        .useAsync(asyncFlag)
+                                        .badStatus(true)
+                                        .continueOnError(continueOnError)
+                                        .leftJoin(leftJoin)
+                                        .build());
+                    }
+                }
+            }
+        }
+
         // Deserialization error test cases (testHttpLookupJoinWithMetadataDeserException)
         for (String method : Arrays.asList("GET", "POST", "PUT")) {
             for (boolean asyncFlag : Arrays.asList(false, true)) {
@@ -1854,6 +1920,7 @@ class HttpLookupTableSourceITCaseTest {
         final boolean useAsync;
         final boolean continueOnError;
         final boolean ignoreParseErrors;
+        final boolean leftJoin;
 
         @Override
         public String toString() {
