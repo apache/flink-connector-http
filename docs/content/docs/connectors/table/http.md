@@ -61,6 +61,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [HTTP Sink](#http-sink)
     * [Sink Connector Options](#sink-connector-options)
     * [Sink table HTTP status codes](#sink-table-http-status-codes)
+    * [Retries and handling errors (Sink)](#retries-and-handling-errors-sink)
     * [Request submission](#request-submission)
     * [Batch submission mode](#batch-submission-mode)
     * [Single submission mode](#single-submission-mode)
@@ -632,6 +633,22 @@ If either legacy property is set together with `http.sink.success-codes` or `htt
 - `http.sink.success-codes` (default `2XX`) for successful responses
 - `http.sink.retry-codes` (default `500,503,504`) for retryable responses
 - `http.sink.ignored-response-codes` for responses that should be treated as successful without retrying
+
+### Retries and handling errors (Sink)
+Retries are disabled by default: `http.sink.max-retries` defaults to `0`, so the first failed request fails the job.
+
+When `http.sink.max-retries` is greater than `0`, the sink retries requests that fail before a response is received (for
+example, connection errors) and responses whose status code is listed in `http.sink.retry-codes`. The delay between
+retries is set by `http.sink.retry-strategy.type` and the matching fixed-delay or exponential-delay options. Any other
+response that is not successful or ignored is not retried and fails the job. A request that still fails with a retryable
+error after the last retry also fails the job.
+
+In batch submission mode, each HTTP request carries several records and gets one response status, which applies to every
+record in that request. A retryable response retries all of those records, and a fatal response or an exhausted retry
+fails all of them. The sink does not retry individual records inside a batch. Use an idempotent endpoint if retried
+records must not be applied twice. When one flush is split into several HTTP requests (because of
+`http.sink.request.batch.size` or different HTTP methods), each response applies only to the records in its own request.
+Retried records are batched again, so they can be grouped into different HTTP requests than in the first attempt.
 
 ### Request submission
 HTTP Sink by default submits events in batch. The submission mode can be changed using `http.sink.writer.request.mode` property using `single` or `batch` as property value.

@@ -44,6 +44,8 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -55,9 +57,12 @@ import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnecto
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Test for {@link JavaNetSinkHttpClient }. */
@@ -376,6 +381,196 @@ class JavaNetSinkHttpClientTest {
         client.close();
 
         assertThat(submitterClosed).isTrue();
+    }
+
+    @Test
+    public void perRequestModeRetriesOnlyTheFailedEntry() {
+        HttpSinkRequestEntry successfulEntry = new HttpSinkRequestEntry("POST", new byte[] {1});
+        HttpSinkRequestEntry retryableEntry = new HttpSinkRequestEntry("POST", new byte[] {2});
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(httpResponse(200), httpResponse(500), httpResponse(200))
+                .when(httpClient)
+                .sendAsync(any(), any());
+        List<List<HttpSinkRequestEntry>> attempts = new CopyOnWriteArrayList<>();
+
+        Properties properties = new Properties();
+        properties.setProperty(SINK_MAX_RETRIES, "1");
+        properties.setProperty(SINK_RETRY_FIXED_DELAY_DELAY, "1ms");
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        sinkConfig(properties),
+                        headerPreprocessor,
+                        recordingSubmitterFactory(httpClient, false, attempts));
+
+        var response =
+                client.putRequests(List.of(successfulEntry, retryableEntry), "http://localhost")
+                        .join();
+        client.close();
+
+        assertThat(attempts).hasSize(2);
+        assertSameEntries(attempts.get(0), successfulEntry, retryableEntry);
+        assertSameEntries(attempts.get(1), retryableEntry);
+        assertSameEntries(response.getSuccessfulRequests(), successfulEntry, retryableEntry);
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
+        assertThat(response.getFatalFailedRequests()).isEmpty();
+    }
+
+    @Test
+    public void batchModeRetriesAllOriginalEntriesOfRetryableBatch() {
+        List<HttpSinkRequestEntry> batch = batchEntries();
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(httpResponse(500), httpResponse(200)).when(httpClient).sendAsync(any(), any());
+        List<List<HttpSinkRequestEntry>> attempts = new CopyOnWriteArrayList<>();
+
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        sinkConfig(batchProperties("1")),
+                        headerPreprocessor,
+                        recordingSubmitterFactory(httpClient, true, attempts));
+
+        var response = client.putRequests(batch, "http://localhost").join();
+        client.close();
+
+        verify(httpClient, times(2)).sendAsync(any(), any());
+        assertThat(attempts).hasSize(2);
+        assertSameEntries(attempts.get(0), batch.toArray(new HttpSinkRequestEntry[0]));
+        assertSameEntries(attempts.get(1), batch.toArray(new HttpSinkRequestEntry[0]));
+        assertSameEntries(
+                response.getSuccessfulRequests(), batch.toArray(new HttpSinkRequestEntry[0]));
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
+        assertThat(response.getFatalFailedRequests()).isEmpty();
+    }
+
+    @Test
+    public void batchModeReturnsAllEntriesAsRetryableWhenRetriesAreExhausted() {
+        List<HttpSinkRequestEntry> batch = batchEntries();
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(httpResponse(500), httpResponse(500)).when(httpClient).sendAsync(any(), any());
+        List<List<HttpSinkRequestEntry>> attempts = new CopyOnWriteArrayList<>();
+
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        sinkConfig(batchProperties("1")),
+                        headerPreprocessor,
+                        recordingSubmitterFactory(httpClient, true, attempts));
+
+        var response = client.putRequests(batch, "http://localhost").join();
+        client.close();
+
+        assertThat(attempts).hasSize(2);
+        assertSameEntries(attempts.get(1), batch.toArray(new HttpSinkRequestEntry[0]));
+        assertThat(response.getSuccessfulRequests()).isEmpty();
+        assertSameEntries(
+                response.getRetriableFailedRequests(), batch.toArray(new HttpSinkRequestEntry[0]));
+        assertThat(response.getFatalFailedRequests()).isEmpty();
+    }
+
+    @Test
+    public void batchModeFailsAllEntriesOfFatalBatchWithoutRetry() {
+        List<HttpSinkRequestEntry> batch = batchEntries();
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(httpResponse(400)).when(httpClient).sendAsync(any(), any());
+        List<List<HttpSinkRequestEntry>> attempts = new CopyOnWriteArrayList<>();
+
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        sinkConfig(batchProperties("1")),
+                        headerPreprocessor,
+                        recordingSubmitterFactory(httpClient, true, attempts));
+
+        var response = client.putRequests(batch, "http://localhost").join();
+        client.close();
+
+        verify(httpClient, times(1)).sendAsync(any(), any());
+        assertThat(attempts).hasSize(1);
+        assertThat(response.getSuccessfulRequests()).isEmpty();
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
+        assertSameEntries(
+                response.getFatalFailedRequests(), batch.toArray(new HttpSinkRequestEntry[0]));
+    }
+
+    @Test
+    public void batchModeCompletesAllEntriesOfIgnoredBatch() {
+        List<HttpSinkRequestEntry> batch = batchEntries();
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(httpResponse(404)).when(httpClient).sendAsync(any(), any());
+        List<List<HttpSinkRequestEntry>> attempts = new CopyOnWriteArrayList<>();
+
+        Properties properties = batchProperties("1");
+        properties.setProperty(SINK_HTTP_IGNORED_RESPONSE_CODES.key(), "404");
+        JavaNetSinkHttpClient client =
+                new JavaNetSinkHttpClient(
+                        sinkConfig(properties),
+                        headerPreprocessor,
+                        recordingSubmitterFactory(httpClient, true, attempts));
+
+        var response = client.putRequests(batch, "http://localhost").join();
+        client.close();
+
+        assertThat(attempts).hasSize(1);
+        assertSameEntries(
+                response.getIgnoredRequests(), batch.toArray(new HttpSinkRequestEntry[0]));
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
+        assertThat(response.getFatalFailedRequests()).isEmpty();
+    }
+
+    private static List<HttpSinkRequestEntry> batchEntries() {
+        return List.of(
+                new HttpSinkRequestEntry("POST", new byte[] {1}),
+                new HttpSinkRequestEntry("POST", new byte[] {2}),
+                new HttpSinkRequestEntry("POST", new byte[] {3}));
+    }
+
+    private static Properties batchProperties(String maxRetries) {
+        Properties properties = new Properties();
+        properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "50");
+        properties.setProperty(SINK_MAX_RETRIES, maxRetries);
+        properties.setProperty(SINK_RETRY_FIXED_DELAY_DELAY, "1ms");
+        return properties;
+    }
+
+    private static RequestSubmitterFactory recordingSubmitterFactory(
+            HttpClient httpClient, boolean batchMode, List<List<HttpSinkRequestEntry>> attempts) {
+        return (sinkConfig, headersAndValues) -> {
+            RequestSubmitter delegate =
+                    batchMode
+                            ? new BatchRequestSubmitter(
+                                    sinkConfig,
+                                    headersAndValues,
+                                    httpClient,
+                                    Executors.newSingleThreadExecutor())
+                            : new PerRequestSubmitter(
+                                    sinkConfig,
+                                    headersAndValues,
+                                    httpClient,
+                                    Executors.newSingleThreadExecutor());
+            return new RequestSubmitter() {
+                @Override
+                public List<CompletableFuture<JavaNetHttpResponseWrapper>> submit(
+                        String endpointUrl, List<HttpSinkRequestEntry> requestToSubmit) {
+                    attempts.add(List.copyOf(requestToSubmit));
+                    return delegate.submit(endpointUrl, requestToSubmit);
+                }
+
+                @Override
+                public void close() {
+                    delegate.close();
+                }
+            };
+        };
+    }
+
+    private static CompletableFuture<HttpResponse<String>> httpResponse(int statusCode) {
+        HttpResponse<String> response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(statusCode);
+        return CompletableFuture.completedFuture(response);
+    }
+
+    private static void assertSameEntries(
+            List<HttpSinkRequestEntry> actual, HttpSinkRequestEntry... expected) {
+        assertThat(actual)
+                .usingElementComparator((left, right) -> left == right ? 0 : 1)
+                .containsExactly(expected);
     }
 
     private static CompletableFuture<JavaNetHttpResponseWrapper> responseFuture(

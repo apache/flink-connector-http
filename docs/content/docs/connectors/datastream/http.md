@@ -37,6 +37,7 @@ The HTTP Sink connector supports the Flink DataStream API.
 * [Apache HTTP Connector](#apache-http-connector)
   * [Working with HTTP sink Flink streaming API](#working-with-http-sink-flink-streaming-api)
     * [Sink Connector options](#sink-connector-options-)
+    * [Retries and handling errors (Sink)](#retries-and-handling-errors-sink)
     * [Batch submission mode](#batch-submission-mode)
     * [Single submission mode](#single-submission-mode)
     * [Http headers](#http-headers)
@@ -82,7 +83,21 @@ These options are specified on the builder using the setProperty method.
 | http.sink.writer.request.mode                             | optional | Sets the Http Sink request submission mode. Two modes are available: `single` and `batch`. Defaults to `batch` if not specified. |
 | http.sink.request.batch.size                              | optional | Applicable only for `http.sink.writer.request.mode = batch`. Sets number of individual events/requests that will be submitted as one HTTP request by HTTP sink. The default value is 500 which is same as HTTP Sink `maxBatchSize` |
 
+### Retries and handling errors (Sink)
+Retries are disabled by default: `http.sink.max-retries` defaults to `0`, so the first failed request fails the job.
 
+When `http.sink.max-retries` is greater than `0`, the sink retries requests that fail before a response is received (for
+example, connection errors) and responses whose status code is listed in `http.sink.retry-codes`. The delay between
+retries is set by `http.sink.retry-strategy.type` and the matching fixed-delay or exponential-delay options. Any other
+response that is not successful or ignored is not retried and fails the job. A request that still fails with a retryable
+error after the last retry also fails the job.
+
+In batch submission mode, each HTTP request carries several records and gets one response status, which applies to every
+record in that request. A retryable response retries all of those records, and a fatal response or an exhausted retry
+fails all of them. The sink does not retry individual records inside a batch. Use an idempotent endpoint if retried
+records must not be applied twice. When one flush is split into several HTTP requests (because of
+`http.sink.request.batch.size` or different HTTP methods), each response applies only to the records in its own request.
+Retried records are batched again, so they can be grouped into different HTTP requests than in the first attempt.
 
 ### Request submission
 HTTP Sink by default submits events in batch. The submission mode can be changed using `http.sink.writer.request.mode` property using `single` or `batch` as property value.
