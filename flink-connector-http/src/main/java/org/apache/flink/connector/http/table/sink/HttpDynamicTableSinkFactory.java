@@ -44,7 +44,15 @@ import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnecto
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_IGNORED_RESPONSE_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_RETRY_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_SUCCESS_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_MAX_RETRIES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_REQUEST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_HOST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PASSWORD;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PORT;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_USERNAME;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF;
@@ -118,12 +126,20 @@ public class HttpDynamicTableSinkFactory extends AsyncDynamicTableSinkFactory {
         var options = super.optionalOptions();
         options.add(INSERT_METHOD);
         options.add(SINK_REQUEST_TIMEOUT);
+        options.add(SINK_HTTP_VERSION);
         options.add(SINK_WRITER_THREAD_POOL_SIZE);
         options.add(REQUEST_CALLBACK_IDENTIFIER);
         options.add(SINK_MAX_RETRIES);
         options.add(SINK_HTTP_SUCCESS_CODES);
         options.add(SINK_HTTP_RETRY_CODES);
         options.add(SINK_HTTP_IGNORED_RESPONSE_CODES);
+        options.add(SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION);
+        options.add(SINK_OIDC_AUTH_TOKEN_REQUEST);
+        options.add(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL);
+        options.add(SINK_PROXY_HOST);
+        options.add(SINK_PROXY_PORT);
+        options.add(SINK_PROXY_USERNAME);
+        options.add(SINK_PROXY_PASSWORD);
         options.add(SINK_RETRY_STRATEGY);
         options.add(SINK_RETRY_FIXED_DELAY_DELAY);
         options.add(SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF);
@@ -143,6 +159,33 @@ public class HttpDynamicTableSinkFactory extends AsyncDynamicTableSinkFactory {
                                         String.format(
                                                 "Invalid option '%s'. It is expected to be either 'POST' or 'PUT'.",
                                                 INSERT_METHOD.key()));
+                            }
+                        });
+        tableOptions
+                .getOptional(SINK_HTTP_VERSION)
+                .ifPresent(
+                        httpVersion -> {
+                            try {
+                                java.net.http.HttpClient.Version.valueOf(httpVersion);
+                            } catch (IllegalArgumentException e) {
+                                throw new IllegalArgumentException(
+                                        String.format(
+                                                "Invalid option '%s'. Supported values are: HTTP_1_1, HTTP_2.",
+                                                SINK_HTTP_VERSION.key()),
+                                        e);
+                            }
+                        });
+        tableOptions
+                .getOptional(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL)
+                .ifPresent(
+                        url -> {
+                            if (tableOptions.getOptional(SINK_OIDC_AUTH_TOKEN_REQUEST).isEmpty()) {
+                                throw new IllegalArgumentException(
+                                        "Config option "
+                                                + SINK_OIDC_AUTH_TOKEN_REQUEST.key()
+                                                + " is required, if "
+                                                + SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL.key()
+                                                + " is configured.");
                             }
                         });
         tableOptions

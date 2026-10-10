@@ -17,12 +17,17 @@
 
 package org.apache.flink.connector.http.sink.httpclient;
 
+import org.apache.flink.connector.http.auth.OidcAccessTokenManager;
 import org.apache.flink.connector.http.config.HttpSinkConfig;
+import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 import org.apache.flink.connector.http.utils.ThreadUtils;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest.Builder;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,6 +48,11 @@ public abstract class AbstractRequestSubmitter implements RequestSubmitter {
 
     protected final HttpClient httpClient;
 
+    protected final HttpClient.Version httpVersion;
+
+    /** Supplies the OIDC bearer token for each request; {@code null} when OIDC is not set. */
+    private final OidcAccessTokenManager oidcAccessTokenManager;
+
     public AbstractRequestSubmitter(
             HttpSinkConfig sinkConfig,
             String[] headersAndValues,
@@ -59,6 +69,9 @@ public abstract class AbstractRequestSubmitter implements RequestSubmitter {
                                 ThreadUtils.LOGGING_EXCEPTION_HANDLER));
 
         this.httpRequestTimeout = sinkConfig.getRequestTimeout();
+        this.httpVersion = HttpClient.Version.valueOf(sinkConfig.getHttpVersion());
+        this.oidcAccessTokenManager =
+                HttpHeaderUtils.createSinkOidcAccessTokenManager(sinkConfig.getReadableConfig());
 
         this.httpClient = httpClient;
     }
@@ -67,5 +80,40 @@ public abstract class AbstractRequestSubmitter implements RequestSubmitter {
     public void close() {
         publishingThreadPool.shutdownNow();
         httpClientExecutor.shutdownNow();
+    }
+
+    protected Builder newRequestBuilder() {
+        return java.net.http.HttpRequest.newBuilder()
+                .version(httpVersion)
+                .timeout(httpRequestTimeout);
+    }
+
+    /**
+     * Returns the headers for the next HTTP request. With OIDC configured, a current bearer token
+     * replaces any configured {@code Authorization} header, so an expired token is refreshed before
+     * the request is sent.
+     */
+    protected String[] requestHeaders() {
+        if (oidcAccessTokenManager == null) {
+            return headersAndValues;
+        }
+
+        String accessToken;
+        // The token manager caches the token without synchronization, and requests are built
+        // from both the writer thread and the retry scheduler.
+        synchronized (oidcAccessTokenManager) {
+            accessToken = oidcAccessTokenManager.authenticate();
+        }
+
+        List<String> headers = new ArrayList<>(headersAndValues.length + 2);
+        for (int i = 0; i + 1 < headersAndValues.length; i += 2) {
+            if (!HttpHeaderUtils.AUTHORIZATION.equalsIgnoreCase(headersAndValues[i])) {
+                headers.add(headersAndValues[i]);
+                headers.add(headersAndValues[i + 1]);
+            }
+        }
+        headers.add(HttpHeaderUtils.AUTHORIZATION);
+        headers.add("Bearer " + accessToken);
+        return headers.toArray(new String[0]);
     }
 }

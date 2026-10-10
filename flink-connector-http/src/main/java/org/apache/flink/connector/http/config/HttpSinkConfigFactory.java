@@ -37,7 +37,15 @@ import java.util.stream.Collectors;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_IGNORED_RESPONSE_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_RETRY_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_SUCCESS_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_MAX_RETRIES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_REQUEST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_HOST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PASSWORD;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PORT;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_USERNAME;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_INITIAL_BACKOFF;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_EXPONENTIAL_DELAY_MAX_BACKOFF;
@@ -82,6 +90,55 @@ public final class HttpSinkConfigFactory {
                 properties.getProperty(HttpConnectorConfigConstants.SINK_HTTP_TIMEOUT_SECONDS);
         if (requestTimeout != null) {
             configuration.set(SINK_REQUEST_TIMEOUT, TimeUtils.parseDuration(requestTimeout));
+        }
+
+        String httpVersion =
+                properties.getProperty(HttpConnectorConfigConstants.SINK_QUERY_HTTP_VERSION);
+        if (httpVersion != null) {
+            configuration.set(SINK_HTTP_VERSION, httpVersion);
+        }
+
+        String proxyHost = properties.getProperty(HttpConnectorConfigConstants.SINK_PROXY_HOST);
+        if (proxyHost != null) {
+            configuration.set(SINK_PROXY_HOST, proxyHost);
+        }
+
+        String proxyPort = properties.getProperty(HttpConnectorConfigConstants.SINK_PROXY_PORT);
+        if (proxyPort != null) {
+            configuration.set(SINK_PROXY_PORT, Integer.parseInt(proxyPort));
+        }
+
+        String proxyUsername =
+                properties.getProperty(HttpConnectorConfigConstants.SINK_PROXY_USERNAME);
+        if (proxyUsername != null) {
+            configuration.set(SINK_PROXY_USERNAME, proxyUsername);
+        }
+
+        String proxyPassword =
+                properties.getProperty(HttpConnectorConfigConstants.SINK_PROXY_PASSWORD);
+        if (proxyPassword != null) {
+            configuration.set(SINK_PROXY_PASSWORD, proxyPassword);
+        }
+
+        String oidcTokenEndpointUrl =
+                properties.getProperty(HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_ENDPOINT_URL);
+        if (oidcTokenEndpointUrl != null) {
+            configuration.set(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL, oidcTokenEndpointUrl);
+        }
+
+        String oidcTokenRequest =
+                properties.getProperty(HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_REQUEST);
+        if (oidcTokenRequest != null) {
+            configuration.set(SINK_OIDC_AUTH_TOKEN_REQUEST, oidcTokenRequest);
+        }
+
+        String oidcTokenExpiryReduction =
+                properties.getProperty(
+                        HttpConnectorConfigConstants.OIDC_AUTH_TOKEN_EXPIRY_REDUCTION);
+        if (oidcTokenExpiryReduction != null) {
+            configuration.set(
+                    SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION,
+                    TimeUtils.parseDuration(oidcTokenExpiryReduction));
         }
 
         String writerThreadPoolSize =

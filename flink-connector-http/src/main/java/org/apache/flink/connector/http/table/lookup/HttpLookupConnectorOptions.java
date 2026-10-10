@@ -20,6 +20,7 @@ package org.apache.flink.connector.http.table.lookup;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.connector.http.HttpLoggingLevelType;
+import org.apache.flink.connector.http.auth.OidcAccessTokenManager;
 import org.apache.flink.connector.http.retry.RetryStrategyType;
 
 import java.time.Duration;
@@ -127,7 +128,7 @@ public class HttpLookupConnectorOptions {
     public static final ConfigOption<Duration> SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION =
             ConfigOptions.key(OIDC_AUTH_TOKEN_EXPIRY_REDUCTION)
                     .durationType()
-                    .defaultValue(Duration.ofSeconds(1))
+                    .defaultValue(OidcAccessTokenManager.DEFAULT_TOKEN_EXPIRATION_REDUCTION)
                     .withDescription(
                             "OIDC authorization access token expiry"
                                     + " reduction as a Duration."

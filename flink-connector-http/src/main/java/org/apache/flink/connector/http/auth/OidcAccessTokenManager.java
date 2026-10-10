@@ -43,7 +43,9 @@ import java.time.Instant;
 @Slf4j
 public class OidcAccessTokenManager {
 
-    private static final Duration DEFAULT_TOKEN_EXPIRATION_REDUCTION = Duration.ofSeconds(1);
+    /** Leaves headroom for network latency, request duration and clock skew. */
+    public static final Duration DEFAULT_TOKEN_EXPIRATION_REDUCTION = Duration.ofSeconds(30);
+
     private final HttpClient httpClient;
     private final String tokenRequest;
 

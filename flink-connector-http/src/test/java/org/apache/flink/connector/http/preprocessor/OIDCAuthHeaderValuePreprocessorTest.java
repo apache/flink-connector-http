@@ -18,9 +18,11 @@
 package org.apache.flink.connector.http.preprocessor;
 
 import org.apache.flink.connector.http.WireMockServerPortAllocator;
+import org.apache.flink.util.InstantiationUtil;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import java.util.Optional;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -111,5 +114,67 @@ class OIDCAuthHeaderValuePreprocessorTest {
         // Verify correct Bearer casing per RFC 6750
         assertThat(headerValue).startsWith("Bearer ");
         assertThat(headerValue).isEqualTo("Bearer " + accessToken);
+    }
+
+    @Test
+    public void shouldReuseCachedTokenWhileValid() {
+        stubToken(Scenario.STARTED, "token-1", 3600, "second");
+        stubToken("second", "token-2", 3600, "second");
+
+        OIDCAuthHeaderValuePreprocessor preprocessor = preprocessor();
+
+        assertThat(preprocessor.preprocessHeaderValue("ignored")).isEqualTo("Bearer token-1");
+        assertThat(preprocessor.preprocessHeaderValue("ignored")).isEqualTo("Bearer token-1");
+        wireMockServer.verify(1, postRequestedFor(urlEqualTo(TOKEN_ENDPOINT)));
+    }
+
+    @Test
+    public void shouldRefreshExpiredToken() {
+        stubToken(Scenario.STARTED, "token-1", 0, "second");
+        stubToken("second", "token-2", 3600, "second");
+
+        OIDCAuthHeaderValuePreprocessor preprocessor = preprocessor();
+
+        assertThat(preprocessor.preprocessHeaderValue("ignored")).isEqualTo("Bearer token-1");
+        assertThat(preprocessor.preprocessHeaderValue("ignored")).isEqualTo("Bearer token-2");
+        wireMockServer.verify(2, postRequestedFor(urlEqualTo(TOKEN_ENDPOINT)));
+    }
+
+    @Test
+    public void shouldWorkAfterSerialization() throws Exception {
+        stubToken(Scenario.STARTED, "token-1", 3600, Scenario.STARTED);
+
+        OIDCAuthHeaderValuePreprocessor preprocessor = preprocessor();
+        preprocessor.preprocessHeaderValue("ignored");
+        OIDCAuthHeaderValuePreprocessor copy =
+                InstantiationUtil.clone(preprocessor, getClass().getClassLoader());
+
+        assertThat(copy.preprocessHeaderValue("ignored")).isEqualTo("Bearer token-1");
+    }
+
+    private OIDCAuthHeaderValuePreprocessor preprocessor() {
+        return new OIDCAuthHeaderValuePreprocessor(
+                "http://localhost:" + serverPort + TOKEN_ENDPOINT,
+                "grant_type=client_credentials",
+                Optional.of(Duration.ZERO));
+    }
+
+    private void stubToken(
+            String state, String accessToken, int expiresInSeconds, String nextState) {
+        wireMockServer.stubFor(
+                post(urlEqualTo(TOKEN_ENDPOINT))
+                        .inScenario("token")
+                        .whenScenarioStateIs(state)
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody(
+                                                "{\"access_token\": \""
+                                                        + accessToken
+                                                        + "\", \"expires_in\": "
+                                                        + expiresInSeconds
+                                                        + "}"))
+                        .willSetStateTo(nextState));
     }
 }

@@ -35,7 +35,15 @@ import static org.apache.flink.connector.http.config.HttpConnectorConfigConstant
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_IGNORED_RESPONSE_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_RETRY_CODES;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_SUCCESS_CODES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_MAX_RETRIES;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_REQUEST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_HOST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PASSWORD;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_PORT;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_PROXY_USERNAME;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_RETRY_FIXED_DELAY_DELAY;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_WRITER_THREAD_POOL_SIZE;
@@ -51,6 +59,7 @@ public class HttpSinkConfigSerializationTest {
         config.set(SINK_REQUEST_TIMEOUT, Duration.ofMinutes(2));
         config.set(SINK_WRITER_THREAD_POOL_SIZE, 3);
         config.set(SINK_MAX_RETRIES, 7);
+        config.set(SINK_HTTP_VERSION, "HTTP_2");
         config.set(SINK_HTTP_SUCCESS_CODES, "2XX,404");
         config.set(SINK_HTTP_RETRY_CODES, "500");
         config.set(SINK_HTTP_IGNORED_RESPONSE_CODES, "404");
@@ -82,6 +91,7 @@ public class HttpSinkConfigSerializationTest {
         assertThat(deserialized.getRequestTimeout()).isEqualTo(Duration.ofMinutes(2));
         assertThat(deserialized.getWriterThreadPoolSize()).isEqualTo(3);
         assertThat(deserialized.getMaxRetries()).isEqualTo(7);
+        assertThat(deserialized.getHttpVersion()).isEqualTo("HTTP_2");
         assertThat(deserialized.getSuccessCodes()).isEqualTo("2XX,404");
         assertThat(deserialized.getRetryCodes()).isEqualTo("500");
         assertThat(deserialized.getIgnoredResponseCodes()).isEqualTo("404");
@@ -97,6 +107,7 @@ public class HttpSinkConfigSerializationTest {
                         .build();
 
         assertThat(config.getRequestTimeout()).isEqualTo(Duration.ofSeconds(30));
+        assertThat(config.getHttpVersion()).isEqualTo("HTTP_1_1");
         assertThat(config.getWriterThreadPoolSize()).isEqualTo(4);
         assertThat(config.getMaxRetries()).isEqualTo(0);
         assertThat(config.getSuccessCodes()).isEqualTo("2XX");
@@ -108,6 +119,14 @@ public class HttpSinkConfigSerializationTest {
     public void testFromDataStreamMergesPropertiesIntoReadableConfig() {
         Properties properties = new Properties();
         properties.setProperty(SINK_REQUEST_TIMEOUT.key(), "45s");
+        properties.setProperty(SINK_HTTP_VERSION.key(), "HTTP_2");
+        properties.setProperty(SINK_PROXY_HOST.key(), "proxy");
+        properties.setProperty(SINK_PROXY_PORT.key(), "8080");
+        properties.setProperty(SINK_PROXY_USERNAME.key(), "user");
+        properties.setProperty(SINK_PROXY_PASSWORD.key(), "password");
+        properties.setProperty(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(), "http://token");
+        properties.setProperty(SINK_OIDC_AUTH_TOKEN_REQUEST.key(), "grant_type=client_credentials");
+        properties.setProperty(SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION.key(), "2s");
         properties.setProperty(SINK_WRITER_THREAD_POOL_SIZE.key(), "2");
         properties.setProperty(SINK_MAX_RETRIES.key(), "8");
         properties.setProperty(SINK_HTTP_SUCCESS_CODES.key(), "2XX,201");
@@ -120,6 +139,17 @@ public class HttpSinkConfigSerializationTest {
                         "http://localhost", properties, new Slf4jHttpPostRequestCallback());
 
         assertThat(config.getRequestTimeout()).isEqualTo(Duration.ofSeconds(45));
+        assertThat(config.getHttpVersion()).isEqualTo("HTTP_2");
+        assertThat(config.getReadableConfig().get(SINK_PROXY_HOST)).isEqualTo("proxy");
+        assertThat(config.getReadableConfig().get(SINK_PROXY_PORT)).isEqualTo(8080);
+        assertThat(config.getReadableConfig().get(SINK_PROXY_USERNAME)).isEqualTo("user");
+        assertThat(config.getReadableConfig().get(SINK_PROXY_PASSWORD)).isEqualTo("password");
+        assertThat(config.getReadableConfig().get(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL))
+                .isEqualTo("http://token");
+        assertThat(config.getReadableConfig().get(SINK_OIDC_AUTH_TOKEN_REQUEST))
+                .isEqualTo("grant_type=client_credentials");
+        assertThat(config.getReadableConfig().get(SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION))
+                .isEqualTo(Duration.ofSeconds(2));
         assertThat(config.getWriterThreadPoolSize()).isEqualTo(2);
         assertThat(config.getMaxRetries()).isEqualTo(8);
         assertThat(config.getSuccessCodes()).isEqualTo("2XX,201");
