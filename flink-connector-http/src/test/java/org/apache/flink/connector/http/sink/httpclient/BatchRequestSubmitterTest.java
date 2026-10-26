@@ -33,6 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
@@ -47,6 +48,7 @@ import java.util.stream.Stream;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,6 +96,35 @@ class BatchRequestSubmitterTest {
                         .collect(Collectors.toList()));
 
         verify(mockHttpClient, times(expectedNumberOfBatchRequests)).sendAsync(any(), any());
+    }
+
+    @Test
+    public void keepsFailureWhenRequestFailsBeforeResponse() {
+        Properties properties = new Properties();
+        properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "50");
+        IOException failure = new IOException("connection refused");
+        doReturn(CompletableFuture.failedFuture(failure))
+                .when(mockHttpClient)
+                .sendAsync(any(), any());
+
+        BatchRequestSubmitter submitter =
+                submitter(
+                        sinkConfig(properties),
+                        mockHttpClient,
+                        Executors.newSingleThreadExecutor());
+
+        JavaNetHttpResponseWrapper outcome =
+                submitter
+                        .submit(
+                                "http://hello.pl",
+                                List.of(new HttpSinkRequestEntry("PUT", new byte[0])))
+                        .get(0)
+                        .join();
+
+        // no response, but the cause and the elapsed time are kept for the sink client
+        assertThat(outcome.getResponse()).isEmpty();
+        assertThat(outcome.getFailure()).containsSame(failure);
+        assertThat(outcome.getRequestDurationMillis()).isGreaterThanOrEqualTo(0);
     }
 
     @Test

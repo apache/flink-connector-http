@@ -62,6 +62,7 @@ The HTTP source connector supports [Lookup Joins](https://nightlies.apache.org/f
     * [Sink Connector Options](#sink-connector-options)
     * [Sink table HTTP status codes](#sink-table-http-status-codes)
     * [Retries and handling errors (Sink)](#retries-and-handling-errors-sink)
+    * [Sink failure observability](#sink-failure-observability)
     * [Request submission](#request-submission)
     * [Batch submission mode](#batch-submission-mode)
     * [Single submission mode](#single-submission-mode)
@@ -652,6 +653,29 @@ fails all of them. The sink does not retry individual records inside a batch. Us
 records must not be applied twice. When one flush is split into several HTTP requests (because of
 `http.sink.request.batch.size` or different HTTP methods), each response applies only to the records in its own request.
 Retried records are batched again, so they can be grouped into different HTTP requests than in the first attempt.
+
+### Sink failure observability
+The sink increments Flink's standard `numRecordsSendErrors` counter for every request entry that fails. It also registers
+these metrics in the `http_sink_connector` group of the sink writer's metric group:
+
+| Metric                       | Type      | Description                                                                                               |
+|------------------------------|-----------|-----------------------------------------------------------------------------------------------------------|
+| numHttpRequests              | counter   | HTTP requests sent, including retries.                                                                    |
+| requestLatencyMs             | histogram | Duration of the last 1024 HTTP requests in milliseconds.                                                  |
+| numRetryableResponseFailures | counter   | Request entries that received a retryable response status, counted on every attempt.                      |
+| numRequestExceptions         | counter   | Request entries whose request failed before a response was received, for example on a connection error.   |
+| numRetryAttempts             | counter   | Request entries that were scheduled for another attempt.                                                  |
+| numRetryExhausted            | counter   | Request entries that still failed with a retryable error after the last retry.                            |
+| numFatalResponseFailures     | counter   | Request entries that received a fatal response status.                                                    |
+| numIgnoredResponses          | counter   | Request entries whose response status is listed in `http.sink.ignored-response-codes`.                    |
+
+The `http_sink_connector.status_code` subgroup holds one counter per HTTP status code, named after the code and counted
+in request entries. A batch request that carries 50 entries and gets a 500 response increments the `500` counter by 50.
+In batch submission mode one HTTP request carries many entries, so `numHttpRequests` grows more slowly than the entry
+counters.
+
+Failure logs name the endpoint, the HTTP method, the number of affected request entries, and the response status when
+there is one.
 
 ### Request submission
 HTTP Sink by default submits events in batch. The submission mode can be changed using `http.sink.writer.request.mode` property using `single` or `batch` as property value.

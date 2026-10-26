@@ -53,15 +53,33 @@ public class SinkHttpClientResponses {
      */
     @NonNull private final List<HttpSinkRequestEntry> ignoredRequests;
 
+    /** Observability data for this write, see {@link SinkHttpClientStatistics}. */
+    @NonNull private final SinkHttpClientStatistics statistics;
+
+    public SinkHttpClientResponses(
+            List<HttpSinkRequestEntry> successfulRequests,
+            List<HttpSinkRequestEntry> retriableFailedRequests,
+            List<HttpSinkRequestEntry> fatalFailedRequests,
+            List<HttpSinkRequestEntry> ignoredRequests,
+            SinkHttpClientStatistics statistics) {
+        this.successfulRequests = successfulRequests;
+        this.retriableFailedRequests = retriableFailedRequests;
+        this.fatalFailedRequests = fatalFailedRequests;
+        this.ignoredRequests = ignoredRequests;
+        this.statistics = statistics;
+    }
+
     public SinkHttpClientResponses(
             List<HttpSinkRequestEntry> successfulRequests,
             List<HttpSinkRequestEntry> retriableFailedRequests,
             List<HttpSinkRequestEntry> fatalFailedRequests,
             List<HttpSinkRequestEntry> ignoredRequests) {
-        this.successfulRequests = successfulRequests;
-        this.retriableFailedRequests = retriableFailedRequests;
-        this.fatalFailedRequests = fatalFailedRequests;
-        this.ignoredRequests = ignoredRequests;
+        this(
+                successfulRequests,
+                retriableFailedRequests,
+                fatalFailedRequests,
+                ignoredRequests,
+                SinkHttpClientStatistics.empty());
     }
 
     public SinkHttpClientResponses(

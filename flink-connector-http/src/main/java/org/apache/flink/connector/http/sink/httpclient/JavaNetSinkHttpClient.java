@@ -34,9 +34,11 @@ import org.apache.flink.connector.http.utils.HttpHeaderUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -134,7 +136,13 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
         for (var response : responses) {
             var sinkRequestEntry = response.getHttpRequest();
             var optResponse = response.getResponse();
+            int requestEntryCount = sinkRequestEntry.getRequestEntries().size();
+            attemptResult.recordHttpRequest(response.getRequestDurationMillis());
             optResponse.ifPresent(this.httpLogger::logResponse);
+            optResponse.ifPresent(
+                    httpResponse ->
+                            attemptResult.recordStatusCode(
+                                    httpResponse.statusCode(), requestEntryCount));
             httpPostRequestCallback.call(
                     optResponse.orElse(null), sinkRequestEntry, endpointUrl, headerMap);
 
@@ -144,17 +152,49 @@ public class JavaNetSinkHttpClient implements SinkHttpClient {
                     break;
                 case IGNORED:
                     attemptResult.addIgnoredRequests(sinkRequestEntry.getRequestEntries());
+                    log.debug(
+                            "HTTP sink ignored response status {} for {} request entries sent with {} to {}",
+                            statusCode(optResponse),
+                            requestEntryCount,
+                            sinkRequestEntry.getMethod(),
+                            endpointUrl);
                     break;
                 case RETRYABLE_FAILURE:
                     attemptResult.addRetryableRequests(sinkRequestEntry.getRequestEntries());
+                    if (optResponse.isPresent()) {
+                        log.warn(
+                                "HTTP sink received retryable response status {} for {} request entries sent with {} to {}",
+                                statusCode(optResponse),
+                                requestEntryCount,
+                                sinkRequestEntry.getMethod(),
+                                endpointUrl);
+                    } else {
+                        attemptResult.recordTransportFailure(requestEntryCount);
+                        log.warn(
+                                "HTTP sink request with {} to {} failed before a response was received for {} request entries",
+                                sinkRequestEntry.getMethod(),
+                                endpointUrl,
+                                requestEntryCount,
+                                response.getFailure().orElse(null));
+                    }
                     break;
                 case FATAL_FAILURE:
                     attemptResult.addFatalFailedRequests(sinkRequestEntry.getRequestEntries());
+                    log.error(
+                            "HTTP sink received fatal response status {} for {} request entries sent with {} to {}",
+                            statusCode(optResponse),
+                            requestEntryCount,
+                            sinkRequestEntry.getMethod(),
+                            endpointUrl);
                     break;
             }
         }
 
         return attemptResult;
+    }
+
+    private static Integer statusCode(Optional<HttpResponse<String>> response) {
+        return response.map(HttpResponse::statusCode).orElse(null);
     }
 
     @VisibleForTesting

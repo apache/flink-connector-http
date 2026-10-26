@@ -22,8 +22,6 @@ import org.apache.flink.connector.http.config.HttpConnectorConfigConstants;
 import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Version;
@@ -42,7 +40,6 @@ import java.util.concurrent.ExecutorService;
  * This implementation groups received events in batches and submits each batch as individual HTTP
  * requests. Batch is created based on batch size or based on HTTP method type.
  */
-@Slf4j
 public class BatchRequestSubmitter extends AbstractRequestSubmitter {
 
     private static final byte[] BATCH_START_BYTES = "[".getBytes(StandardCharsets.UTF_8);
@@ -106,17 +103,11 @@ public class BatchRequestSubmitter extends AbstractRequestSubmitter {
             String endpointUrl, List<HttpSinkRequestEntry> requestBatch) {
 
         HttpRequest httpRequest = buildHttpRequest(requestBatch, URI.create(endpointUrl));
+        long startNanos = System.nanoTime();
         return httpClient
                 .sendAsync(httpRequest.getHttpRequest(), HttpResponse.BodyHandlers.ofString())
-                .exceptionally(
-                        ex -> {
-                            // TODO This will be executed on a ForkJoinPool Thread... refactor this
-                            // someday.
-                            log.error("Request fatally failed because of an exception", ex);
-                            return null;
-                        })
-                .thenApplyAsync(
-                        res -> new JavaNetHttpResponseWrapper(httpRequest, res),
+                .handleAsync(
+                        (res, ex) -> wrapOutcome(httpRequest, res, ex, startNanos),
                         publishingThreadPool);
     }
 
