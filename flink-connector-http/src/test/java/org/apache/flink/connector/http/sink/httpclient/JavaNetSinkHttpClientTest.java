@@ -591,6 +591,32 @@ class JavaNetSinkHttpClientTest {
         return client;
     }
 
+    @Test
+    public void shouldFailTheRequestWhenARetryAttemptThrows() {
+        HttpSinkRequestEntry retryableEntry = new HttpSinkRequestEntry("POST", new byte[] {1});
+        AtomicInteger submits = new AtomicInteger();
+        RequestSubmitterFactory submitterFactory =
+                (_sinkConfig, _headersAndValues) ->
+                        (_endpointUrl, _requestToSubmit) -> {
+                            if (submits.getAndIncrement() == 0) {
+                                return List.of(responseFuture(retryableEntry, 503));
+                            }
+                            throw new IllegalStateException("token endpoint returned 500");
+                        };
+
+        Properties properties = new Properties();
+        properties.setProperty(SINK_MAX_RETRIES, "2");
+        properties.setProperty(SINK_RETRY_FIXED_DELAY_DELAY, "1ms");
+        JavaNetSinkHttpClient client = retryingClient(sinkConfig(properties), submitterFactory);
+
+        var future = client.putRequests(List.of(retryableEntry), "http://localhost");
+
+        assertThatThrownBy(() -> future.get(5, java.util.concurrent.TimeUnit.SECONDS))
+                .isInstanceOf(java.util.concurrent.ExecutionException.class)
+                .hasMessageContaining("token endpoint returned 500");
+        assertThat(submits).hasValue(2);
+    }
+
     private static HttpPostRequestCallback<HttpRequest> recordingCallback(
             List<List<HttpSinkRequestEntry>> httpRequests) {
         return (response, request, endpointUrl, headerMap) ->

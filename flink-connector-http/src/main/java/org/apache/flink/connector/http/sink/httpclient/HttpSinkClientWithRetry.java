@@ -72,7 +72,7 @@ class HttpSinkClientWithRetry {
         return Retry.<HttpSinkAttemptResult>decorateCompletionStage(
                         retry,
                         retryScheduler,
-                        () -> attemptSubmitter.apply(requestEntriesToSubmit.get()))
+                        () -> submitAttempt(attemptSubmitter, requestEntriesToSubmit.get()))
                 .get()
                 .thenApply(
                         attemptResult -> {
@@ -86,6 +86,24 @@ class HttpSinkClientWithRetry {
 
     void close() {
         retryScheduler.shutdownNow();
+    }
+
+    /**
+     * Runs one attempt and turns an exception thrown while starting it into a failed stage.
+     * Resilience4j does not catch exceptions thrown by the attempt itself: on a retry attempt,
+     * which runs on the retry scheduler, the exception would be lost and the request would never
+     * complete (FLINK-41192). As a failed stage it goes through {@code retryOnException}, so an I/O
+     * failure is retried like a transport error and anything else fails the request.
+     */
+    private static CompletionStage<HttpSinkAttemptResult> submitAttempt(
+            Function<List<HttpSinkRequestEntry>, CompletionStage<HttpSinkAttemptResult>>
+                    attemptSubmitter,
+            List<HttpSinkRequestEntry> requestEntries) {
+        try {
+            return attemptSubmitter.apply(requestEntries);
+        } catch (RuntimeException e) {
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     static boolean isRetryableIoException(Throwable throwable) {
