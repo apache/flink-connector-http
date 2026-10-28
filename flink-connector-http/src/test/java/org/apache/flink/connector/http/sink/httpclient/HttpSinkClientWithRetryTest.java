@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -208,5 +210,96 @@ class HttpSinkClientWithRetryTest {
                 .hasRootCauseMessage("callback failed");
 
         assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    public void testRetryAttemptThatThrowsCompletesTheRequestExceptionally() throws Exception {
+        HttpSinkRequestEntry retryableEntry = new HttpSinkRequestEntry("POST", new byte[] {1});
+        AtomicInteger calls = new AtomicInteger();
+        HttpSinkClientWithRetry retryingClient =
+                new HttpSinkClientWithRetry(
+                        RetryConfig.custom()
+                                .maxAttempts(3)
+                                .intervalFunction(IntervalFunction.of(Duration.ofMillis(1)))
+                                .build());
+
+        var future =
+                retryingClient.send(
+                        List.of(retryableEntry),
+                        requestEntries -> {
+                            if (calls.getAndIncrement() == 0) {
+                                HttpSinkAttemptResult attemptResult = new HttpSinkAttemptResult();
+                                attemptResult.addRetryableRequests(List.of(retryableEntry));
+                                return CompletableFuture.completedFuture(attemptResult);
+                            }
+                            // e.g. the OIDC token endpoint rejects the token request while the
+                            // retry attempt builds the HTTP request on the retry scheduler
+                            throw new IllegalStateException("token endpoint returned 500");
+                        });
+
+        // must not hang: a retry attempt that throws has to fail the request
+        assertThatThrownBy(() -> future.get(5, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("token endpoint returned 500");
+        assertThat(calls).hasValue(2);
+    }
+
+    @Test
+    public void testRetryAttemptThatThrowsRetryableIoExceptionIsRetried() throws Exception {
+        HttpSinkRequestEntry retryableEntry = new HttpSinkRequestEntry("POST", new byte[] {1});
+        AtomicInteger calls = new AtomicInteger();
+        HttpSinkClientWithRetry retryingClient =
+                new HttpSinkClientWithRetry(
+                        RetryConfig.custom()
+                                .maxAttempts(3)
+                                .intervalFunction(IntervalFunction.of(Duration.ofMillis(1)))
+                                .build());
+
+        var response =
+                retryingClient
+                        .send(
+                                List.of(retryableEntry),
+                                requestEntries -> {
+                                    int call = calls.getAndIncrement();
+                                    if (call == 0) {
+                                        HttpSinkAttemptResult attemptResult =
+                                                new HttpSinkAttemptResult();
+                                        attemptResult.addRetryableRequests(List.of(retryableEntry));
+                                        return CompletableFuture.completedFuture(attemptResult);
+                                    }
+                                    if (call == 1) {
+                                        throw new IllegalStateException(
+                                                "token request failed",
+                                                new java.io.IOException("connection reset"));
+                                    }
+                                    HttpSinkAttemptResult attemptResult =
+                                            new HttpSinkAttemptResult();
+                                    attemptResult.addSuccessfulRequests(List.of(retryableEntry));
+                                    return CompletableFuture.completedFuture(attemptResult);
+                                })
+                        .get(5, TimeUnit.SECONDS);
+
+        assertThat(response.getSuccessfulRequests()).containsExactly(retryableEntry);
+        assertThat(response.getRetriableFailedRequests()).isEmpty();
+        assertThat(calls).hasValue(3);
+    }
+
+    @Test
+    public void testFirstAttemptThatThrowsCompletesTheRequestExceptionally() throws Exception {
+        HttpSinkRequestEntry entry = new HttpSinkRequestEntry("POST", new byte[] {1});
+        HttpSinkClientWithRetry retryingClient =
+                new HttpSinkClientWithRetry(RetryConfig.custom().maxAttempts(1).build());
+
+        var future =
+                retryingClient.send(
+                        List.of(entry),
+                        requestEntries -> {
+                            throw new IllegalStateException("cannot build request");
+                        });
+
+        assertThatThrownBy(() -> future.get(5, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
     }
 }
