@@ -28,6 +28,7 @@ jobs:
   compile_and_test:
     if: github.repository_owner == 'apache'
     strategy:
+      fail-fast: false
       matrix:
         flink_branches: [{
           flink: 2.3-SNAPSHOT,
@@ -35,6 +36,9 @@ jobs:
         }, {
           flink: 2.2-SNAPSHOT,
           branch: main
+        }, {
+          flink: 2.2.1,
+          branch: v1.0
         }]
     uses: apache/flink-connector-shared-utils/.github/workflows/ci.yml@ci_utils
     with:
