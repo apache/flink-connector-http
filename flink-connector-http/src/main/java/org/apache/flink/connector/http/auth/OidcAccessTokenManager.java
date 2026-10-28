@@ -28,6 +28,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -43,12 +44,21 @@ import java.time.Instant;
 @Slf4j
 public class OidcAccessTokenManager {
 
-    private static final Duration DEFAULT_TOKEN_EXPIRATION_REDUCTION = Duration.ofSeconds(1);
+    /** Leaves headroom for network latency, request duration and clock skew. */
+    public static final Duration DEFAULT_TOKEN_EXPIRATION_REDUCTION = Duration.ofSeconds(30);
+
+    /**
+     * Upper bound for one call to the token endpoint. The token is fetched synchronously on the
+     * thread that builds the HTTP request, so an unanswered token request must not block forever.
+     */
+    public static final Duration DEFAULT_TOKEN_REQUEST_TIMEOUT = Duration.ofSeconds(30);
+
     private final HttpClient httpClient;
     private final String tokenRequest;
 
     private final String url;
     private final Duration tokenExpirationReduction;
+    private final Duration tokenRequestTimeout;
 
     private String cachedAccessToken;
     private Instant cachedAccessTokenExp;
@@ -79,6 +89,32 @@ public class OidcAccessTokenManager {
             String tokenRequest,
             String url,
             Duration tokenExpirationReduction) {
+        this(
+                httpClient,
+                tokenRequest,
+                url,
+                tokenExpirationReduction,
+                DEFAULT_TOKEN_REQUEST_TIMEOUT);
+    }
+
+    /**
+     * Construct an Oidc access token manager with the supplied token expiration reduction and token
+     * request timeout.
+     *
+     * @param httpClient httpClient to use to call the token endpoint.
+     * @param tokenRequest token request this need to be form urlencoded
+     * @param url token endpoint url
+     * @param tokenExpirationReduction token expiry reduction, request a new token if the current
+     *     time is later than the cached access token expiry time reduced by this value. This means
+     *     that we will not use the cached token if it is about to expire.
+     * @param tokenRequestTimeout how long one call to the token endpoint may take before it fails
+     */
+    public OidcAccessTokenManager(
+            HttpClient httpClient,
+            String tokenRequest,
+            String url,
+            Duration tokenExpirationReduction,
+            Duration tokenRequestTimeout) {
         this.tokenRequest = tokenRequest;
         this.httpClient = httpClient;
         this.url = url;
@@ -86,6 +122,11 @@ public class OidcAccessTokenManager {
             this.tokenExpirationReduction = DEFAULT_TOKEN_EXPIRATION_REDUCTION;
         } else {
             this.tokenExpirationReduction = tokenExpirationReduction;
+        }
+        if (null == tokenRequestTimeout) {
+            this.tokenRequestTimeout = DEFAULT_TOKEN_REQUEST_TIMEOUT;
+        } else {
+            this.tokenRequestTimeout = tokenRequestTimeout;
         }
     }
 
@@ -95,6 +136,7 @@ public class OidcAccessTokenManager {
             HttpRequest httpRequest =
                     HttpRequest.newBuilder()
                             .uri(URI.create(url))
+                            .timeout(tokenRequestTimeout)
                             .header("Content-Type", "application/x-www-form-urlencoded")
                             .method("POST", HttpRequest.BodyPublishers.ofString(tokenRequest))
                             .build();
@@ -126,8 +168,16 @@ public class OidcAccessTokenManager {
             }
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Error found while trying to request a new token");
+        } catch (HttpTimeoutException e) {
+            throw new IllegalStateException(
+                    "Timed out after "
+                            + tokenRequestTimeout
+                            + " waiting for an OIDC access token from "
+                            + url,
+                    e);
         } catch (IOException e) {
-            throw new IllegalStateException("IO Exception occurred", e);
+            throw new IllegalStateException(
+                    "IO Exception occurred while requesting an OIDC access token from " + url, e);
         } catch (InterruptedException e) {
             throw new IllegalStateException("Interrupted Exception occurred", e);
         }

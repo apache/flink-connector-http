@@ -405,4 +405,86 @@ public class HttpDynamicTableSinkFactoryTest {
                         () -> tEnv.executeSql("INSERT INTO " + tableName + " VALUES (1)").await())
                 .isInstanceOf(ValidationException.class);
     }
+
+    @Test
+    public void acceptsSinkOidcProxyAndHttpVersionOptionsTest() {
+        final String parityOptions =
+                String.format(
+                        "CREATE TABLE httpSinkParityOptions (\n"
+                                + "  id bigint\n"
+                                + ") with (\n"
+                                + "  'connector' = '%s',\n"
+                                + "  'url' = '%s',\n"
+                                + "  'format' = 'json',\n"
+                                + "  '%s' = 'HTTP_2',\n"
+                                + "  '%s' = 'http://localhost/token',\n"
+                                + "  '%s' = 'grant_type=client_credentials',\n"
+                                + "  '%s' = '2s',\n"
+                                + "  '%s' = 'proxy.local',\n"
+                                + "  '%s' = '8080',\n"
+                                + "  '%s' = 'user',\n"
+                                + "  '%s' = 'password'\n"
+                                + ")",
+                        HttpDynamicTableSinkFactory.IDENTIFIER,
+                        "http://localhost/",
+                        HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_REQUEST.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_PROXY_HOST.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_PROXY_PORT.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_PROXY_USERNAME.key(),
+                        HttpDynamicSinkConnectorOptions.SINK_PROXY_PASSWORD.key());
+        tEnv.executeSql(parityOptions);
+        Throwable insertFailure =
+                catchThrowable(
+                        () ->
+                                tEnv.executeSql("INSERT INTO httpSinkParityOptions VALUES (1)")
+                                        .await());
+        if (insertFailure != null) {
+            assertThat(insertFailure)
+                    .as("sink OIDC/proxy/http-version options must be recognized")
+                    .isNotInstanceOf(ValidationException.class);
+        }
+    }
+
+    @Test
+    public void validateSinkHttpVersionTest() {
+        final String invalidHttpVersion =
+                String.format(
+                        "CREATE TABLE httpVersion (\n"
+                                + "  id bigint\n"
+                                + ") with (\n"
+                                + "  'connector' = '%s',\n"
+                                + "  'url' = '%s',\n"
+                                + "  'format' = 'json',\n"
+                                + "  '%s' = 'HTTP_3'\n"
+                                + ")",
+                        HttpDynamicTableSinkFactory.IDENTIFIER,
+                        "http://localhost/",
+                        HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION.key());
+        tEnv.executeSql(invalidHttpVersion);
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO httpVersion VALUES (1)").await())
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    public void validateSinkOidcTokenRequestTest() {
+        final String missingTokenRequest =
+                String.format(
+                        "CREATE TABLE httpOidc (\n"
+                                + "  id bigint\n"
+                                + ") with (\n"
+                                + "  'connector' = '%s',\n"
+                                + "  'url' = '%s',\n"
+                                + "  'format' = 'json',\n"
+                                + "  '%s' = 'http://localhost/token'\n"
+                                + ")",
+                        HttpDynamicTableSinkFactory.IDENTIFIER,
+                        "http://localhost/",
+                        HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL.key());
+        tEnv.executeSql(missingTokenRequest);
+        assertThatThrownBy(() -> tEnv.executeSql("INSERT INTO httpOidc VALUES (1)").await())
+                .isInstanceOf(ValidationException.class);
+    }
 }
