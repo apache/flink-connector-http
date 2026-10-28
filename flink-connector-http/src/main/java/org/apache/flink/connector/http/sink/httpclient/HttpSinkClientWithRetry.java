@@ -18,6 +18,7 @@
 package org.apache.flink.connector.http.sink.httpclient;
 
 import org.apache.flink.connector.http.clients.SinkHttpClientResponses;
+import org.apache.flink.connector.http.clients.SinkHttpClientStatistics;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
 import io.github.resilience4j.retry.Retry;
@@ -25,12 +26,15 @@ import io.github.resilience4j.retry.RetryConfig;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -52,6 +56,7 @@ class HttpSinkClientWithRetry {
                     attemptSubmitter) {
         var requestEntriesToSubmit = new AtomicReference<>(requestEntries);
         var responseAccumulator = new ResponseAccumulator();
+        var attemptNumber = new AtomicInteger(1);
         Retry retry =
                 Retry.of(
                         "http-sink-connector",
@@ -63,6 +68,16 @@ class HttpSinkClientWithRetry {
                                             if (attemptResult.hasRetryableRequests()) {
                                                 requestEntriesToSubmit.set(
                                                         attemptResult.getRetryableRequests());
+                                                // Another attempt follows only while attempts
+                                                // are left; the last one is reported as
+                                                // exhausted instead.
+                                                if (attemptNumber.getAndIncrement()
+                                                        < retryConfig.getMaxAttempts()) {
+                                                    responseAccumulator.recordRetryAttempt(
+                                                            attemptResult
+                                                                    .getRetryableRequests()
+                                                                    .size());
+                                                }
                                                 return true;
                                             }
                                             return false;
@@ -104,11 +119,30 @@ class HttpSinkClientWithRetry {
         private final List<HttpSinkRequestEntry> retriableFailedRequests = new ArrayList<>();
         private final List<HttpSinkRequestEntry> fatalFailedRequests = new ArrayList<>();
         private final List<HttpSinkRequestEntry> ignoredRequests = new ArrayList<>();
+        private final Map<Integer, Integer> statusCodeCounts = new HashMap<>();
+        private final List<Long> requestLatenciesMillis = new ArrayList<>();
+        private int httpRequestCount;
+        private int retryableResponseEntries;
+        private int transportFailedEntries;
+        private int retryAttemptEntries;
 
         private void add(HttpSinkAttemptResult attemptResult) {
             successfulRequests.addAll(attemptResult.getSuccessfulRequests());
             fatalFailedRequests.addAll(attemptResult.getFatalFailedRequests());
             ignoredRequests.addAll(attemptResult.getIgnoredRequests());
+            attemptResult
+                    .getStatusCodeCounts()
+                    .forEach(
+                            (statusCode, count) ->
+                                    statusCodeCounts.merge(statusCode, count, Integer::sum));
+            requestLatenciesMillis.addAll(attemptResult.getRequestLatenciesMillis());
+            httpRequestCount += attemptResult.getHttpRequestCount();
+            retryableResponseEntries += attemptResult.getRetryableRequests().size();
+            transportFailedEntries += attemptResult.getTransportFailedEntries();
+        }
+
+        private void recordRetryAttempt(int requestEntryCount) {
+            retryAttemptEntries += requestEntryCount;
         }
 
         private void markRetriesExhausted(HttpSinkAttemptResult attemptResult) {
@@ -120,7 +154,14 @@ class HttpSinkClientWithRetry {
                     successfulRequests,
                     retriableFailedRequests,
                     fatalFailedRequests,
-                    ignoredRequests);
+                    ignoredRequests,
+                    new SinkHttpClientStatistics(
+                            httpRequestCount,
+                            requestLatenciesMillis,
+                            statusCodeCounts,
+                            retryableResponseEntries,
+                            transportFailedEntries,
+                            retryAttemptEntries));
         }
     }
 

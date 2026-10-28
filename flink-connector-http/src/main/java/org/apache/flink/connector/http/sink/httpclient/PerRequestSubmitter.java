@@ -20,8 +20,6 @@ package org.apache.flink.connector.http.sink.httpclient;
 import org.apache.flink.connector.http.config.HttpSinkConfig;
 import org.apache.flink.connector.http.sink.HttpSinkRequestEntry;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Version;
@@ -34,7 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 /** This implementation creates HTTP requests for every processed event. */
-@Slf4j
 public class PerRequestSubmitter extends AbstractRequestSubmitter {
 
     public PerRequestSubmitter(
@@ -55,22 +52,14 @@ public class PerRequestSubmitter extends AbstractRequestSubmitter {
 
         for (var entry : requestToSubmit) {
             HttpRequest httpRequest = buildHttpRequest(entry, endpointUri);
+            long startNanos = System.nanoTime();
             var response =
                     httpClient
                             .sendAsync(
                                     httpRequest.getHttpRequest(),
                                     HttpResponse.BodyHandlers.ofString())
-                            .exceptionally(
-                                    ex -> {
-                                        // TODO This will be executed on a ForkJoinPool Thread...
-                                        // refactor this someday.
-                                        log.error(
-                                                "Request fatally failed because of an exception",
-                                                ex);
-                                        return null;
-                                    })
-                            .thenApplyAsync(
-                                    res -> new JavaNetHttpResponseWrapper(httpRequest, res),
+                            .handleAsync(
+                                    (res, ex) -> wrapOutcome(httpRequest, res, ex, startNanos),
                                     publishingThreadPool);
             responseFutures.add(response);
         }

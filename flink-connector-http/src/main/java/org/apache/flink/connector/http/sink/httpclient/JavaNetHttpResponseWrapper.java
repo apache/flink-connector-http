@@ -34,13 +34,49 @@ import java.util.Optional;
 @Data
 final class JavaNetHttpResponseWrapper {
 
+    /** Marks a request whose duration was not measured. */
+    static final long DURATION_UNKNOWN = -1;
+
     /** A representation of a single {@link HttpSink} request. */
     @NonNull private final HttpRequest httpRequest;
 
     /** A response to an HTTP request based on {@link HttpSinkRequestEntry}. */
     private final HttpResponse<String> response;
 
+    /** Duration of the HTTP request in milliseconds, or {@link #DURATION_UNKNOWN}. */
+    private final long requestDurationMillis;
+
+    /** The error that prevented a response, when {@link #response} is {@code null}. */
+    private final Throwable failure;
+
+    public JavaNetHttpResponseWrapper(
+            @NonNull HttpRequest httpRequest, HttpResponse<String> response) {
+        this(httpRequest, response, DURATION_UNKNOWN, null);
+    }
+
+    public JavaNetHttpResponseWrapper(
+            @NonNull HttpRequest httpRequest,
+            HttpResponse<String> response,
+            long requestDurationMillis) {
+        this(httpRequest, response, requestDurationMillis, null);
+    }
+
+    public JavaNetHttpResponseWrapper(
+            @NonNull HttpRequest httpRequest,
+            HttpResponse<String> response,
+            long requestDurationMillis,
+            Throwable failure) {
+        this.httpRequest = httpRequest;
+        this.response = response;
+        this.requestDurationMillis = requestDurationMillis;
+        this.failure = failure;
+    }
+
     public Optional<HttpResponse<String>> getResponse() {
         return Optional.ofNullable(response);
+    }
+
+    public Optional<Throwable> getFailure() {
+        return Optional.ofNullable(failure);
     }
 }
