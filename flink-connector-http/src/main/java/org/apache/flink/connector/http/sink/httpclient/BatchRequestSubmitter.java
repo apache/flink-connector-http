@@ -26,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpClient.Version;
 import java.net.http.HttpRequest.BodyPublisher;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
@@ -139,15 +138,11 @@ public class BatchRequestSubmitter extends AbstractRequestSubmitter {
             elements.set(elements.size() - 1, BATCH_END_BYTES);
             publisher = BodyPublishers.ofByteArrays(elements);
 
-            Builder requestBuilder =
-                    java.net.http.HttpRequest.newBuilder()
-                            .uri(endpointUri)
-                            .version(Version.HTTP_1_1)
-                            .timeout(httpRequestTimeout)
-                            .method(method, publisher);
+            Builder requestBuilder = newRequestBuilder().uri(endpointUri).method(method, publisher);
 
-            if (headersAndValues.length != 0) {
-                requestBuilder.headers(headersAndValues);
+            String[] headers = requestHeaders();
+            if (headers.length != 0) {
+                requestBuilder.headers(headers);
             }
 
             return new HttpRequest(

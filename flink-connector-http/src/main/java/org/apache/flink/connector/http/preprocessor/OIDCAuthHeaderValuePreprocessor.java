@@ -31,7 +31,16 @@ public class OIDCAuthHeaderValuePreprocessor implements HeaderValuePreprocessor 
 
     private final String oidcAuthURL;
     private final String oidcTokenRequest;
-    private Duration oidcExpiryReduction = Duration.ofSeconds(1);
+    private Duration oidcExpiryReduction =
+            OidcAccessTokenManager.DEFAULT_TOKEN_EXPIRATION_REDUCTION;
+    private final Duration tokenRequestTimeout;
+
+    /**
+     * Created on first use and kept for the life of this preprocessor instance, so every request
+     * served by the same instance reuses the cached token until it expires. The field is transient:
+     * after deserialization it is created again and a new token is fetched on the next request.
+     */
+    private transient OidcAccessTokenManager accessTokenManager;
 
     /**
      * Add the access token to the request using OidcAuth authenticate method that gives us a valid
@@ -43,22 +52,51 @@ public class OIDCAuthHeaderValuePreprocessor implements HeaderValuePreprocessor 
      */
     public OIDCAuthHeaderValuePreprocessor(
             String oidcAuthURL, String oidcTokenRequest, Optional<Duration> oidcExpiryReduction) {
+        this(
+                oidcAuthURL,
+                oidcTokenRequest,
+                oidcExpiryReduction,
+                OidcAccessTokenManager.DEFAULT_TOKEN_REQUEST_TIMEOUT);
+    }
+
+    /**
+     * Add the access token to the request using OidcAuth authenticate method that gives us a valid
+     * access token.
+     *
+     * @param oidcAuthURL OIDC token endpoint
+     * @param oidcTokenRequest OIDC Token Request
+     * @param oidcExpiryReduction OIDC token expiry reduction
+     * @param tokenRequestTimeout how long one call to the token endpoint may take before it fails
+     */
+    public OIDCAuthHeaderValuePreprocessor(
+            String oidcAuthURL,
+            String oidcTokenRequest,
+            Optional<Duration> oidcExpiryReduction,
+            Duration tokenRequestTimeout) {
         this.oidcAuthURL = oidcAuthURL;
         this.oidcTokenRequest = oidcTokenRequest;
         if (oidcExpiryReduction.isPresent()) {
             this.oidcExpiryReduction = oidcExpiryReduction.get();
         }
+        this.tokenRequestTimeout = tokenRequestTimeout;
     }
 
+    /**
+     * Returns the bearer header value, reusing the cached access token until it expires.
+     * Synchronized because the token manager is not thread-safe and lookups can run concurrently.
+     */
     @Override
-    public String preprocessHeaderValue(String rawValue) {
-        OidcAccessTokenManager auth =
-                new OidcAccessTokenManager(
-                        HttpClient.newBuilder().build(),
-                        oidcTokenRequest,
-                        oidcAuthURL,
-                        oidcExpiryReduction);
+    public synchronized String preprocessHeaderValue(String rawValue) {
+        if (accessTokenManager == null) {
+            accessTokenManager =
+                    new OidcAccessTokenManager(
+                            HttpClient.newBuilder().connectTimeout(tokenRequestTimeout).build(),
+                            oidcTokenRequest,
+                            oidcAuthURL,
+                            oidcExpiryReduction,
+                            tokenRequestTimeout);
+        }
         // apply the OIDC authentication by adding the dynamically calculated header value.
-        return "Bearer " + auth.authenticate();
+        return "Bearer " + accessTokenManager.authenticate();
     }
 }

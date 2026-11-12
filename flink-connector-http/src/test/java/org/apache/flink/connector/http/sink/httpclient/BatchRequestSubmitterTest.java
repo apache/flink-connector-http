@@ -34,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
@@ -44,9 +45,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_HTTP_VERSION;
 import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -130,6 +133,44 @@ class BatchRequestSubmitterTest {
                         Executors.newSingleThreadExecutor());
 
         assertThat(submitter.httpRequestTimeout).isEqualTo(Duration.ofSeconds(30));
+    }
+
+    @Test
+    public void shouldUseConfiguredHttpVersion() {
+        Properties properties = new Properties();
+        properties.setProperty(HttpConnectorConfigConstants.SINK_HTTP_BATCH_REQUEST_SIZE, "50");
+
+        Configuration configuration = new Configuration();
+        configuration.set(SINK_HTTP_VERSION, "HTTP_2");
+
+        HttpSinkConfig sinkConfig =
+                HttpSinkConfig.builder()
+                        .url("http://hello.pl")
+                        .properties(properties)
+                        .readableConfig(configuration)
+                        .httpPostRequestCallback(new Slf4jHttpPostRequestCallback())
+                        .build();
+        HttpResponse<String> httpResponse = org.mockito.Mockito.mock(HttpResponse.class);
+        doReturn(CompletableFuture.completedFuture(httpResponse))
+                .when(mockHttpClient)
+                .sendAsync(any(), any());
+
+        BatchRequestSubmitter submitter =
+                new BatchRequestSubmitter(
+                        sinkConfig,
+                        new String[0],
+                        mockHttpClient,
+                        Executors.newSingleThreadExecutor());
+        JavaNetHttpResponseWrapper responseWrapper =
+                submitter
+                        .submit(
+                                "http://hello.pl",
+                                List.of(new HttpSinkRequestEntry("PUT", new byte[] {1})))
+                        .get(0)
+                        .join();
+
+        assertThat(responseWrapper.getHttpRequest().getHttpRequest().version())
+                .contains(HttpClient.Version.HTTP_2);
     }
 
     private static Stream<Arguments> httpRequestMethods() {

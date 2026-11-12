@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpClient.Version;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
@@ -79,16 +78,15 @@ public class PerRequestSubmitter extends AbstractRequestSubmitter {
 
     private HttpRequest buildHttpRequest(HttpSinkRequestEntry requestEntry, URI endpointUri) {
         Builder requestBuilder =
-                java.net.http.HttpRequest.newBuilder()
+                newRequestBuilder()
                         .uri(endpointUri)
-                        .version(Version.HTTP_1_1)
-                        .timeout(httpRequestTimeout)
                         .method(
                                 requestEntry.method,
                                 BodyPublishers.ofByteArray(requestEntry.element));
 
-        if (headersAndValues.length != 0) {
-            requestBuilder.headers(headersAndValues);
+        String[] headers = requestHeaders();
+        if (headers.length != 0) {
+            requestBuilder.headers(headers);
         }
 
         return new HttpRequest(

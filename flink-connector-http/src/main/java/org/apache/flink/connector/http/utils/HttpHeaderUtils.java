@@ -18,6 +18,7 @@
 package org.apache.flink.connector.http.utils;
 
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.http.auth.OidcAccessTokenManager;
 import org.apache.flink.connector.http.preprocessor.BasicAuthHeaderValuePreprocessor;
 import org.apache.flink.connector.http.preprocessor.ComposeHeaderPreprocessor;
 import org.apache.flink.connector.http.preprocessor.HeaderPreprocessor;
@@ -29,6 +30,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,6 +43,10 @@ import java.util.stream.Stream;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_ENDPOINT_URL;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
 import static org.apache.flink.connector.http.table.lookup.HttpLookupConnectorOptions.SOURCE_LOOKUP_OIDC_AUTH_TOKEN_REQUEST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_OIDC_AUTH_TOKEN_REQUEST;
+import static org.apache.flink.connector.http.table.sink.HttpDynamicSinkConnectorOptions.SINK_REQUEST_TIMEOUT;
 
 /** Http header utils. */
 @UtilityClass
@@ -112,11 +118,26 @@ public final class HttpHeaderUtils {
 
     public static HeaderPreprocessor createOIDCAuthorizationHeaderPreprocessor(
             String oidcAuthURL, String oidcTokenRequest, Optional<Duration> oidcExpiryReduction) {
+        return createOIDCAuthorizationHeaderPreprocessor(
+                oidcAuthURL,
+                oidcTokenRequest,
+                oidcExpiryReduction,
+                OidcAccessTokenManager.DEFAULT_TOKEN_REQUEST_TIMEOUT);
+    }
+
+    public static HeaderPreprocessor createOIDCAuthorizationHeaderPreprocessor(
+            String oidcAuthURL,
+            String oidcTokenRequest,
+            Optional<Duration> oidcExpiryReduction,
+            Duration tokenRequestTimeout) {
         return new ComposeHeaderPreprocessor(
                 Collections.singletonMap(
                         AUTHORIZATION,
                         new OIDCAuthHeaderValuePreprocessor(
-                                oidcAuthURL, oidcTokenRequest, oidcExpiryReduction)));
+                                oidcAuthURL,
+                                oidcTokenRequest,
+                                oidcExpiryReduction,
+                                tokenRequestTimeout)));
     }
 
     public static HeaderPreprocessor createHeaderPreprocessor(ReadableConfig readableConfig) {
@@ -139,11 +160,54 @@ public final class HttpHeaderUtils {
 
             Optional<Duration> oidcExpiryReduction =
                     readableConfig.getOptional(SOURCE_LOOKUP_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION);
+            // The token request shares the lookup request timeout so a silent token endpoint
+            // cannot block a lookup for longer than the lookup itself may take.
             headerPreprocessor =
                     HttpHeaderUtils.createOIDCAuthorizationHeaderPreprocessor(
-                            oidcAuthURL.get(), oidcTokenRequest.get(), oidcExpiryReduction);
+                            oidcAuthURL.get(),
+                            oidcTokenRequest.get(),
+                            oidcExpiryReduction,
+                            readableConfig.get(
+                                    HttpLookupConnectorOptions.SOURCE_LOOKUP_REQUEST_TIMEOUT));
             log.info("created OIDC HeaderPreprocessor");
         }
         return headerPreprocessor;
+    }
+
+    /**
+     * Creates the OIDC access token manager used by the HTTP sink to authorize each request.
+     *
+     * @param readableConfig sink configuration
+     * @return access token manager, or {@code null} if no OIDC token endpoint is configured
+     */
+    public static OidcAccessTokenManager createSinkOidcAccessTokenManager(
+            ReadableConfig readableConfig) {
+        Optional<String> oidcAuthURL =
+                readableConfig.getOptional(SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL);
+        if (oidcAuthURL.isEmpty()) {
+            return null;
+        }
+
+        String oidcTokenRequest =
+                readableConfig
+                        .getOptional(SINK_OIDC_AUTH_TOKEN_REQUEST)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Config option "
+                                                        + SINK_OIDC_AUTH_TOKEN_REQUEST.key()
+                                                        + " is required, if "
+                                                        + SINK_OIDC_AUTH_TOKEN_ENDPOINT_URL.key()
+                                                        + " is configured."));
+        // The token is fetched on the thread that builds the sink request, so the token request
+        // is bounded by the sink request timeout for both connecting and reading the response.
+        Duration tokenRequestTimeout = readableConfig.get(SINK_REQUEST_TIMEOUT);
+        log.info("created Sink OIDC access token manager");
+        return new OidcAccessTokenManager(
+                HttpClient.newBuilder().connectTimeout(tokenRequestTimeout).build(),
+                oidcTokenRequest,
+                oidcAuthURL.get(),
+                readableConfig.get(SINK_OIDC_AUTH_TOKEN_EXPIRY_REDUCTION),
+                tokenRequestTimeout);
     }
 }
